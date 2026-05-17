@@ -1,0 +1,8 @@
+.env
+__pycache__/
+.pytest_cache/
+*.pyc
+chroma_data/
+.venv/
+node_modules/
+dist/
