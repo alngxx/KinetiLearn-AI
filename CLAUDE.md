@@ -1,4 +1,4 @@
-# SkillMentor
+# KinetiLearn
 
 AI-powered corporate training platform. Two portals: Admin (training managers)
 and Learner (employees). Core features: RAG chatbot, AI exam generator,
