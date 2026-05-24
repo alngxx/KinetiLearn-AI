@@ -1,5 +1,7 @@
 from fastapi import FastAPI
 
+from app.modules.config import models as config_models  # noqa: F401
+from app.modules.auth import models as auth_models  # noqa: F401
 from app.modules.config.router import router as config_router
 from app.modules.auth.router import router as auth_router
 from app.modules.documents.router import router as documents_router

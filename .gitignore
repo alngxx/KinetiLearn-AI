@@ -6,3 +6,4 @@ chroma_data/
 .venv/
 node_modules/
 dist/
+.DS_Store
