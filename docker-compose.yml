@@ -28,7 +28,7 @@ services:
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: skillmentor
+      POSTGRES_DB: KinetiLearn
     volumes:
       - postgres_data:/var/lib/postgresql/data
 

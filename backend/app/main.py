@@ -1,5 +1,13 @@
 from fastapi import FastAPI
 
+from app.modules.config import models as config_models  # noqa: F401
+from app.modules.auth import models as auth_models  # noqa: F401
+from app.modules.documents import models as documents_models  # noqa: F401
+from app.modules.classes import models as classes_models  # noqa: F401
+from app.modules.exams import models as exams_models  # noqa: F401
+from app.modules.scoring import models as scoring_models  # noqa: F401
+from app.modules.quiz import models as quiz_models  # noqa: F401
+from app.modules.chat import models as chat_models  # noqa: F401
 from app.modules.config.router import router as config_router
 from app.modules.auth.router import router as auth_router
 from app.modules.documents.router import router as documents_router
@@ -9,7 +17,7 @@ from app.modules.chat.router import router as chat_router
 from app.modules.quiz.router import router as quiz_router
 from app.modules.scoring.router import router as scoring_router
 
-app = FastAPI(title="SkillMentor API")
+app = FastAPI(title="KinetiLearn API")
 
 app.include_router(config_router, prefix="/api/v1/config", tags=["config"])
 app.include_router(auth_router, prefix="/api/v1/auth", tags=["auth"])
