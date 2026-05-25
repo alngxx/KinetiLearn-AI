@@ -7,8 +7,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 async def get_by_id(db: AsyncSession, model: type, id: UUID) -> Any | None:
     """
-    Fetch a single record by its UUID.
-    Returns the instance if found, or None if it doesn't exist.
+    Fetch a single record by its UUID
+    Returns the instance if found, or None if it doesn't exist
     """
     result = await db.execute(select(model).where(model.id == id))
     return result.scalar_one_or_none()
@@ -21,7 +21,7 @@ async def get_all(
     limit: int = 100,
 ) -> list:
     """
-    Fetch a list of records with pagination.
+    Fetch a list of records with pagination (phân trang)
     - skip: Number of records to skip (offset)
     - limit: Maximum number of records to return
     """
@@ -31,8 +31,8 @@ async def get_all(
 
 async def create(db: AsyncSession, model: type, data: dict) -> Any:
     """
-    Create a new record in the database using the provided dictionary data.
-    Flushes to assign an ID and refreshes to load default values.
+    Create a new record in the database using the provided dictionary data
+    Flushes to assign an ID and refreshes to load default values
     """
     row = model(**data)
     db.add(row)
