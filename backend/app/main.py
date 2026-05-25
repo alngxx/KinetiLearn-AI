@@ -17,7 +17,7 @@ from app.modules.chat.router import router as chat_router
 from app.modules.quiz.router import router as quiz_router
 from app.modules.scoring.router import router as scoring_router
 
-app = FastAPI(title="SkillMentor API")
+app = FastAPI(title="KinetiLearn API")
 
 app.include_router(config_router, prefix="/api/v1/config", tags=["config"])
 app.include_router(auth_router, prefix="/api/v1/auth", tags=["auth"])

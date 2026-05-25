@@ -9,3 +9,4 @@ dist/
 .DS_Store
 KinetiLearn HTML/
 kinetilearn_schema_spec.md
+pyrightconfig.json
