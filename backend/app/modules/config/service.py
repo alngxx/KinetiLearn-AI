@@ -4,7 +4,14 @@ from fastapi import HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.modules.config.models import Category, Department, SeniorityLevel, Skill
+from app.modules.config.models import (
+    Category,
+    Department,
+    EmployeeLevel,
+    JobPosition,
+    SeniorityLevel,
+    Skill,
+)
 from app.modules.config.schemas import (
     CategoryCreate,
     CategoryResponse,
@@ -12,6 +19,12 @@ from app.modules.config.schemas import (
     DepartmentCreate,
     DepartmentResponse,
     DepartmentUpdate,
+    EmployeeLevelCreate,
+    EmployeeLevelResponse,
+    EmployeeLevelUpdate,
+    JobPositionCreate,
+    JobPositionResponse,
+    JobPositionUpdate,
     SeniorityLevelCreate,
     SeniorityLevelResponse,
     SeniorityLevelUpdate,
@@ -385,3 +398,163 @@ class SeniorityLevelService:
         await self.db.commit()
         await self.db.refresh(row)
         return SeniorityLevelResponse.model_validate(row)
+
+
+class JobPositionService:
+    def __init__(self, db: AsyncSession):
+        self.db = db
+
+    async def _get_or_404(self, job_position_id: UUID) -> JobPosition:
+        result = await self.db.execute(
+            select(JobPosition).where(JobPosition.id == job_position_id)
+        )
+        row = result.scalar_one_or_none()
+        if row is None:
+            raise HTTPException(status_code = 404, detail = "Job position not found.")
+        return row
+
+    async def create(self, data: JobPositionCreate) -> JobPositionResponse:
+        result = await self.db.execute(
+            select(JobPosition.id).where(func.lower(JobPosition.name) == data.name.lower())
+        )
+        if result.scalar_one_or_none() is not None:
+            raise HTTPException(status_code = 409, detail = "Job position name already exists.")
+
+        row = JobPosition(name = data.name, description = data.description)
+        self.db.add(row)
+        await self.db.commit()
+        await self.db.refresh(row)
+        return JobPositionResponse.model_validate(row)
+
+    async def get_all(self, include_inactive: bool = False) -> list[JobPositionResponse]:
+        stmt = select(JobPosition)
+        if not include_inactive:
+            stmt = stmt.where(JobPosition.is_active.is_(True))
+        result = await self.db.execute(stmt)
+        return [JobPositionResponse.model_validate(row) for row in result.scalars().all()]
+
+    async def get_by_id(self, job_position_id: UUID) -> JobPositionResponse:
+        row = await self._get_or_404(job_position_id)
+        return JobPositionResponse.model_validate(row)
+
+    async def update(self, job_position_id: UUID, data: JobPositionUpdate) -> JobPositionResponse:
+        row = await self._get_or_404(job_position_id)
+        update_data = data.model_dump(exclude_none = True)
+
+        new_name = update_data.get("name")
+        if new_name is not None and new_name.lower() != row.name.lower():
+            result = await self.db.execute(
+                select(JobPosition.id).where(
+                    func.lower(JobPosition.name) == new_name.lower(),
+                    JobPosition.id != job_position_id,
+                )
+            )
+            if result.scalar_one_or_none() is not None:
+                raise HTTPException(status_code = 409, detail = "Job position name already exists.")
+
+        for key, value in update_data.items():
+            setattr(row, key, value)
+        await self.db.commit()
+        await self.db.refresh(row)
+        return JobPositionResponse.model_validate(row)
+
+    async def activate(self, job_position_id: UUID) -> JobPositionResponse:
+        row = await self._get_or_404(job_position_id)
+        row.is_active = True
+        await self.db.commit()
+        await self.db.refresh(row)
+        return JobPositionResponse.model_validate(row)
+
+    async def deactivate(self, job_position_id: UUID) -> JobPositionResponse:
+        row = await self._get_or_404(job_position_id)
+        row.is_active = False
+        await self.db.commit()
+        await self.db.refresh(row)
+        return JobPositionResponse.model_validate(row)
+
+
+class EmployeeLevelService:
+    def __init__(self, db: AsyncSession):
+        self.db = db
+
+    async def _get_or_404(self, employee_level_id: UUID) -> EmployeeLevel:
+        result = await self.db.execute(
+            select(EmployeeLevel).where(EmployeeLevel.id == employee_level_id)
+        )
+        row = result.scalar_one_or_none()
+        if row is None:
+            raise HTTPException(status_code = 404, detail = "Employee level not found.")
+        return row
+
+    async def _name_taken(self, name: str, exclude_id: UUID | None = None) -> bool:
+        stmt = select(EmployeeLevel.id).where(
+            func.lower(EmployeeLevel.name) == name.lower()
+        )
+        if exclude_id is not None:
+            stmt = stmt.where(EmployeeLevel.id != exclude_id)
+        result = await self.db.execute(stmt.limit(1))
+        return result.scalar_one_or_none() is not None
+
+    async def _rank_taken(self, rank: int, exclude_id: UUID | None = None) -> bool:
+        stmt = select(EmployeeLevel.id).where(EmployeeLevel.rank == rank)
+        if exclude_id is not None:
+            stmt = stmt.where(EmployeeLevel.id != exclude_id)
+        result = await self.db.execute(stmt.limit(1))
+        return result.scalar_one_or_none() is not None
+
+    async def create(self, data: EmployeeLevelCreate) -> EmployeeLevelResponse:
+        if await self._name_taken(data.name):
+            raise HTTPException(status_code = 409, detail = "Employee level name already exists.")
+        if await self._rank_taken(data.rank):
+            raise HTTPException(status_code = 409, detail = "Employee level rank already exists.")
+
+        row = EmployeeLevel(name = data.name, rank = data.rank)
+        self.db.add(row)
+        await self.db.commit()
+        await self.db.refresh(row)
+        return EmployeeLevelResponse.model_validate(row)
+
+    async def get_all(self, include_inactive: bool = False) -> list[EmployeeLevelResponse]:
+        stmt = select(EmployeeLevel)
+        if not include_inactive:
+            stmt = stmt.where(EmployeeLevel.is_active.is_(True))
+        result = await self.db.execute(stmt)
+        return [EmployeeLevelResponse.model_validate(row) for row in result.scalars().all()]
+
+    async def get_by_id(self, employee_level_id: UUID) -> EmployeeLevelResponse:
+        row = await self._get_or_404(employee_level_id)
+        return EmployeeLevelResponse.model_validate(row)
+
+    async def update(self, employee_level_id: UUID, data: EmployeeLevelUpdate) -> EmployeeLevelResponse:
+        row = await self._get_or_404(employee_level_id)
+        update_data = data.model_dump(exclude_none = True)
+
+        new_name = update_data.get("name")
+        if new_name is not None and new_name.lower() != row.name.lower():
+            if await self._name_taken(new_name, exclude_id = employee_level_id):
+                raise HTTPException(status_code = 409, detail = "Employee level name already exists.")
+
+        new_rank = update_data.get("rank")
+        if new_rank is not None and new_rank != row.rank:
+            if await self._rank_taken(new_rank, exclude_id = employee_level_id):
+                raise HTTPException(status_code = 409, detail = "Employee level rank already exists.")
+
+        for key, value in update_data.items():
+            setattr(row, key, value)
+        await self.db.commit()
+        await self.db.refresh(row)
+        return EmployeeLevelResponse.model_validate(row)
+
+    async def activate(self, employee_level_id: UUID) -> EmployeeLevelResponse:
+        row = await self._get_or_404(employee_level_id)
+        row.is_active = True
+        await self.db.commit()
+        await self.db.refresh(row)
+        return EmployeeLevelResponse.model_validate(row)
+
+    async def deactivate(self, employee_level_id: UUID) -> EmployeeLevelResponse:
+        row = await self._get_or_404(employee_level_id)
+        row.is_active = False
+        await self.db.commit()
+        await self.db.refresh(row)
+        return EmployeeLevelResponse.model_validate(row)

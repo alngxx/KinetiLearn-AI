@@ -11,6 +11,12 @@ from app.modules.config.schemas import (
     DepartmentCreate,
     DepartmentResponse,
     DepartmentUpdate,
+    EmployeeLevelCreate,
+    EmployeeLevelResponse,
+    EmployeeLevelUpdate,
+    JobPositionCreate,
+    JobPositionResponse,
+    JobPositionUpdate,
     SeniorityLevelCreate,
     SeniorityLevelResponse,
     SeniorityLevelUpdate,
@@ -21,6 +27,8 @@ from app.modules.config.schemas import (
 from app.modules.config.service import (
     CategoryService,
     DepartmentService,
+    EmployeeLevelService,
+    JobPositionService,
     SeniorityLevelService,
     SkillService,
 )
@@ -46,6 +54,18 @@ departments_router = APIRouter(
 seniority_levels_router = APIRouter(
     prefix = "/seniority-levels",
     tags = ["Config — Seniority Levels"],
+    dependencies = [Depends(require_admin)],
+)
+
+job_positions_router = APIRouter(
+    prefix = "/job-positions",
+    tags = ["Config — Job Positions"],
+    dependencies = [Depends(require_admin)],
+)
+
+employee_levels_router = APIRouter(
+    prefix = "/employee-levels",
+    tags = ["Config — Employee Levels"],
     dependencies = [Depends(require_admin)],
 )
 
@@ -172,3 +192,63 @@ async def activate_seniority_level(level_id: UUID, db: AsyncSession = Depends(ge
 @seniority_levels_router.patch("/{level_id}/deactivate", response_model = SeniorityLevelResponse)
 async def deactivate_seniority_level(level_id: UUID, db: AsyncSession = Depends(get_db)):
     return await SeniorityLevelService(db).deactivate(level_id)
+
+
+@job_positions_router.post("", response_model = JobPositionResponse, status_code = status.HTTP_201_CREATED)
+async def create_job_position(data: JobPositionCreate, db: AsyncSession = Depends(get_db)):
+    return await JobPositionService(db).create(data)
+
+
+@job_positions_router.get("", response_model = list[JobPositionResponse])
+async def list_job_positions(include_inactive: bool = False, db: AsyncSession = Depends(get_db)):
+    return await JobPositionService(db).get_all(include_inactive)
+
+
+@job_positions_router.get("/{job_position_id}", response_model = JobPositionResponse)
+async def get_job_position(job_position_id: UUID, db: AsyncSession = Depends(get_db)):
+    return await JobPositionService(db).get_by_id(job_position_id)
+
+
+@job_positions_router.put("/{job_position_id}", response_model = JobPositionResponse)
+async def update_job_position(job_position_id: UUID, data: JobPositionUpdate, db: AsyncSession = Depends(get_db)):
+    return await JobPositionService(db).update(job_position_id, data)
+
+
+@job_positions_router.patch("/{job_position_id}/activate", response_model = JobPositionResponse)
+async def activate_job_position(job_position_id: UUID, db: AsyncSession = Depends(get_db)):
+    return await JobPositionService(db).activate(job_position_id)
+
+
+@job_positions_router.patch("/{job_position_id}/deactivate", response_model = JobPositionResponse)
+async def deactivate_job_position(job_position_id: UUID, db: AsyncSession = Depends(get_db)):
+    return await JobPositionService(db).deactivate(job_position_id)
+
+
+@employee_levels_router.post("", response_model = EmployeeLevelResponse, status_code = status.HTTP_201_CREATED)
+async def create_employee_level(data: EmployeeLevelCreate, db: AsyncSession = Depends(get_db)):
+    return await EmployeeLevelService(db).create(data)
+
+
+@employee_levels_router.get("", response_model = list[EmployeeLevelResponse])
+async def list_employee_levels(include_inactive: bool = False, db: AsyncSession = Depends(get_db)):
+    return await EmployeeLevelService(db).get_all(include_inactive)
+
+
+@employee_levels_router.get("/{employee_level_id}", response_model = EmployeeLevelResponse)
+async def get_employee_level(employee_level_id: UUID, db: AsyncSession = Depends(get_db)):
+    return await EmployeeLevelService(db).get_by_id(employee_level_id)
+
+
+@employee_levels_router.put("/{employee_level_id}", response_model = EmployeeLevelResponse)
+async def update_employee_level(employee_level_id: UUID, data: EmployeeLevelUpdate, db: AsyncSession = Depends(get_db)):
+    return await EmployeeLevelService(db).update(employee_level_id, data)
+
+
+@employee_levels_router.patch("/{employee_level_id}/activate", response_model = EmployeeLevelResponse)
+async def activate_employee_level(employee_level_id: UUID, db: AsyncSession = Depends(get_db)):
+    return await EmployeeLevelService(db).activate(employee_level_id)
+
+
+@employee_levels_router.patch("/{employee_level_id}/deactivate", response_model = EmployeeLevelResponse)
+async def deactivate_employee_level(employee_level_id: UUID, db: AsyncSession = Depends(get_db)):
+    return await EmployeeLevelService(db).deactivate(employee_level_id)
