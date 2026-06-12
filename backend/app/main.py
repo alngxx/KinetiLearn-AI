@@ -8,7 +8,12 @@ from app.modules.exams import models as exams_models  # noqa: F401
 from app.modules.scoring import models as scoring_models  # noqa: F401
 from app.modules.quiz import models as quiz_models  # noqa: F401
 from app.modules.chat import models as chat_models  # noqa: F401
-from app.modules.config.router import categories_router, skills_router
+from app.modules.config.router import (
+    categories_router,
+    departments_router,
+    seniority_levels_router,
+    skills_router,
+)
 from app.modules.auth.router import router as auth_router
 from app.modules.documents.router import router as documents_router
 from app.modules.classes.router import router as classes_router
@@ -21,6 +26,8 @@ app = FastAPI(title="KinetiLearn API")
 
 app.include_router(categories_router, prefix="/api/v1/config")
 app.include_router(skills_router, prefix="/api/v1/config")
+app.include_router(departments_router, prefix="/api/v1/config")
+app.include_router(seniority_levels_router, prefix="/api/v1/config")
 app.include_router(auth_router, prefix="/api/v1/auth", tags=["auth"])
 app.include_router(documents_router, prefix="/api/v1/documents", tags=["documents"])
 app.include_router(classes_router, prefix="/api/v1/classes", tags=["classes"])

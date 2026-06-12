@@ -8,11 +8,22 @@ from app.modules.config.schemas import (
     CategoryCreate,
     CategoryResponse,
     CategoryUpdate,
+    DepartmentCreate,
+    DepartmentResponse,
+    DepartmentUpdate,
+    SeniorityLevelCreate,
+    SeniorityLevelResponse,
+    SeniorityLevelUpdate,
     SkillCreate,
     SkillResponse,
     SkillUpdate,
 )
-from app.modules.config.service import CategoryService, SkillService
+from app.modules.config.service import (
+    CategoryService,
+    DepartmentService,
+    SeniorityLevelService,
+    SkillService,
+)
 
 categories_router = APIRouter(
     prefix = "/categories",
@@ -23,6 +34,18 @@ categories_router = APIRouter(
 skills_router = APIRouter(
     prefix = "/skills",
     tags = ["Config — Skills"],
+    dependencies = [Depends(require_admin)],
+)
+
+departments_router = APIRouter(
+    prefix = "/departments",
+    tags = ["Config — Departments"],
+    dependencies = [Depends(require_admin)],
+)
+
+seniority_levels_router = APIRouter(
+    prefix = "/seniority-levels",
+    tags = ["Config — Seniority Levels"],
     dependencies = [Depends(require_admin)],
 )
 
@@ -89,3 +112,63 @@ async def activate_skill(skill_id: UUID, db: AsyncSession = Depends(get_db)):
 @skills_router.patch("/{skill_id}/deactivate", response_model = SkillResponse)
 async def deactivate_skill(skill_id: UUID, db: AsyncSession = Depends(get_db)):
     return await SkillService(db).deactivate(skill_id)
+
+
+@departments_router.post("", response_model = DepartmentResponse, status_code = status.HTTP_201_CREATED)
+async def create_department(data: DepartmentCreate, db: AsyncSession = Depends(get_db)):
+    return await DepartmentService(db).create(data)
+
+
+@departments_router.get("", response_model = list[DepartmentResponse])
+async def list_departments(include_inactive: bool = False, db: AsyncSession = Depends(get_db)):
+    return await DepartmentService(db).get_all(include_inactive)
+
+
+@departments_router.get("/{department_id}", response_model = DepartmentResponse)
+async def get_department(department_id: UUID, db: AsyncSession = Depends(get_db)):
+    return await DepartmentService(db).get_by_id(department_id)
+
+
+@departments_router.put("/{department_id}", response_model = DepartmentResponse)
+async def update_department(department_id: UUID, data: DepartmentUpdate, db: AsyncSession = Depends(get_db)):
+    return await DepartmentService(db).update(department_id, data)
+
+
+@departments_router.patch("/{department_id}/activate", response_model = DepartmentResponse)
+async def activate_department(department_id: UUID, db: AsyncSession = Depends(get_db)):
+    return await DepartmentService(db).activate(department_id)
+
+
+@departments_router.patch("/{department_id}/deactivate", response_model = DepartmentResponse)
+async def deactivate_department(department_id: UUID, db: AsyncSession = Depends(get_db)):
+    return await DepartmentService(db).deactivate(department_id)
+
+
+@seniority_levels_router.post("", response_model = SeniorityLevelResponse, status_code = status.HTTP_201_CREATED)
+async def create_seniority_level(data: SeniorityLevelCreate, db: AsyncSession = Depends(get_db)):
+    return await SeniorityLevelService(db).create(data)
+
+
+@seniority_levels_router.get("", response_model = list[SeniorityLevelResponse])
+async def list_seniority_levels(include_inactive: bool = False, db: AsyncSession = Depends(get_db)):
+    return await SeniorityLevelService(db).get_all(include_inactive)
+
+
+@seniority_levels_router.get("/{level_id}", response_model = SeniorityLevelResponse)
+async def get_seniority_level(level_id: UUID, db: AsyncSession = Depends(get_db)):
+    return await SeniorityLevelService(db).get_by_id(level_id)
+
+
+@seniority_levels_router.put("/{level_id}", response_model = SeniorityLevelResponse)
+async def update_seniority_level(level_id: UUID, data: SeniorityLevelUpdate, db: AsyncSession = Depends(get_db)):
+    return await SeniorityLevelService(db).update(level_id, data)
+
+
+@seniority_levels_router.patch("/{level_id}/activate", response_model = SeniorityLevelResponse)
+async def activate_seniority_level(level_id: UUID, db: AsyncSession = Depends(get_db)):
+    return await SeniorityLevelService(db).activate(level_id)
+
+
+@seniority_levels_router.patch("/{level_id}/deactivate", response_model = SeniorityLevelResponse)
+async def deactivate_seniority_level(level_id: UUID, db: AsyncSession = Depends(get_db)):
+    return await SeniorityLevelService(db).deactivate(level_id)
