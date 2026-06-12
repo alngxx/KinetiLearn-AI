@@ -151,3 +151,69 @@ class SkillResponse(BaseModel):
     is_active: bool
     # DB-managed creation timestamp.
     created_at: datetime
+
+
+# Payload accepted on POST /departments — only fields a client can set on creation.
+class DepartmentCreate(BaseModel):
+    # Display name, must be unique across all departments (DB enforces).
+    name: str = Field(..., min_length = 1, max_length = 100)
+    # Optional free-text description shown in the admin UI.
+    description: Optional[str] = None
+
+
+# Payload accepted on PATCH /departments/{id} — every field optional for partial updates.
+class DepartmentUpdate(BaseModel):
+    # New display name; uniqueness still enforced by the DB.
+    name: Optional[str] = Field(default = None, min_length = 1, max_length = 100)
+    # New description, or null to clear it.
+    description: Optional[str] = None
+
+
+# Response shape returned by all department endpoints.
+class DepartmentResponse(BaseModel):
+    # Lets Pydantic build instances directly from SQLAlchemy ORM objects.
+    model_config = ConfigDict(from_attributes = True)
+
+    # Primary key from the DB (UUID).
+    id: UUID
+    # Display name.
+    name: str
+    # Optional description.
+    description: Optional[str]
+    # Whether the department is currently usable.
+    is_active: bool
+    # DB-managed creation timestamp (TIMESTAMPTZ).
+    created_at: datetime
+
+
+# Payload accepted on POST /seniority-levels — name plus a unique numeric rank.
+class SeniorityLevelCreate(BaseModel):
+    # Display name, must be unique across all seniority levels (DB enforces).
+    name: str = Field(..., min_length = 1, max_length = 50)
+    # Numeric ordering rank, must be unique (DB enforces).
+    rank: int = Field(..., ge = 0)
+
+
+# Payload accepted on PATCH /seniority-levels/{id} — every field optional for partial updates.
+class SeniorityLevelUpdate(BaseModel):
+    # New display name; uniqueness still enforced by the DB.
+    name: Optional[str] = Field(default = None, min_length = 1, max_length = 50)
+    # New rank; uniqueness still enforced by the DB.
+    rank: Optional[int] = Field(default = None, ge = 0)
+
+
+# Response shape returned by all seniority level endpoints.
+class SeniorityLevelResponse(BaseModel):
+    # Lets Pydantic build instances directly from SQLAlchemy ORM objects.
+    model_config = ConfigDict(from_attributes = True)
+
+    # Primary key from the DB (UUID).
+    id: UUID
+    # Display name.
+    name: str
+    # Numeric ordering rank.
+    rank: int
+    # Whether the seniority level is currently usable.
+    is_active: bool
+    # DB-managed creation timestamp (TIMESTAMPTZ).
+    created_at: datetime
