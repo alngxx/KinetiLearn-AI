@@ -217,3 +217,69 @@ class SeniorityLevelResponse(BaseModel):
     is_active: bool
     # DB-managed creation timestamp (TIMESTAMPTZ).
     created_at: datetime
+
+
+# Payload accepted on POST /job-positions — only fields a client can set on creation.
+class JobPositionCreate(BaseModel):
+    # Display name, must be unique across all job positions (DB enforces).
+    name: str = Field(..., min_length = 1, max_length = 100)
+    # Optional free-text description shown in the admin UI.
+    description: Optional[str] = None
+
+
+# Payload accepted on PATCH /job-positions/{id} — every field optional for partial updates.
+class JobPositionUpdate(BaseModel):
+    # New display name; uniqueness still enforced by the DB.
+    name: Optional[str] = Field(default = None, min_length = 1, max_length = 100)
+    # New description, or null to clear it.
+    description: Optional[str] = None
+
+
+# Response shape returned by all job position endpoints.
+class JobPositionResponse(BaseModel):
+    # Lets Pydantic build instances directly from SQLAlchemy ORM objects.
+    model_config = ConfigDict(from_attributes = True)
+
+    # Primary key from the DB (UUID).
+    id: UUID
+    # Display name.
+    name: str
+    # Optional description.
+    description: Optional[str]
+    # Whether the job position is currently usable.
+    is_active: bool
+    # DB-managed creation timestamp (TIMESTAMPTZ).
+    created_at: datetime
+
+
+# Payload accepted on POST /employee-levels — name plus a unique numeric rank.
+class EmployeeLevelCreate(BaseModel):
+    # Display name, must be unique across all employee levels (DB enforces).
+    name: str = Field(..., min_length = 1, max_length = 50)
+    # Numeric ordering rank, must be unique (DB enforces).
+    rank: int = Field(..., ge = 0)
+
+
+# Payload accepted on PATCH /employee-levels/{id} — every field optional for partial updates.
+class EmployeeLevelUpdate(BaseModel):
+    # New display name; uniqueness still enforced by the DB.
+    name: Optional[str] = Field(default = None, min_length = 1, max_length = 50)
+    # New rank; uniqueness still enforced by the DB.
+    rank: Optional[int] = Field(default = None, ge = 0)
+
+
+# Response shape returned by all employee level endpoints.
+class EmployeeLevelResponse(BaseModel):
+    # Lets Pydantic build instances directly from SQLAlchemy ORM objects.
+    model_config = ConfigDict(from_attributes = True)
+
+    # Primary key from the DB (UUID).
+    id: UUID
+    # Display name.
+    name: str
+    # Numeric ordering rank.
+    rank: int
+    # Whether the employee level is currently usable.
+    is_active: bool
+    # DB-managed creation timestamp (TIMESTAMPTZ).
+    created_at: datetime

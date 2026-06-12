@@ -11,6 +11,8 @@ from app.modules.chat import models as chat_models  # noqa: F401
 from app.modules.config.router import (
     categories_router,
     departments_router,
+    employee_levels_router,
+    job_positions_router,
     seniority_levels_router,
     skills_router,
 )
@@ -28,6 +30,8 @@ app.include_router(categories_router, prefix="/api/v1/config")
 app.include_router(skills_router, prefix="/api/v1/config")
 app.include_router(departments_router, prefix="/api/v1/config")
 app.include_router(seniority_levels_router, prefix="/api/v1/config")
+app.include_router(job_positions_router, prefix="/api/v1/config")
+app.include_router(employee_levels_router, prefix="/api/v1/config")
 app.include_router(auth_router, prefix="/api/v1/auth", tags=["auth"])
 app.include_router(documents_router, prefix="/api/v1/documents", tags=["documents"])
 app.include_router(classes_router, prefix="/api/v1/classes", tags=["classes"])
