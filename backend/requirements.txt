@@ -18,4 +18,5 @@ pymupdf
 python-docx
 boto3
 pytest
+pytest-asyncio
 httpx
