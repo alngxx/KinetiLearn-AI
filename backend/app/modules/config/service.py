@@ -128,17 +128,9 @@ class SkillService:
             raise HTTPException(status_code = 404, detail = "Skill not found.")
         return row
 
-    def _check_bands(self, bands: dict) -> None:
-        if bands["basic_min"] > bands["basic_max"]:
-            raise HTTPException(status_code = 422, detail = "basic_max must be >= basic_min.")
-        if bands["intermediate_min"] != bands["basic_max"] + 1:
-            raise HTTPException(status_code = 422, detail = "intermediate_min must equal basic_max + 1.")
-        if bands["intermediate_min"] > bands["intermediate_max"]:
-            raise HTTPException(status_code = 422, detail = "intermediate_max must be >= intermediate_min.")
-        if bands["advanced_min"] != bands["intermediate_max"] + 1:
-            raise HTTPException(status_code = 422, detail = "advanced_min must equal intermediate_max + 1.")
-        if bands["advanced_min"] > bands["advanced_max"]:
-            raise HTTPException(status_code = 422, detail = "advanced_max must be >= advanced_min.")
+    def _check_thresholds(self, basic_max: int, intermediate_max: int) -> None:
+        if intermediate_max <= basic_max:
+            raise HTTPException(status_code = 422, detail = "intermediate_max must be greater than basic_max.")
 
     async def _name_taken(
         self,
@@ -198,17 +190,9 @@ class SkillService:
         row = await self._get_or_404(skill_id)
         update_data = data.model_dump(exclude_none = True)
 
-        # Merge incoming non-None bands over the stored values, then validate the
-        # full result so a partial update can't leave the bands non-contiguous.
-        merged = {
-            "basic_min": update_data.get("basic_min", row.basic_min),
-            "basic_max": update_data.get("basic_max", row.basic_max),
-            "intermediate_min": update_data.get("intermediate_min", row.intermediate_min),
-            "intermediate_max": update_data.get("intermediate_max", row.intermediate_max),
-            "advanced_min": update_data.get("advanced_min", row.advanced_min),
-            "advanced_max": update_data.get("advanced_max", row.advanced_max),
-        }
-        self._check_bands(merged)
+        merged_basic_max = update_data.get("basic_max", row.basic_max)
+        merged_intermediate_max = update_data.get("intermediate_max", row.intermediate_max)
+        self._check_thresholds(merged_basic_max, merged_intermediate_max)
 
         new_name = update_data.get("name")
         if new_name is not None and new_name.lower() != row.name.lower():

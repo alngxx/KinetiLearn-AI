@@ -53,12 +53,9 @@ class Skill(Base):
     )
     name = Column(String(100), nullable=False)
     description = Column(Text, nullable=True)
-    basic_min = Column(Integer, nullable=False, server_default=text("0"))
+    # score <= basic_max → "basic"; basic_max < score <= intermediate_max → "intermediate"; score > intermediate_max → "advanced"
     basic_max = Column(Integer, nullable=False)
-    intermediate_min = Column(Integer, nullable=False)
     intermediate_max = Column(Integer, nullable=False)
-    advanced_min = Column(Integer, nullable=False)
-    advanced_max = Column(Integer, nullable=False)
     is_active = Column(Boolean, nullable=False, server_default=text("TRUE"))
     created_at = Column(
         TIMESTAMP(timezone=True),
@@ -70,12 +67,8 @@ class Skill(Base):
 
     __table_args__ = (
         CheckConstraint(
-            "intermediate_min = basic_max + 1",
-            name="ck_skills_intermediate_min_follows_basic_max",
-        ),
-        CheckConstraint(
-            "advanced_min = intermediate_max + 1",
-            name="ck_skills_advanced_min_follows_intermediate_max",
+            "intermediate_max > basic_max",
+            name="ck_skills_level_thresholds",
         ),
         UniqueConstraint("category_id", "name", name="uq_skills_category_name"),
         Index("ix_skills_category_id", "category_id"),
