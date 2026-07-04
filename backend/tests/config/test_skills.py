@@ -4,12 +4,8 @@ CATEGORIES = "/api/v1/config/categories"
 BASE = "/api/v1/config/skills"
 
 VALID_BANDS = {
-    "basic_min": 0,
     "basic_max": 10,
-    "intermediate_min": 11,
     "intermediate_max": 20,
-    "advanced_min": 21,
-    "advanced_max": 30,
 }
 
 
@@ -31,7 +27,7 @@ async def test_create_skill_success(client):
 
 async def test_create_skill_invalid_bands(client):
     category_id = await _make_category(client)
-    bad_bands = {**VALID_BANDS, "intermediate_min": 15}
+    bad_bands = {"basic_max": 20, "intermediate_max": 10}
     resp = await client.post(
         BASE, json = {"category_id": category_id, "name": "Python", **bad_bands}
     )
