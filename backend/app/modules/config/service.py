@@ -1,3 +1,4 @@
+from typing import cast
 from uuid import UUID
 
 from fastapi import HTTPException
@@ -176,13 +177,13 @@ class SkillService:
         row = await get_or_404(self.db, Skill, skill_id, "Skill not found.")
         update_data = data.model_dump(exclude_none = True)
 
-        merged_basic_max = update_data.get("basic_max", row.basic_max)
-        merged_intermediate_max = update_data.get("intermediate_max", row.intermediate_max)
+        merged_basic_max = cast(int, update_data.get("basic_max", row.basic_max))
+        merged_intermediate_max = cast(int, update_data.get("intermediate_max", row.intermediate_max))
         self._check_thresholds(merged_basic_max, merged_intermediate_max)
 
         new_name = update_data.get("name")
         if new_name is not None and new_name.lower() != row.name.lower():
-            target_category = update_data.get("category_id", row.category_id)
+            target_category = cast(UUID, update_data.get("category_id", row.category_id))
             if await self._name_taken(target_category, new_name, exclude_id = skill_id):
                 raise HTTPException(
                     status_code = 409,
