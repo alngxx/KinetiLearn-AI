@@ -17,6 +17,7 @@ from app.modules.config.router import (
     skills_router,
 )
 from app.modules.auth.router import router as auth_router
+from app.modules.auth.router import users_router
 from app.modules.documents.router import router as documents_router
 from app.modules.classes.router import router as classes_router
 from app.modules.exams.router import router as exams_router
@@ -33,6 +34,7 @@ app.include_router(seniority_levels_router, prefix="/api/v1/config")
 app.include_router(job_positions_router, prefix="/api/v1/config")
 app.include_router(employee_levels_router, prefix="/api/v1/config")
 app.include_router(auth_router, prefix="/api/v1/auth", tags=["auth"])
+app.include_router(users_router, prefix="/api/v1")
 app.include_router(documents_router, prefix="/api/v1/documents", tags=["documents"])
 app.include_router(classes_router, prefix="/api/v1/classes", tags=["classes"])
 app.include_router(exams_router, prefix="/api/v1/exams", tags=["exams"])
