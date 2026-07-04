@@ -1,11 +1,17 @@
 # Shared FastAPI dependencies for the KinetiLearn backend
 # Routers import from this module instead of redefining session/auth wiring
+import uuid
 from typing import AsyncGenerator
 
-from fastapi import HTTPException
+from fastapi import Depends, HTTPException
+from fastapi.security import OAuth2PasswordBearer
+from jose import JWTError
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import SessionLocal
+from app.core.security import decode_token
+from app.modules.auth.models import User
 
 
 # This function is a FastAPI dependency
@@ -17,8 +23,39 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
         yield session
 
 
-# This is a placeholder for the real admin auth check — will be implemented in Week 3.
-# For now it always raises 401 so we know auth is wired but not yet active.
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl = "/api/v1/auth/login")
+
+
+# Decodes the bearer token, loads the user, and checks the account is active.
+# Usage in any router: current_user: User = Depends(get_current_user)
+async def get_current_user(
+    token: str = Depends(oauth2_scheme),
+    db: AsyncSession = Depends(get_db),
+) -> User:
+    credentials_exc = HTTPException(
+        status_code = 401, detail = "Could not validate credentials"
+    )
+    try:
+        payload = decode_token(token)
+        user_id = payload.get("sub")
+        if user_id is None:
+            raise credentials_exc
+        user_uuid = uuid.UUID(user_id)
+    except (JWTError, ValueError):
+        raise credentials_exc
+
+    result = await db.execute(select(User).where(User.id == user_uuid))
+    user = result.scalar_one_or_none()
+    if user is None:
+        raise credentials_exc
+    if not user.is_active:
+        raise HTTPException(status_code = 401, detail = "Account is disabled")
+    return user
+
+
+# Requires the authenticated user to have the admin role.
 # Usage in any router: _ = Depends(require_admin)
-async def require_admin():
-    raise HTTPException(status_code = 401, detail = "Not authenticated")
+async def require_admin(current_user: User = Depends(get_current_user)) -> User:
+    if current_user.role != "admin":
+        raise HTTPException(status_code = 403, detail = "Admin access required")
+    return current_user
