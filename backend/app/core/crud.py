@@ -1,6 +1,7 @@
 from typing import Any
 from uuid import UUID
 
+from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -12,6 +13,13 @@ async def get_by_id(db: AsyncSession, model: type, id: UUID) -> Any | None:
     """
     result = await db.execute(select(model).where(model.id == id))
     return result.scalar_one_or_none()
+
+
+async def get_or_404(db: AsyncSession, model: type, id: UUID, detail: str = "Not found.") -> Any:
+    row = await get_by_id(db, model, id)
+    if row is None:
+        raise HTTPException(status_code = 404, detail = detail)
+    return row
 
 
 async def get_all(

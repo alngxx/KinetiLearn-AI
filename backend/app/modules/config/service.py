@@ -4,6 +4,8 @@ from fastapi import HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.crud import get_or_404
+
 from app.modules.config.models import (
     Category,
     Department,
@@ -38,15 +40,6 @@ class CategoryService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def _get_or_404(self, category_id: UUID) -> Category:
-        result = await self.db.execute(
-            select(Category).where(Category.id == category_id)
-        )
-        row = result.scalar_one_or_none()
-        if row is None:
-            raise HTTPException(status_code = 404, detail = "Category not found.")
-        return row
-
     async def create(self, data: CategoryCreate) -> CategoryResponse:
         result = await self.db.execute(
             select(Category.id).where(func.lower(Category.name) == data.name.lower())
@@ -68,11 +61,11 @@ class CategoryService:
         return [CategoryResponse.model_validate(row) for row in result.scalars().all()]
 
     async def get_by_id(self, category_id: UUID) -> CategoryResponse:
-        row = await self._get_or_404(category_id)
+        row = await get_or_404(self.db, Category, category_id, "Category not found.")
         return CategoryResponse.model_validate(row)
 
     async def update(self, category_id: UUID, data: CategoryUpdate) -> CategoryResponse:
-        row = await self._get_or_404(category_id)
+        row = await get_or_404(self.db, Category, category_id, "Category not found.")
         update_data = data.model_dump(exclude_none = True)
 
         new_name = update_data.get("name")
@@ -93,14 +86,14 @@ class CategoryService:
         return CategoryResponse.model_validate(row)
 
     async def activate(self, category_id: UUID) -> CategoryResponse:
-        row = await self._get_or_404(category_id)
+        row = await get_or_404(self.db, Category, category_id, "Category not found.")
         row.is_active = True
         await self.db.commit()
         await self.db.refresh(row)
         return CategoryResponse.model_validate(row)
 
     async def deactivate(self, category_id: UUID) -> CategoryResponse:
-        row = await self._get_or_404(category_id)
+        row = await get_or_404(self.db, Category, category_id, "Category not found.")
         result = await self.db.execute(
             select(Skill.id)
             .where(Skill.category_id == category_id, Skill.is_active.is_(True))
@@ -120,13 +113,6 @@ class CategoryService:
 class SkillService:
     def __init__(self, db: AsyncSession):
         self.db = db
-
-    async def _get_or_404(self, skill_id: UUID) -> Skill:
-        result = await self.db.execute(select(Skill).where(Skill.id == skill_id))
-        row = result.scalar_one_or_none()
-        if row is None:
-            raise HTTPException(status_code = 404, detail = "Skill not found.")
-        return row
 
     def _check_bands(self, bands: dict) -> None:
         if bands["basic_min"] > bands["basic_max"]:
@@ -191,11 +177,11 @@ class SkillService:
         return [SkillResponse.model_validate(row) for row in result.scalars().all()]
 
     async def get_by_id(self, skill_id: UUID) -> SkillResponse:
-        row = await self._get_or_404(skill_id)
+        row = await get_or_404(self.db, Skill, skill_id, "Skill not found.")
         return SkillResponse.model_validate(row)
 
     async def update(self, skill_id: UUID, data: SkillUpdate) -> SkillResponse:
-        row = await self._get_or_404(skill_id)
+        row = await get_or_404(self.db, Skill, skill_id, "Skill not found.")
         update_data = data.model_dump(exclude_none = True)
 
         # Merge incoming non-None bands over the stored values, then validate the
@@ -226,14 +212,14 @@ class SkillService:
         return SkillResponse.model_validate(row)
 
     async def activate(self, skill_id: UUID) -> SkillResponse:
-        row = await self._get_or_404(skill_id)
+        row = await get_or_404(self.db, Skill, skill_id, "Skill not found.")
         row.is_active = True
         await self.db.commit()
         await self.db.refresh(row)
         return SkillResponse.model_validate(row)
 
     async def deactivate(self, skill_id: UUID) -> SkillResponse:
-        row = await self._get_or_404(skill_id)
+        row = await get_or_404(self.db, Skill, skill_id, "Skill not found.")
         row.is_active = False
         await self.db.commit()
         await self.db.refresh(row)
@@ -243,15 +229,6 @@ class SkillService:
 class DepartmentService:
     def __init__(self, db: AsyncSession):
         self.db = db
-
-    async def _get_or_404(self, department_id: UUID) -> Department:
-        result = await self.db.execute(
-            select(Department).where(Department.id == department_id)
-        )
-        row = result.scalar_one_or_none()
-        if row is None:
-            raise HTTPException(status_code = 404, detail = "Department not found.")
-        return row
 
     async def create(self, data: DepartmentCreate) -> DepartmentResponse:
         result = await self.db.execute(
@@ -274,11 +251,11 @@ class DepartmentService:
         return [DepartmentResponse.model_validate(row) for row in result.scalars().all()]
 
     async def get_by_id(self, department_id: UUID) -> DepartmentResponse:
-        row = await self._get_or_404(department_id)
+        row = await get_or_404(self.db, Department, department_id, "Department not found.")
         return DepartmentResponse.model_validate(row)
 
     async def update(self, department_id: UUID, data: DepartmentUpdate) -> DepartmentResponse:
-        row = await self._get_or_404(department_id)
+        row = await get_or_404(self.db, Department, department_id, "Department not found.")
         update_data = data.model_dump(exclude_none = True)
 
         new_name = update_data.get("name")
@@ -299,14 +276,14 @@ class DepartmentService:
         return DepartmentResponse.model_validate(row)
 
     async def activate(self, department_id: UUID) -> DepartmentResponse:
-        row = await self._get_or_404(department_id)
+        row = await get_or_404(self.db, Department, department_id, "Department not found.")
         row.is_active = True
         await self.db.commit()
         await self.db.refresh(row)
         return DepartmentResponse.model_validate(row)
 
     async def deactivate(self, department_id: UUID) -> DepartmentResponse:
-        row = await self._get_or_404(department_id)
+        row = await get_or_404(self.db, Department, department_id, "Department not found.")
         row.is_active = False
         await self.db.commit()
         await self.db.refresh(row)
@@ -316,15 +293,6 @@ class DepartmentService:
 class SeniorityLevelService:
     def __init__(self, db: AsyncSession):
         self.db = db
-
-    async def _get_or_404(self, level_id: UUID) -> SeniorityLevel:
-        result = await self.db.execute(
-            select(SeniorityLevel).where(SeniorityLevel.id == level_id)
-        )
-        row = result.scalar_one_or_none()
-        if row is None:
-            raise HTTPException(status_code = 404, detail = "Seniority level not found.")
-        return row
 
     async def _name_taken(self, name: str, exclude_id: UUID | None = None) -> bool:
         stmt = select(SeniorityLevel.id).where(
@@ -362,11 +330,11 @@ class SeniorityLevelService:
         return [SeniorityLevelResponse.model_validate(row) for row in result.scalars().all()]
 
     async def get_by_id(self, level_id: UUID) -> SeniorityLevelResponse:
-        row = await self._get_or_404(level_id)
+        row = await get_or_404(self.db, SeniorityLevel, level_id, "Seniority level not found.")
         return SeniorityLevelResponse.model_validate(row)
 
     async def update(self, level_id: UUID, data: SeniorityLevelUpdate) -> SeniorityLevelResponse:
-        row = await self._get_or_404(level_id)
+        row = await get_or_404(self.db, SeniorityLevel, level_id, "Seniority level not found.")
         update_data = data.model_dump(exclude_none = True)
 
         new_name = update_data.get("name")
@@ -386,14 +354,14 @@ class SeniorityLevelService:
         return SeniorityLevelResponse.model_validate(row)
 
     async def activate(self, level_id: UUID) -> SeniorityLevelResponse:
-        row = await self._get_or_404(level_id)
+        row = await get_or_404(self.db, SeniorityLevel, level_id, "Seniority level not found.")
         row.is_active = True
         await self.db.commit()
         await self.db.refresh(row)
         return SeniorityLevelResponse.model_validate(row)
 
     async def deactivate(self, level_id: UUID) -> SeniorityLevelResponse:
-        row = await self._get_or_404(level_id)
+        row = await get_or_404(self.db, SeniorityLevel, level_id, "Seniority level not found.")
         row.is_active = False
         await self.db.commit()
         await self.db.refresh(row)
@@ -403,15 +371,6 @@ class SeniorityLevelService:
 class JobPositionService:
     def __init__(self, db: AsyncSession):
         self.db = db
-
-    async def _get_or_404(self, job_position_id: UUID) -> JobPosition:
-        result = await self.db.execute(
-            select(JobPosition).where(JobPosition.id == job_position_id)
-        )
-        row = result.scalar_one_or_none()
-        if row is None:
-            raise HTTPException(status_code = 404, detail = "Job position not found.")
-        return row
 
     async def create(self, data: JobPositionCreate) -> JobPositionResponse:
         result = await self.db.execute(
@@ -434,11 +393,11 @@ class JobPositionService:
         return [JobPositionResponse.model_validate(row) for row in result.scalars().all()]
 
     async def get_by_id(self, job_position_id: UUID) -> JobPositionResponse:
-        row = await self._get_or_404(job_position_id)
+        row = await get_or_404(self.db, JobPosition, job_position_id, "Job position not found.")
         return JobPositionResponse.model_validate(row)
 
     async def update(self, job_position_id: UUID, data: JobPositionUpdate) -> JobPositionResponse:
-        row = await self._get_or_404(job_position_id)
+        row = await get_or_404(self.db, JobPosition, job_position_id, "Job position not found.")
         update_data = data.model_dump(exclude_none = True)
 
         new_name = update_data.get("name")
@@ -459,14 +418,14 @@ class JobPositionService:
         return JobPositionResponse.model_validate(row)
 
     async def activate(self, job_position_id: UUID) -> JobPositionResponse:
-        row = await self._get_or_404(job_position_id)
+        row = await get_or_404(self.db, JobPosition, job_position_id, "Job position not found.")
         row.is_active = True
         await self.db.commit()
         await self.db.refresh(row)
         return JobPositionResponse.model_validate(row)
 
     async def deactivate(self, job_position_id: UUID) -> JobPositionResponse:
-        row = await self._get_or_404(job_position_id)
+        row = await get_or_404(self.db, JobPosition, job_position_id, "Job position not found.")
         row.is_active = False
         await self.db.commit()
         await self.db.refresh(row)
@@ -476,15 +435,6 @@ class JobPositionService:
 class EmployeeLevelService:
     def __init__(self, db: AsyncSession):
         self.db = db
-
-    async def _get_or_404(self, employee_level_id: UUID) -> EmployeeLevel:
-        result = await self.db.execute(
-            select(EmployeeLevel).where(EmployeeLevel.id == employee_level_id)
-        )
-        row = result.scalar_one_or_none()
-        if row is None:
-            raise HTTPException(status_code = 404, detail = "Employee level not found.")
-        return row
 
     async def _name_taken(self, name: str, exclude_id: UUID | None = None) -> bool:
         stmt = select(EmployeeLevel.id).where(
@@ -522,11 +472,11 @@ class EmployeeLevelService:
         return [EmployeeLevelResponse.model_validate(row) for row in result.scalars().all()]
 
     async def get_by_id(self, employee_level_id: UUID) -> EmployeeLevelResponse:
-        row = await self._get_or_404(employee_level_id)
+        row = await get_or_404(self.db, EmployeeLevel, employee_level_id, "Employee level not found.")
         return EmployeeLevelResponse.model_validate(row)
 
     async def update(self, employee_level_id: UUID, data: EmployeeLevelUpdate) -> EmployeeLevelResponse:
-        row = await self._get_or_404(employee_level_id)
+        row = await get_or_404(self.db, EmployeeLevel, employee_level_id, "Employee level not found.")
         update_data = data.model_dump(exclude_none = True)
 
         new_name = update_data.get("name")
@@ -546,14 +496,14 @@ class EmployeeLevelService:
         return EmployeeLevelResponse.model_validate(row)
 
     async def activate(self, employee_level_id: UUID) -> EmployeeLevelResponse:
-        row = await self._get_or_404(employee_level_id)
+        row = await get_or_404(self.db, EmployeeLevel, employee_level_id, "Employee level not found.")
         row.is_active = True
         await self.db.commit()
         await self.db.refresh(row)
         return EmployeeLevelResponse.model_validate(row)
 
     async def deactivate(self, employee_level_id: UUID) -> EmployeeLevelResponse:
-        row = await self._get_or_404(employee_level_id)
+        row = await get_or_404(self.db, EmployeeLevel, employee_level_id, "Employee level not found.")
         row.is_active = False
         await self.db.commit()
         await self.db.refresh(row)
