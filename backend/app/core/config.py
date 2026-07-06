@@ -13,7 +13,7 @@ class Settings(BaseSettings):
 
     R2_ACCESS_KEY: str = ""
     R2_SECRET_KEY: str = ""
-    R2_BUCKET: str = ""
+    R2_BUCKET_NAME: str = ""
     R2_ENDPOINT_URL: str = ""
 
     PINECONE_API_KEY: str = ""
