@@ -41,6 +41,13 @@ class R2Storage:
             raise StorageError(f"Failed to upload '{key}': {e}") from e
         return key
 
+    def download(self, key: str) -> bytes:
+        try:
+            obj = self.client.get_object(Bucket = self.bucket, Key = key)
+            return obj["Body"].read()
+        except (BotoCoreError, ClientError) as e:
+            raise StorageError(f"Failed to download '{key}': {e}") from e
+
     def get_presigned_url(self, key: str, expires_in: int = 3600) -> str:
         try:
             return self.client.generate_presigned_url(
