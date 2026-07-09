@@ -26,7 +26,7 @@ backend/worker/tasks.py         ← Celery async tasks
 
 ## Commands
 - Run server: `uvicorn app.main:app --reload`
-- Run worker: `celery -A worker.tasks celery_app worker --loglevel=info`
+- Run worker: `celery -A worker.tasks:celery_app worker --loglevel=info`
 - Run tests: `pytest`
 - Migrations: `alembic upgrade head`
 
