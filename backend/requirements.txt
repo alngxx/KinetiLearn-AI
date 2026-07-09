@@ -16,6 +16,8 @@ redis
 chromadb
 langchain
 langchain-openai
+langchain-text-splitters
+tiktoken
 openai
 pymupdf
 python-docx
