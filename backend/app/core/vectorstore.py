@@ -33,11 +33,11 @@ def add_chunks(
         for c in chunks
     ]
     documents = [c["content"] for c in chunks]
-    get_collection().add(
+    get_collection().add(               
         ids = ids,
-        embeddings = embeddings,
+        embeddings = embeddings,    # type: ignore[arg-type]
         documents = documents,
-        metadatas = metadatas,
+        metadatas = metadatas,      # type: ignore[arg-type]
     )
     return ids
 

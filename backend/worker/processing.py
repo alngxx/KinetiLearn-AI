@@ -33,7 +33,7 @@ def extract_text(mime_type: str, data: bytes) -> str:
     if mime_type == PDF_MIME:
         doc = fitz.open(stream = data, filetype = "pdf")
         try:
-            return "\n".join(page.get_text() for page in doc)
+            return "\n".join(page.get_text() for page in doc)       # type: ignore[attr-defined]
         finally:
             doc.close()
     if mime_type == DOCX_MIME:
