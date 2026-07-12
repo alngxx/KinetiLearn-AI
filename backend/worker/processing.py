@@ -17,9 +17,8 @@ DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.docu
 
 _encoding = tiktoken.encoding_for_model(EMBED_MODEL)
 
-# Splits on paragraph -> line -> word -> character in that order, so chunks
-# break on natural boundaries and only cut mid-sentence when a single block
-# exceeds the target. Lengths are measured in tokens, not characters.
+# Splits text smartly: paragraph -> line -> word -> character so chunks break on natural boundaries
+# Only cut mid-sentence when a single block exceeds target.
 _splitter = RecursiveCharacterTextSplitter.from_tiktoken_encoder(
     model_name = EMBED_MODEL,
     chunk_size = CHUNK_TARGET_TOKENS,
@@ -33,7 +32,7 @@ def extract_text(mime_type: str, data: bytes) -> str:
     if mime_type == PDF_MIME:
         doc = fitz.open(stream = data, filetype = "pdf")
         try:
-            return "\n".join(page.get_text() for page in doc)       # type: ignore[attr-defined]
+            return "\n".join(page.get_text() for page in doc)   # type: ignore[attr-defined]
         finally:
             doc.close()
     if mime_type == DOCX_MIME:
