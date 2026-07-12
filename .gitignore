@@ -10,3 +10,5 @@ dist/
 KinetiLearn HTML/
 kinetilearn_schema_spec.md
 pyrightconfig.json
+.vscode/
+.claude/
