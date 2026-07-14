@@ -1,6 +1,7 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, status
+from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import get_current_user, get_db, require_admin
@@ -22,6 +23,19 @@ router = APIRouter()
 async def login(body: LoginRequest, db: AsyncSession = Depends(get_db)):
     service = AuthService(db)
     user = await service.authenticate(body.email, body.password)
+    token = service.create_access_token(user)
+    return TokenResponse(access_token = token)
+
+
+# Form-based login so the Swagger "Authorize" button works. The OAuth2 password
+# flow sends the email in the `username` field.
+@router.post("/token", response_model = TokenResponse)
+async def login_form(
+    form_data: OAuth2PasswordRequestForm = Depends(),
+    db: AsyncSession = Depends(get_db),
+):
+    service = AuthService(db)
+    user = await service.authenticate(form_data.username, form_data.password)
     token = service.create_access_token(user)
     return TokenResponse(access_token = token)
 

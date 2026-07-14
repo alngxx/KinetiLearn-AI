@@ -23,7 +23,7 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
         yield session
 
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl = "/api/v1/auth/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl = "/api/v1/auth/token")
 
 
 # Decodes the bearer token, loads the user, and checks the account is active.
