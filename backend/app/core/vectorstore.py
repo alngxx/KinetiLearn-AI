@@ -6,11 +6,22 @@ from app.core.config import settings
 
 COLLECTION_NAME = "document_chunks"
 
-_client = chromadb.PersistentClient(path = settings.CHROMA_PATH)
+# Built on first use, not at import. Celery's prefork pool imports this module in
+# the parent process and then forks; a client created before the fork carries
+# native state the child cannot use, which segfaults. Creating it lazily means
+# each process opens its own client after forking.
+_client = None
+
+
+def _get_client():
+    global _client
+    if _client is None:
+        _client = chromadb.PersistentClient(path = settings.CHROMA_PATH)
+    return _client
 
 
 def get_collection():
-    return _client.get_or_create_collection(COLLECTION_NAME)
+    return _get_client().get_or_create_collection(COLLECTION_NAME)
 
 
 def vector_id(document_id: UUID, version_number: int, chunk_index: int) -> str:
