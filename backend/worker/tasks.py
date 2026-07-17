@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime, timezone
 from uuid import UUID
 
@@ -10,6 +11,8 @@ from app.core.storage import R2Storage
 from app.modules.documents.models import Document, DocumentChunk, DocumentVersion
 from worker.db import SyncSessionLocal
 from worker.processing import embed_texts, extract_text, split_into_chunks
+
+logger = logging.getLogger(__name__)
 
 celery_app = Celery("worker", broker = settings.REDIS_URL, backend = settings.REDIS_URL)
 
@@ -63,20 +66,36 @@ def process_document(document_id: UUID, version_number: int):
                     embedded_at = embedded_at,
                 ))
 
-            # Flip to ready and promote the active version in one transaction so
-            # the two writes are atomic together.
+            # Flip to ready and, only for the very first version ever readied for
+            # this document, promote it to active. Later versions wait for an admin
+            # to promote them manually. Both writes share one commit so they stay
+            # atomic together.
             version.processing_status = "ready"
             document = session.get(Document, document_id)
-            document.active_version_number = version_number
+            if document.active_version_number is None:
+                document.active_version_number = version_number
             session.commit()
         except Exception as e:
             # The chunk inserts only happen in the final commit above, which never
             # ran here, so rollback discards them and the clean-slate delete already
             # cleared any older rows. Only the Chroma vectors need explicit cleanup.
             session.rollback()
-            vectorstore.delete_version(document_id, version_number)
-            version.processing_status = "failed"
-            version.processing_error = str(e)
-            session.commit()
+            # Lost-race guard: if another run already committed this exact version as
+            # "ready", its vectors and status are the winner — do not clobber them.
+            # rollback() here is a no-op (no txn was open) and won't refresh cached
+            # state, so expire first to force a real read of the committed status.
+            session.expire_all()
+            current = session.get(DocumentVersion, (document_id, version_number))
+            if current is not None and current.processing_status == "ready":
+                logger.warning(
+                    "Skipping failure cleanup for document %s version %s: already "
+                    "marked ready by another run (processing race).",
+                    document_id, version_number,
+                )
+            elif current is not None:
+                vectorstore.delete_version(document_id, version_number)
+                current.processing_status = "failed"
+                current.processing_error = str(e)
+                session.commit()
     finally:
         session.close()

@@ -1,3 +1,4 @@
+import logging
 import uuid
 from uuid import UUID
 
@@ -6,11 +7,17 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.crud import get_by_id
+from app.core.crud import get_by_id, get_or_404
 from app.core.storage import R2Storage, StorageError
-from app.modules.config.models import Category
-from app.modules.documents.models import Document, DocumentVersion
-from app.modules.documents.schemas import DocumentUploadResponse
+from app.modules.config.models import Category, Skill
+from app.modules.documents.models import Document, DocumentSkill, DocumentVersion
+from app.modules.documents.schemas import (
+    DocumentResponse,
+    DocumentUploadResponse,
+    DocumentVersionResponse,
+)
+
+logger = logging.getLogger(__name__)
 
 MAX_FILE_SIZE = 20 * 1024 * 1024  # 20 MB
 
@@ -130,6 +137,10 @@ class DocumentService:
                 detail = "Failed to save the document record",
             )
 
+        # Only after the DB write is committed do we hand the version off to the
+        # async pipeline — so a broker outage never triggers the R2 rollback above.
+        self._enqueue_processing(version.document_id, version.version_number)
+
         return DocumentUploadResponse(
             document_id = version.document_id,
             version_number = version.version_number,
@@ -140,3 +151,106 @@ class DocumentService:
             processing_status = version.processing_status,
             created_at = version.created_at,
         )
+
+    def _enqueue_processing(self, document_id: UUID, version_number: int) -> None:
+        # Local import so the web app doesn't pull Celery/Chroma/OpenAI at startup
+        # and to avoid an import cycle with the worker package.
+        from worker.tasks import process_document
+
+        try:
+            process_document.delay(str(document_id), version_number)
+        except Exception:
+            # The version row and R2 object are already persisted, so a broker
+            # failure must not fail the request. The version stays "pending" and
+            # can be re-triggered via reprocess_version.
+            logger.exception(
+                "Failed to enqueue processing for %s v%s", document_id, version_number
+            )
+
+    async def _get_version_or_404(
+        self, document_id: UUID, version_number: int
+    ) -> DocumentVersion:
+        version = await self.db.get(DocumentVersion, (document_id, version_number))
+        if version is None:
+            raise HTTPException(status_code = 404, detail = "Document version not found")
+        return version
+
+    async def _document_response(self, document_id: UUID) -> DocumentResponse:
+        document = await get_or_404(self.db, Document, document_id, "Document not found")
+        result = await self.db.execute(
+            select(DocumentSkill.skill_id).where(
+                DocumentSkill.document_id == document_id
+            )
+        )
+        return DocumentResponse(
+            document_id = document.id,
+            title = document.title,
+            category_id = document.category_id,
+            active_version_number = document.active_version_number,
+            is_active = document.is_active,
+            skill_ids = list(result.scalars().all()),
+            created_at = document.created_at,
+        )
+
+    async def promote_version(
+        self, document_id: UUID, version_number: int
+    ) -> DocumentResponse:
+        version = await self._get_version_or_404(document_id, version_number)
+        if version.processing_status != "ready":
+            raise HTTPException(
+                status_code = 409,
+                detail = "Version is not ready to be activated",
+            )
+        document = await get_or_404(self.db, Document, document_id, "Document not found")
+        document.active_version_number = version_number
+        await self.db.commit()
+        return await self._document_response(document_id)
+
+    async def activate(self, document_id: UUID) -> DocumentResponse:
+        document = await get_or_404(self.db, Document, document_id, "Document not found")
+        document.is_active = True
+        await self.db.commit()
+        return await self._document_response(document_id)
+
+    async def deactivate(self, document_id: UUID) -> DocumentResponse:
+        document = await get_or_404(self.db, Document, document_id, "Document not found")
+        document.is_active = False
+        await self.db.commit()
+        return await self._document_response(document_id)
+
+    async def attach_skill(
+        self, document_id: UUID, skill_id: UUID
+    ) -> DocumentResponse:
+        await get_or_404(self.db, Document, document_id, "Document not found")
+        await get_or_404(self.db, Skill, skill_id, "Skill not found")
+        existing = await self.db.get(DocumentSkill, (document_id, skill_id))
+        if existing is None:
+            self.db.add(DocumentSkill(document_id = document_id, skill_id = skill_id))
+            await self.db.commit()
+        return await self._document_response(document_id)
+
+    async def detach_skill(
+        self, document_id: UUID, skill_id: UUID
+    ) -> DocumentResponse:
+        await get_or_404(self.db, Document, document_id, "Document not found")
+        existing = await self.db.get(DocumentSkill, (document_id, skill_id))
+        if existing is not None:
+            await self.db.delete(existing)
+            await self.db.commit()
+        return await self._document_response(document_id)
+
+    async def reprocess_version(
+        self, document_id: UUID, version_number: int
+    ) -> DocumentVersionResponse:
+        version = await self._get_version_or_404(document_id, version_number)
+        if version.processing_status == "processing":
+            raise HTTPException(
+                status_code = 409,
+                detail = "Version is already being processed",
+            )
+        version.processing_status = "pending"
+        version.processing_error = None
+        await self.db.commit()
+        await self.db.refresh(version)
+        self._enqueue_processing(document_id, version_number)
+        return DocumentVersionResponse.model_validate(version)

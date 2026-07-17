@@ -4,7 +4,10 @@ services:
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
     ports:
       - "8000:8000"
-    env_file: ./backend/.env.example
+    env_file: ./backend/.env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/KinetiLearn
+      REDIS_URL: redis://redis:6379/0
     volumes:
       - ./backend:/app
     depends_on:
@@ -14,7 +17,10 @@ services:
   worker:
     build: ./backend
     command: celery -A worker.tasks:celery_app worker --loglevel=info
-    env_file: ./backend/.env.example
+    env_file: ./backend/.env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/KinetiLearn
+      REDIS_URL: redis://redis:6379/0
     volumes:
       - ./backend:/app
     depends_on:
