@@ -7,6 +7,7 @@ from app.core.dependencies import get_db, require_admin
 from app.modules.auth.models import User
 from app.modules.exams.schemas import (
     ExerciseResponse,
+    FinalizeExerciseRequest,
     GenerateExerciseRequest,
     OptionUpdate,
     QuestionResponse,
@@ -83,3 +84,16 @@ async def update_option(
     db: AsyncSession = Depends(get_db),
 ):
     return await ExamService(db).update_option(question_id, option_id, payload)
+
+
+@router.put(
+    "/{exercise_id}/finalize",
+    response_model = ExerciseResponse,
+    dependencies = [Depends(require_admin)],
+)
+async def finalize_exercise(
+    exercise_id: UUID,
+    payload: FinalizeExerciseRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    return await ExamService(db).finalize(exercise_id, payload)
