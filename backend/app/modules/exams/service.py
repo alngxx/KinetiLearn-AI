@@ -13,6 +13,7 @@ from app.modules.documents.models import Document, DocumentChunk, DocumentVersio
 from app.modules.exams.models import Exercise, Question, QuestionOption
 from app.modules.exams.schemas import (
     ExerciseResponse,
+    FinalizeExerciseRequest,
     OptionUpdate,
     QuestionOptionResponse,
     QuestionResponse,
@@ -214,6 +215,52 @@ class ExamService:
         await self.db.commit()
         question = await self._load_question(question_id)
         return _question_response(question)
+
+    async def finalize(
+        self, exercise_id: UUID, data: FinalizeExerciseRequest
+    ) -> ExerciseResponse:
+        exercise = await self._load_exercise(exercise_id)
+        if exercise is None:
+            raise HTTPException(status_code = 404, detail = "Exercise not found")
+        if exercise.is_active:
+            raise HTTPException(
+                status_code = 409, detail = "Exercise is already finalized"
+            )
+        if not exercise.questions:
+            raise HTTPException(
+                status_code = 400,
+                detail = "Cannot finalize an exercise with no questions",
+            )
+        if data.start_time >= data.end_time:
+            raise HTTPException(
+                status_code = 400, detail = "start_time must be before end_time"
+            )
+        if data.duration_minutes <= 0:
+            raise HTTPException(
+                status_code = 400, detail = "duration_minutes must be greater than 0"
+            )
+        if data.pass_score < 0:
+            raise HTTPException(
+                status_code = 400, detail = "pass_score must be at least 0"
+            )
+
+        # Source of truth is the current questions, not the value stored at
+        # generation time (update_question can change points without syncing it).
+        total_points = sum(q.points for q in exercise.questions)
+        if data.pass_score > total_points:
+            raise HTTPException(
+                status_code = 400, detail = "pass_score cannot exceed total_points"
+            )
+
+        exercise.start_time = data.start_time
+        exercise.end_time = data.end_time
+        exercise.duration_minutes = data.duration_minutes
+        exercise.pass_score = data.pass_score
+        exercise.total_points = total_points
+        exercise.is_active = True
+        await self.db.commit()
+
+        return _to_response(exercise, None, None)
 
 
 def _question_response(question: Question) -> QuestionResponse:

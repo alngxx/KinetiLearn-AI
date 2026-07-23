@@ -1,3 +1,4 @@
+from datetime import datetime
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -57,3 +58,13 @@ class QuestionUpdate(BaseModel):
 class OptionUpdate(BaseModel):
     option_text: str | None = None
     is_correct: bool | None = None
+
+
+# Request for PUT /exams/{exercise_id}/finalize. Sets the real schedule and
+# promotes a draft to a schedulable exercise. Fields are validated in the service
+# so all rejections return a uniform {"detail": "message"}.
+class FinalizeExerciseRequest(BaseModel):
+    start_time: datetime
+    end_time: datetime
+    duration_minutes: int
+    pass_score: int
