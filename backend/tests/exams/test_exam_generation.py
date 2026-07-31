@@ -109,6 +109,39 @@ async def test_generate_happy_path(client, db_session):
     assert all(r.source_version_number == 1 for r in rows)
 
 
+async def test_generate_shuffles_correct_option(client, db_session):
+    import random
+
+    _use_stub_admin()
+    cls = await _seed_class(db_session)
+    doc = await _seed_document(db_session)
+    # Every question's correct_index is 0 — without shuffling every correct
+    # option would be label "A". Seed the RNG so the assertion is deterministic.
+    n = 20
+    random.seed(0)
+    with _mock_generate(_fake_questions(n, correct_index = 0)):
+        resp = await client.post(f"{BASE}/generate", json = {
+            "title": "Q",
+            "class_id": str(cls.id),
+            "document_id": str(doc.id),
+            "num_questions": n,
+            "prompt": "x",
+        })
+    assert resp.status_code == 201
+    body = resp.json()
+
+    correct_labels = []
+    for q in body["questions"]:
+        correct = [o for o in q["options"] if o["is_correct"]]
+        assert len(correct) == 1
+        # Shuffle must preserve WHICH option is correct — its text is unchanged.
+        assert correct[0]["option_text"] == "Option 0"
+        correct_labels.append(correct[0]["option_label"])
+
+    # The correct answer is spread across positions, not pinned to "A".
+    assert len(set(correct_labels)) > 1
+
+
 async def test_generate_no_active_version_rejected(client, db_session):
     _use_stub_admin()
     cls = await _seed_class(db_session)

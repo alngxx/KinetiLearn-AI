@@ -1,3 +1,4 @@
+import random
 from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
@@ -110,11 +111,16 @@ class ExamService:
                 points = QUESTION_POINTS,
                 order_index = order_index,
             )
-            for i, option_text in enumerate(gq.options):
+            # Shuffle the options so the correct answer isn't biased toward the
+            # first position — the model tends to return correct_index = 0.
+            order = list(range(len(gq.options)))
+            random.shuffle(order)
+            correct_pos = order.index(gq.correct_index)
+            for i, src in enumerate(order):
                 question.options.append(QuestionOption(
                     option_label = OPTION_LABELS[i],
-                    option_text = option_text,
-                    is_correct = (i == gq.correct_index),
+                    option_text = gq.options[src],
+                    is_correct = (i == correct_pos),
                 ))
             exercise.questions.append(question)
 
