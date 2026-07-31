@@ -42,14 +42,51 @@ SYSTEM_PROMPT = (
 )
 
 
+# Asking the model for many questions in one call is unreliable: the JSON gets
+# truncated at the output-token limit and the model drifts off exact large counts.
+# Generate in small batches instead and accumulate until we have enough.
+QUIZ_BATCH_SIZE = 10
+
+
 async def generate_quiz(
     context: str, admin_prompt: str, num_questions: int
 ) -> list[GeneratedQuestion]:
-    user_prompt = (
-        f"Generate exactly {num_questions} multiple-choice questions.\n\n"
-        f"Admin instructions: {admin_prompt}\n\n"
-        f"Source material:\n{context}"
-    )
+    collected: list[GeneratedQuestion] = []
+    seen: set[str] = set()
+    # Cap attempts so a misbehaving model can't loop forever; the +4 headroom
+    # absorbs count drift and duplicates across batches.
+    max_attempts = num_questions // QUIZ_BATCH_SIZE + 4
+    for _ in range(max_attempts):
+        if len(collected) >= num_questions:
+            break
+        want = min(QUIZ_BATCH_SIZE, num_questions - len(collected))
+        batch = await _generate_batch(
+            context, admin_prompt, want, [q.question_text for q in collected]
+        )
+        for q in batch:
+            key = q.question_text.strip().lower()
+            if key not in seen:
+                seen.add(key)
+                collected.append(q)
+    return collected[:num_questions]
+
+
+async def _generate_batch(
+    context: str, admin_prompt: str, count: int, avoid: list[str]
+) -> list[GeneratedQuestion]:
+    parts = [
+        f"Generate exactly {count} multiple-choice questions.",
+        f"Admin instructions: {admin_prompt}",
+    ]
+    if avoid:
+        already = "\n".join(f"- {t}" for t in avoid)
+        parts.append(
+            "Do NOT repeat or rephrase any of these already-created questions:\n"
+            f"{already}"
+        )
+    parts.append(f"Source material:\n{context}")
+    user_prompt = "\n\n".join(parts)
+
     completion = await _get_client().chat.completions.parse(
         model = CHAT_MODEL,
         messages = [
