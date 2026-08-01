@@ -1,13 +1,6 @@
-from app.modules.scoring.models import (
-    SkillScore,
-    SkillScoreHistory,
-    Submission,
-    SubmissionAnswer,
-)
+from app.modules.scoring.models import SkillScore, SkillScoreHistory
 
 __all__ = [
-    "Submission",
-    "SubmissionAnswer",
     "SkillScore",
     "SkillScoreHistory",
 ]
