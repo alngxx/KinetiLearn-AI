@@ -53,6 +53,53 @@ def add_chunks(
     return ids
 
 
+def _scope_filter(scope: list[tuple[UUID, int]]) -> dict:
+    clauses = [
+        {
+            "$and": [
+                {"document_id": {"$eq": str(document_id)}},
+                {"version_number": {"$eq": version_number}},
+            ]
+        }
+        for document_id, version_number in scope
+    ]
+    # Chroma rejects an $or holding fewer than two expressions, so a single
+    # eligible document has to pass its $and through on its own.
+    if len(clauses) == 1:
+        return clauses[0]
+    return {"$or": clauses}
+
+
+def search(
+    query_embedding: list[float],
+    scope: list[tuple[UUID, int]],
+    top_k: int,
+) -> list[dict]:
+    if not scope:
+        return []
+
+    result = get_collection().query(
+        query_embeddings = [query_embedding],
+        n_results = top_k,
+        where = _scope_filter(scope),      # type: ignore[arg-type]
+        include = ["distances"],           # type: ignore[list-item]
+    )
+    ids = result["ids"][0]
+    distances = result["distances"][0]     # type: ignore[index]
+
+    # The collection is built with hnsw space "l2", so these are squared L2
+    # distances. The embeddings are unit vectors, which makes the conversion to
+    # cosine exact; clamp because float error can push a self-match past 1.0.
+    hits = []
+    for vid, distance in zip(ids, distances):
+        similarity = 1.0 - distance / 2.0
+        hits.append({
+            "vector_id": vid,
+            "similarity": min(1.0, max(0.0, similarity)),
+        })
+    return hits
+
+
 def delete_version(document_id: UUID, version_number: int) -> None:
     get_collection().delete(
         where = {

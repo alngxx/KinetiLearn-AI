@@ -1,9 +1,15 @@
-from openai import AsyncOpenAI
+from typing import AsyncIterator
+
+from openai import AsyncOpenAI, OpenAIError
 from pydantic import BaseModel
 
 from app.core.config import settings
 
 CHAT_MODEL = "gpt-4o"
+# Same model the worker embeds chunks with — queries must land in the same vector
+# space. Repeated rather than imported from worker.processing, which builds a sync
+# OpenAI client at import time and pulls in the whole PDF/DOCX toolchain.
+EMBED_MODEL = "text-embedding-3-small"
 
 _client: AsyncOpenAI | None = None
 
@@ -99,3 +105,47 @@ async def _generate_batch(
     if message.refusal:
         raise LLMError(message.refusal)
     return message.parsed.questions
+
+
+CHAT_SYSTEM_PROMPT = (
+    "You are a training mentor for employees. Answer using ONLY the source excerpts "
+    "provided in the user's message and what has already been said in this "
+    "conversation. Never use outside knowledge. Cite the sources you actually used "
+    "by their number, like [Source 2]. If the excerpts and the conversation do not "
+    "contain the answer, say plainly that it is not covered in the training "
+    "materials — do not guess."
+)
+
+
+async def embed_query(text: str) -> list[float]:
+    try:
+        response = await _get_client().embeddings.create(
+            model = EMBED_MODEL, input = text
+        )
+    except OpenAIError as e:
+        raise LLMError(str(e))
+    return response.data[0].embedding
+
+
+# `usage` is filled in with the token totals once the final chunk arrives, since an
+# async generator has no other way to hand the caller a value alongside the stream.
+async def stream_chat(messages: list[dict], usage: dict) -> AsyncIterator[str]:
+    try:
+        stream = await _get_client().chat.completions.create(   # type: ignore[call-overload]
+            model = CHAT_MODEL,
+            messages = messages,
+            stream = True,
+            stream_options = {"include_usage": True},
+        )
+        async for chunk in stream:
+            if chunk.usage is not None:
+                usage["total_tokens"] = chunk.usage.total_tokens
+            # Not every chunk carries a choice — the usage chunk arrives with an
+            # empty list, which would blow up on [0].
+            if not chunk.choices:
+                continue
+            delta = chunk.choices[0].delta.content
+            if delta:
+                yield delta
+    except OpenAIError as e:
+        raise LLMError(str(e))
