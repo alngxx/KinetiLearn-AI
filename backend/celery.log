@@ -1,0 +1,23 @@
+ 
+ -------------- celery@An-Locs-Mac-Air-M3.local v5.6.3 (recovery)
+--- ***** ----- 
+-- ******* ---- macOS-26.5.2-arm64-arm-64bit 2026-08-04 22:42:11
+- *** --- * --- 
+- ** ---------- [config]
+- ** ---------- .> app:         worker:0x10e4ecb60
+- ** ---------- .> transport:   redis://localhost:6379/0
+- ** ---------- .> results:     redis://localhost:6379/0
+- *** --- * --- .> concurrency: 8 (prefork)
+-- ******* ---- .> task events: OFF (enable -E to monitor tasks in this worker)
+--- ***** ----- 
+ -------------- [queues]
+                .> celery           exchange=celery(direct) key=celery
+                
+
+[tasks]
+  . worker.tasks.process_document
+
+[2026-08-04 22:42:11,634: INFO/MainProcess] Connected to redis://localhost:6379/0
+[2026-08-04 22:42:11,638: INFO/MainProcess] mingle: searching for neighbors
+[2026-08-04 22:42:12,653: INFO/MainProcess] mingle: all alone
+[2026-08-04 22:42:12,697: INFO/MainProcess] celery@An-Locs-Mac-Air-M3.local ready.

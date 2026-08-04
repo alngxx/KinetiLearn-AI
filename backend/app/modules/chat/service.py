@@ -138,10 +138,10 @@ class ChatService:
     async def answer(self, user_id: UUID, data: MessageCreate) -> AsyncIterator[str]:
         # Everything that can raise runs here, before the response starts, so these
         # still reach the client as normal JSON errors rather than mid-stream events.
-        session = await self._load_session(data.session_id, user_id)
-        history = await self._history(session.id)
+        session = await self._load_session(data.session_id, user_id)    # check auth, can throw 404
+        history = await self._history(session.id)                       # take the last 6 messages
         try:
-            retrieved = await self._retrieve(data.content)
+            retrieved = await self._retrieve(data.content)              # enbed + search Chroma + take the chunks
         except LLMError:
             raise HTTPException(status_code = 502, detail = "Failed to search the documents")
 
