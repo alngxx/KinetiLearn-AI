@@ -88,8 +88,10 @@ def search(
     distances = result["distances"][0]     # type: ignore[index]
 
     # The collection is built with hnsw space "l2", so these are squared L2
-    # distances. The embeddings are unit vectors, which makes the conversion to
-    # cosine exact; clamp because float error can push a self-match past 1.0.
+    # distances; the embeddings are unit vectors, so cos = 1 - d/2. Clamp to the
+    # 0.0-1.0 range relevance_score documents: cosine can legitimately go
+    # negative, while the upper bound is insurance only — a sum of squares can't
+    # be negative, so it never fires today.
     hits = []
     for vid, distance in zip(ids, distances):
         similarity = 1.0 - distance / 2.0
