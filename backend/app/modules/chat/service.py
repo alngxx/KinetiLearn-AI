@@ -6,22 +6,42 @@ from typing import AsyncIterator
 from uuid import UUID
 
 from fastapi import HTTPException
-from sqlalchemy import select
+from sqlalchemy import select, tuple_
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.core import vectorstore
-from app.core.llm import CHAT_MODEL, CHAT_SYSTEM_PROMPT, LLMError, embed_query, stream_chat
+from app.core.llm import (
+    CHAT_MODEL,
+    CHAT_SYSTEM_PROMPT,
+    EXPLAIN_SYSTEM_PROMPT,
+    LLMError,
+    embed_query,
+    stream_chat,
+)
 from app.modules.chat.models import ChatMessage, ChatMessageCitation, ChatSession
-from app.modules.chat.schemas import ChatSessionResponse, CitationResponse, MessageCreate
+from app.modules.chat.schemas import (
+    ChatSessionResponse,
+    CitationResponse,
+    ExplainRequest,
+    MessageCreate,
+)
 from app.modules.documents.models import Document, DocumentChunk, DocumentVersion
+from app.modules.exams.models import Exercise, Question, QuestionOption
+from app.modules.submissions.models import Submission
 
 TOP_K = 5
-HISTORY_LIMIT = 6
+HISTORY_LIMIT = 10
 # Cosine similarity below this counts as "the corpus has nothing on this". Deliberately
 # permissive: a short question against a 500-token chunk scores around 0.2-0.5 even
 # when it matches well, so a stricter cutoff would reject real questions.
 MIN_SIMILARITY = 0.25
 TITLE_MAX_LENGTH = 60
+# Explaining wrong answers retrieves per question, so the caps are tighter than
+# TOP_K: 10 questions x 3 chunks would otherwise blow past the context budget.
+MAX_EXPLAIN_QUESTIONS = 10
+EXPLAIN_TOP_K = 3
+MAX_EXPLAIN_SOURCES = 8
 NO_MATCH_ANSWER = (
     "I couldn't find anything about that in the training materials. "
     "Try rephrasing, or ask about a topic covered by the uploaded documents."
@@ -36,8 +56,15 @@ class ChatService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def create_session(self, user_id: UUID) -> ChatSessionResponse:
-        session = ChatSession(user_id = user_id)
+    async def create_session(
+        self, user_id: UUID, document_id: UUID | None = None
+    ) -> ChatSessionResponse:
+        # A document the learner cannot see is rejected the same way as one that
+        # doesn't exist, so the id can't be used to probe the corpus.
+        if document_id is not None and not await self._active_scope(document_id):
+            raise HTTPException(status_code = 404, detail = "Document not found.")
+
+        session = ChatSession(user_id = user_id, document_id = document_id)
         self.db.add(session)
         await self.db.commit()
         await self.db.refresh(session)
@@ -58,9 +85,13 @@ class ChatService:
         return session
 
     # The (document, version) pairs a learner is allowed to see: a live document,
-    # its promoted version, and only if that version finished processing.
-    async def _active_scope(self) -> list[tuple[UUID, int]]:
-        result = await self.db.execute(
+    # its promoted version, and only if that version finished processing. Passing
+    # document_id narrows the result to that one document, or to nothing when it
+    # isn't visible.
+    async def _active_scope(
+        self, document_id: UUID | None = None
+    ) -> list[tuple[UUID, int]]:
+        stmt = (
             select(Document.id, Document.active_version_number)
             .join(
                 DocumentVersion,
@@ -73,17 +104,24 @@ class ChatService:
                 DocumentVersion.processing_status == "ready",
             )
         )
+        if document_id is not None:
+            stmt = stmt.where(Document.id == document_id)
+        result = await self.db.execute(stmt)
         return [(row[0], row[1]) for row in result.all()]
 
-    async def _retrieve(self, query: str) -> list[tuple[DocumentChunk, str, float]]:
-        scope = await self._active_scope()
+    async def _retrieve(
+        self,
+        query: str,
+        scope: list[tuple[UUID, int]],
+        top_k: int = TOP_K,
+    ) -> list[tuple[DocumentChunk, str, float]]:
         if not scope:
             return []
 
         embedding = await embed_query(query)
         # Chroma's client is synchronous and the HNSW search is CPU-bound, so run it
         # off the event loop.
-        hits = await asyncio.to_thread(vectorstore.search, embedding, scope, TOP_K)
+        hits = await asyncio.to_thread(vectorstore.search, embedding, scope, top_k)
         if not hits:
             return []
 
@@ -119,6 +157,7 @@ class ChatService:
         question: str,
         retrieved: list[tuple[DocumentChunk, str, float]],
         history: list[dict],
+        system_prompt: str = CHAT_SYSTEM_PROMPT,
     ) -> list[dict]:
         if retrieved:
             sources = "\n\n".join(
@@ -130,7 +169,7 @@ class ChatService:
             user_content = question
 
         return [
-            {"role": "system", "content": CHAT_SYSTEM_PROMPT},
+            {"role": "system", "content": system_prompt},
             *history,
             {"role": "user", "content": user_content},
         ]
@@ -139,9 +178,11 @@ class ChatService:
         # Everything that can raise runs here, before the response starts, so these
         # still reach the client as normal JSON errors rather than mid-stream events.
         session = await self._load_session(data.session_id, user_id)    # check auth, can throw 404
-        history = await self._history(session.id)                       # take the last 6 messages
+        history = await self._history(session.id)                       # take the last 10 messages
+        # A session tied to a document only ever searches that document.
+        scope = await self._active_scope(session.document_id)
         try:
-            retrieved = await self._retrieve(data.content)              # enbed + search Chroma + take the chunks
+            retrieved = await self._retrieve(data.content, scope)       # enbed + search Chroma + take the chunks
         except LLMError:
             raise HTTPException(status_code = 502, detail = "Failed to search the documents")
 
@@ -155,6 +196,119 @@ class ChatService:
             retrieved = []
 
         return self._llm_stream(session, data.content, retrieved, history)
+
+    # Same discipline as answer(): everything that can raise runs before the
+    # generator is returned, so failures come back as normal JSON.
+    async def explain_submission(
+        self, user_id: UUID, data: ExplainRequest
+    ) -> AsyncIterator[str]:
+        submission, exercise = await self._load_own_submission(
+            data.submission_id, user_id
+        )
+        # is_correct is NULL for a skipped question, so "not true" rather than
+        # "false" — the learner lost the points either way.
+        wrong_ids = [a.question_id for a in submission.answers if a.is_correct is not True]
+        if not wrong_ids:
+            raise HTTPException(
+                status_code = 400, detail = "This submission has no incorrect answers."
+            )
+
+        result = await self.db.execute(
+            select(Question)
+            .where(Question.id.in_(wrong_ids))
+            .order_by(Question.order_index)
+            .options(selectinload(Question.options))
+        )
+        all_wrong = list(result.scalars().all())
+        questions = all_wrong[:MAX_EXPLAIN_QUESTIONS]
+
+        scope = await self._provenance_scope(questions)
+        try:
+            retrieved = await self._retrieve_for_questions(questions, scope)
+        except LLMError:
+            raise HTTPException(status_code = 502, detail = "Failed to search the documents")
+
+        selected = {a.question_id: a.selected_option_id for a in submission.answers}
+        content = _build_explain_request(exercise, questions, selected, len(all_wrong))
+
+        # Scoping the new session to the source document keeps follow-up questions
+        # on the same material. Only unambiguous when every question shares one.
+        source_ids = {q.source_document_id for q in questions}
+        document_id = source_ids.pop() if len(source_ids) == 1 else None
+        if document_id is not None and not await self._active_scope(document_id):
+            document_id = None
+
+        session = ChatSession(user_id = user_id, document_id = document_id)
+        self.db.add(session)
+        # Flush, not commit: _persist_turn commits the session together with the
+        # turn, so an LLM failure rolls back the empty session too.
+        await self.db.flush()
+
+        return self._llm_stream(session, content, retrieved, [], EXPLAIN_SYSTEM_PROMPT)
+
+    # Filtering on user_id inside the query means another learner's submission is
+    # indistinguishable from one that doesn't exist.
+    async def _load_own_submission(
+        self, submission_id: UUID, user_id: UUID
+    ) -> tuple[Submission, Exercise]:
+        result = await self.db.execute(
+            select(Submission, Exercise)
+            .join(Exercise, Exercise.id == Submission.exercise_id)
+            .where(
+                Submission.id == submission_id,
+                Submission.user_id == user_id,
+            )
+            .options(selectinload(Submission.answers))
+        )
+        row = result.first()
+        if row is None:
+            raise HTTPException(status_code = 404, detail = "Submission not found.")
+        return row[0], row[1]
+
+    # The (document, version) pairs the wrong questions were generated from — not
+    # the active scope. The question was authored from that exact version, so
+    # explaining it from a newer one could contradict what was graded. Provenance
+    # is nullable (ON DELETE SET NULL), and a soft-deleted or unprocessed version
+    # is still excluded.
+    async def _provenance_scope(
+        self, questions: list[Question]
+    ) -> list[tuple[UUID, int]]:
+        pairs = {
+            (q.source_document_id, q.source_version_number)
+            for q in questions
+            if q.source_document_id is not None and q.source_version_number is not None
+        }
+        if not pairs:
+            return []
+
+        result = await self.db.execute(
+            select(DocumentVersion.document_id, DocumentVersion.version_number)
+            .join(Document, Document.id == DocumentVersion.document_id)
+            .where(
+                Document.is_active.is_(True),
+                DocumentVersion.processing_status == "ready",
+                tuple_(
+                    DocumentVersion.document_id, DocumentVersion.version_number
+                ).in_(pairs),
+            )
+        )
+        return [(row[0], row[1]) for row in result.all()]
+
+    # One search per question, since a single embedding of ten stitched-together
+    # questions matches nothing well. Duplicates keep their best similarity.
+    async def _retrieve_for_questions(
+        self, questions: list[Question], scope: list[tuple[UUID, int]]
+    ) -> list[tuple[DocumentChunk, str, float]]:
+        merged: dict[UUID, tuple[DocumentChunk, str, float]] = {}
+        for question in questions:
+            hits = await self._retrieve(question.question_text, scope, EXPLAIN_TOP_K)
+            for chunk, title, similarity in hits:
+                found = merged.get(chunk.id)
+                if found is None or similarity > found[2]:
+                    merged[chunk.id] = (chunk, title, similarity)
+
+        ranked = sorted(merged.values(), key = lambda r: r[2], reverse = True)
+        return ranked[:MAX_EXPLAIN_SOURCES]
 
     async def _canned_stream(
         self, session: ChatSession, question: str
@@ -176,8 +330,9 @@ class ChatService:
         question: str,
         retrieved: list[tuple[DocumentChunk, str, float]],
         history: list[dict],
+        system_prompt: str = CHAT_SYSTEM_PROMPT,
     ) -> AsyncIterator[str]:
-        messages = self._build_prompt(question, retrieved, history)
+        messages = self._build_prompt(question, retrieved, history, system_prompt)
         usage: dict = {}
         parts = []
         started = time.monotonic()
@@ -269,3 +424,49 @@ class ChatService:
 
         await self.db.commit()
         return assistant
+
+
+def _option_line(option: QuestionOption) -> str:
+    return f"{option.option_label}. {option.option_text}"
+
+
+# The learner's side of the turn. It is persisted as the user message, so a
+# follow-up question in the same session still has the full breakdown in history.
+def _build_explain_request(
+    exercise: Exercise,
+    questions: list[Question],
+    selected: dict,
+    wrong_total: int,
+) -> str:
+    parts = [
+        f'I just took the exam "{exercise.title}" and got these questions wrong. '
+        "Explain each one."
+    ]
+
+    for i, question in enumerate(questions, start = 1):
+        options = sorted(question.options, key = lambda o: o.option_label)
+        chosen = next(
+            (o for o in options if o.id == selected.get(question.id)), None
+        )
+        correct = next((o for o in options if o.is_correct), None)
+
+        lines = [
+            f"Question {i}: {question.question_text}",
+            "Options:",
+            *[_option_line(o) for o in options],
+            f"My answer: {_option_line(chosen) if chosen else '(not answered)'}",
+        ]
+        if correct is not None:
+            lines.append(f"Correct answer: {_option_line(correct)}")
+        if question.explanation:
+            lines.append(f"Author's note: {question.explanation}")
+        parts.append("\n".join(lines))
+
+    # Truncation is never silent: the caveat is in the prompt the model sees and
+    # in the message the learner's transcript keeps.
+    if wrong_total > len(questions):
+        parts.append(
+            f"(I got {wrong_total} questions wrong; only the first {len(questions)} "
+            "are listed here.)"
+        )
+    return "\n\n".join(parts)

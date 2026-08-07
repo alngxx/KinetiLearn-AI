@@ -117,6 +117,22 @@ CHAT_SYSTEM_PROMPT = (
 )
 
 
+# The user message on this path is a generated breakdown of the questions the
+# learner got wrong, so the question data is grounding in its own right — unlike
+# CHAT_SYSTEM_PROMPT, the model may lean on it when no excerpt covers a question.
+EXPLAIN_SYSTEM_PROMPT = (
+    "You are a training mentor for employees. The user has just finished an exam "
+    "and got the listed questions wrong. Write one short paragraph per question "
+    "explaining why their answer was wrong and why the correct answer is right. "
+    "Use ONLY the source excerpts and the question details in the user's message — "
+    "never outside knowledge. Cite the excerpts you actually used by their number, "
+    "like [Source 2]. If no excerpt covers a question, explain it from the options "
+    "and the author's note and say the training materials do not cover it further. "
+    "If the message says only some of the wrong questions are covered, repeat that "
+    "at the end."
+)
+
+
 async def embed_query(text: str) -> list[float]:
     try:
         response = await _get_client().embeddings.create(

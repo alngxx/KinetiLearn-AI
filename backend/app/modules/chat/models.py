@@ -29,6 +29,12 @@ class ChatSession(Base):
         ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
     )
+    # Set when the chat is tied to one document; NULL means the whole corpus.
+    document_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("documents.id", ondelete="SET NULL"),
+        nullable=True,
+    )
     title = Column(String(255), nullable=True)
     is_active = Column(Boolean, nullable=False, server_default=text("TRUE"))
     created_at = Column(
@@ -52,6 +58,7 @@ class ChatSession(Base):
     __table_args__ = (
         Index("ix_chat_sessions_user_id", "user_id"),
         Index("ix_chat_sessions_updated_at", "updated_at"),
+        Index("ix_chat_sessions_document_id", "document_id"),
     )
 
 

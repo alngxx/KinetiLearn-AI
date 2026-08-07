@@ -21,3 +21,69 @@
 [2026-08-04 22:42:11,638: INFO/MainProcess] mingle: searching for neighbors
 [2026-08-04 22:42:12,653: INFO/MainProcess] mingle: all alone
 [2026-08-04 22:42:12,697: INFO/MainProcess] celery@An-Locs-Mac-Air-M3.local ready.
+
+SIGHUP not supported: Restarting with SIGHUP is unstable on this platform!
+[2026-08-05 23:39:14,660: ERROR/MainProcess] Process 'ForkPoolWorker-8' pid:46160 exited with 'exitcode 70'
+[2026-08-05 23:39:14,675: ERROR/MainProcess] Process 'ForkPoolWorker-7' pid:46159 exited with 'exitcode 70'
+[2026-08-05 23:39:14,686: ERROR/MainProcess] Process 'ForkPoolWorker-6' pid:46158 exited with 'exitcode 70'
+[2026-08-05 23:39:14,698: ERROR/MainProcess] Process 'ForkPoolWorker-5' pid:46157 exited with 'exitcode 70'
+[2026-08-05 23:39:14,709: ERROR/MainProcess] Process 'ForkPoolWorker-4' pid:46156 exited with 'exitcode 70'
+[2026-08-05 23:39:14,720: ERROR/MainProcess] Process 'ForkPoolWorker-3' pid:46155 exited with 'exitcode 70'
+[2026-08-05 23:39:14,730: ERROR/MainProcess] Process 'ForkPoolWorker-2' pid:46154 exited with 'exitcode 70'
+[2026-08-05 23:39:14,741: ERROR/MainProcess] Process 'ForkPoolWorker-1' pid:46153 exited with 'exitcode 70'
+[2026-08-05 23:39:21,587: WARNING/MainProcess] consumer: Connection to broker lost. Trying to re-establish the connection...
+Traceback (most recent call last):
+  File "/Users/nguyenanloc/Downloads/KinetiLearn/.venv/lib/python3.12/site-packages/celery/worker/consumer/consumer.py", line 346, in start
+    blueprint.start(self)
+  File "/Users/nguyenanloc/Downloads/KinetiLearn/.venv/lib/python3.12/site-packages/celery/bootsteps.py", line 116, in start
+    step.start(parent)
+  File "/Users/nguyenanloc/Downloads/KinetiLearn/.venv/lib/python3.12/site-packages/celery/worker/consumer/consumer.py", line 788, in start
+    c.loop(*c.loop_args())
+  File "/Users/nguyenanloc/Downloads/KinetiLearn/.venv/lib/python3.12/site-packages/celery/worker/loops.py", line 97, in asynloop
+    next(loop)
+  File "/Users/nguyenanloc/Downloads/KinetiLearn/.venv/lib/python3.12/site-packages/kombu/asynchronous/hub.py", line 377, in create_loop
+    cb(*cbargs)
+  File "/Users/nguyenanloc/Downloads/KinetiLearn/.venv/lib/python3.12/site-packages/kombu/transport/redis.py", line 1394, in on_readable
+    self.cycle.on_readable(fileno)
+  File "/Users/nguyenanloc/Downloads/KinetiLearn/.venv/lib/python3.12/site-packages/kombu/transport/redis.py", line 579, in on_readable
+    chan.handlers[type]()
+  File "/Users/nguyenanloc/Downloads/KinetiLearn/.venv/lib/python3.12/site-packages/kombu/transport/redis.py", line 982, in _brpop_read
+    dest__item = self.client.parse_response(self.client.connection,
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/nguyenanloc/Downloads/KinetiLearn/.venv/lib/python3.12/site-packages/redis/client.py", line 780, in parse_response
+    response = connection.read_response()
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/nguyenanloc/Downloads/KinetiLearn/.venv/lib/python3.12/site-packages/redis/connection.py", line 1342, in read_response
+    response = self._parser.read_response(disable_decoding=disable_decoding)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/nguyenanloc/Downloads/KinetiLearn/.venv/lib/python3.12/site-packages/redis/_parsers/resp2.py", line 15, in read_response
+    result = self._read_response(disable_decoding=disable_decoding)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/nguyenanloc/Downloads/KinetiLearn/.venv/lib/python3.12/site-packages/redis/_parsers/resp2.py", line 25, in _read_response
+    raw = self._buffer.readline()
+          ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/nguyenanloc/Downloads/KinetiLearn/.venv/lib/python3.12/site-packages/redis/_parsers/socket.py", line 115, in readline
+    self._read_from_socket()
+  File "/Users/nguyenanloc/Downloads/KinetiLearn/.venv/lib/python3.12/site-packages/redis/_parsers/socket.py", line 68, in _read_from_socket
+    raise ConnectionError(SERVER_CLOSED_CONNECTION_ERROR)
+redis.exceptions.ConnectionError: Connection closed by server.
+[2026-08-05 23:39:21,681: WARNING/MainProcess] /Users/nguyenanloc/Downloads/KinetiLearn/.venv/lib/python3.12/site-packages/celery/worker/consumer/consumer.py:397: CPendingDeprecationWarning: 
+In Celery 5.1 we introduced an optional breaking change which
+on connection loss cancels all currently executed tasks with late acknowledgement enabled.
+These tasks cannot be acknowledged as the connection is gone, and the tasks are automatically redelivered
+back to the queue. You can enable this behavior using the worker_cancel_long_running_tasks_on_connection_loss
+setting. In Celery 5.1 it is set to False by default. The setting will be set to True by default in Celery 6.0.
+
+  warnings.warn(CANCEL_TASKS_BY_DEFAULT, CPendingDeprecationWarning)
+
+[2026-08-05 23:39:21,684: ERROR/MainProcess] consumer: Cannot connect to redis://localhost:6379/0: Error 61 connecting to localhost:6379. Connection refused..
+Trying again in 2.00 seconds... (1/100)
+
+[2026-08-05 23:39:23,714: ERROR/MainProcess] consumer: Cannot connect to redis://localhost:6379/0: Error 61 connecting to localhost:6379. Connection refused..
+Trying again in 4.00 seconds... (2/100)
+
+[2026-08-05 23:39:31,617: ERROR/MainProcess] consumer: Cannot connect to redis://localhost:6379/0: Error 61 connecting to localhost:6379. Connection refused..
+Trying again in 6.00 seconds... (3/100)
+
+
+worker: Warm shutdown (MainProcess)
