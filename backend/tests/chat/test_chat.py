@@ -49,8 +49,8 @@ async def _seed_user(db):
     return user
 
 
-async def _seed_session(db, user):
-    session = ChatSession(user_id = user.id)
+async def _seed_session(db, user, document_id = None):
+    session = ChatSession(user_id = user.id, document_id = document_id)
     db.add(session)
     await db.flush()
     return session
@@ -287,6 +287,80 @@ async def test_scope_excludes_not_ready_and_soft_deleted(auth_client, db_session
     assert scope == [(good.id, 1)]
 
 
+async def test_scoped_session_searches_only_its_document(auth_client, db_session):
+    user = await _seed_user(db_session)
+    scoped = await _seed_document(db_session)
+    await _seed_document(db_session)
+    session = await _seed_session(db_session, user, document_id = scoped.id)
+    await db_session.commit()
+
+    search = MagicMock(return_value = [{"vector_id": f"{scoped.id}:1:0", "similarity": 0.8}])
+    with _mock_embed(), patch("app.core.vectorstore.search", search), patch(
+        "app.modules.chat.service.stream_chat", _fake_stream(["answer"])
+    ):
+        await _ask(auth_client, user, session, "q")
+
+    assert search.call_args.args[1] == [(scoped.id, 1)]
+
+
+async def test_unscoped_session_still_searches_whole_corpus(auth_client, db_session):
+    user = await _seed_user(db_session)
+    first = await _seed_document(db_session)
+    second = await _seed_document(db_session)
+    session = await _seed_session(db_session, user)
+    await db_session.commit()
+
+    search = MagicMock(return_value = [{"vector_id": f"{first.id}:1:0", "similarity": 0.8}])
+    with _mock_embed(), patch("app.core.vectorstore.search", search), patch(
+        "app.modules.chat.service.stream_chat", _fake_stream(["answer"])
+    ):
+        await _ask(auth_client, user, session, "q")
+
+    assert set(search.call_args.args[1]) == {(first.id, 1), (second.id, 1)}
+
+
+async def test_create_session_with_document(auth_client, db_session):
+    user = await _seed_user(db_session)
+    doc = await _seed_document(db_session)
+    await db_session.commit()
+
+    resp = await auth_client.post(
+        f"{BASE}/sessions",
+        json = {"document_id": str(doc.id)},
+        headers = _auth(user),
+    )
+    assert resp.status_code == 201
+    assert resp.json()["document_id"] == str(doc.id)
+
+    # No body at all still opens an unscoped session.
+    unscoped = await auth_client.post(f"{BASE}/sessions", headers = _auth(user))
+    assert unscoped.status_code == 201
+    assert unscoped.json()["document_id"] is None
+
+
+async def test_create_session_with_invisible_document_404(auth_client, db_session):
+    user = await _seed_user(db_session)
+    hidden = await _seed_document(db_session, is_active = False)
+    await db_session.commit()
+
+    missing = await auth_client.post(
+        f"{BASE}/sessions",
+        json = {"document_id": str(uuid.uuid4())},
+        headers = _auth(user),
+    )
+    assert missing.status_code == 404
+    assert missing.json() == {"detail": "Document not found."}
+
+    # A soft-deleted document is indistinguishable from one that never existed.
+    soft_deleted = await auth_client.post(
+        f"{BASE}/sessions",
+        json = {"document_id": str(hidden.id)},
+        headers = _auth(user),
+    )
+    assert soft_deleted.status_code == 404
+    assert soft_deleted.json() == missing.json()
+
+
 async def test_no_match_below_threshold_no_history(auth_client, db_session):
     user = await _seed_user(db_session)
     session = await _seed_session(db_session, user)
@@ -437,12 +511,12 @@ async def test_history_window_capped(auth_client, db_session):
         await _ask(auth_client, user, session, "new question")
 
     messages = fake.calls[0]
-    # system + 6 history + the new question
-    assert len(messages) == 8
+    # system + 10 history + the new question
+    assert len(messages) == 12
     assert messages[0]["role"] == "system"
-    assert messages[1]["content"] == "old message 14"
-    assert messages[6]["content"] == "old message 19"
-    assert "new question" in messages[7]["content"]
+    assert messages[1]["content"] == "old message 10"
+    assert messages[10]["content"] == "old message 19"
+    assert "new question" in messages[11]["content"]
 
 
 async def test_empty_content_rejected(auth_client, db_session):
