@@ -27,6 +27,19 @@ services:
       - postgres
       - redis
 
+  beat:
+    build: ./backend
+    command: celery -A worker.tasks:celery_app beat --loglevel=info
+    env_file: ./backend/.env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/KinetiLearn
+      REDIS_URL: redis://redis:6379/0
+    volumes:
+      - ./backend:/app
+    depends_on:
+      - postgres
+      - redis
+
   postgres:
     image: postgres:15-alpine
     ports:
