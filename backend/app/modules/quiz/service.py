@@ -1,21 +1,32 @@
-from datetime import date
+import asyncio
+import random
+from dataclasses import dataclass
+from datetime import date, datetime, timedelta
 from typing import cast
 from uuid import UUID
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from fastapi import HTTPException
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session
 
 from app.core.crud import get_or_404
+from app.core.llm import generate_quiz
+from app.modules.auth.models import User
 from app.modules.config.models import (
     Department,
     EmployeeLevel,
     JobPosition,
     SeniorityLevel,
 )
-from app.modules.documents.models import Document, DocumentVersion
-from app.modules.quiz.models import DailyQuizConfig
+from app.modules.documents.models import Document, DocumentChunk, DocumentVersion
+from app.modules.quiz.models import (
+    DailyQuiz,
+    DailyQuizConfig,
+    DailyQuizQuestion,
+    DailyQuizQuestionOption,
+)
 from app.modules.quiz.schemas import (
     DailyQuizConfigCreate,
     DailyQuizConfigResponse,
@@ -148,3 +159,188 @@ class DailyQuizConfigService:
         await self.db.commit()
         await self.db.refresh(row)
         return DailyQuizConfigResponse.model_validate(row)
+
+
+# ---------------------------------------------------------------------------
+# Daily quiz generation (Task 29).
+#
+# Everything below runs in the Celery worker on a SYNC session, unlike the async
+# service above. Kept in this module so all daily-quiz logic lives together, but
+# the two halves share no state and must not call each other.
+# ---------------------------------------------------------------------------
+
+MAX_CONTEXT_CHUNKS = 120
+OPTION_LABELS = "ABCDEFGHIJ"
+QUESTION_POINTS = 1
+
+_loop = None
+
+
+def _run_async(coro):
+    # One event loop for the life of the worker process. asyncio.run() would close
+    # the loop after each call, which strands the cached AsyncOpenAI client's
+    # connection pool on a dead loop and breaks every config after the first.
+    # Created lazily so it belongs to the forked child, not the parent process.
+    global _loop
+    if _loop is None:
+        _loop = asyncio.new_event_loop()
+    return _loop.run_until_complete(coro)
+
+
+@dataclass
+class DueConfig:
+    config: DailyQuizConfig
+    quiz_date: date
+    push_instant: datetime
+
+
+def find_due_configs(session: Session, now_utc: datetime) -> list[DueConfig]:
+    """Active configs whose push_time has passed today and have no quiz yet.
+
+    now_utc is a parameter rather than read from the clock so tests can pick any
+    instant. The rule is "past push_time and not generated" instead of a narrow
+    time window, so a worker outage delays a quiz instead of losing it.
+    """
+    configs = session.execute(
+        select(DailyQuizConfig).where(DailyQuizConfig.is_active.is_(True))
+    ).scalars().all()
+
+    due = []
+    for config in configs:
+        tz = ZoneInfo(config.timezone)
+        local_now = now_utc.astimezone(tz)
+        quiz_date = local_now.date()
+
+        if quiz_date < config.start_date:
+            continue
+        if config.end_date is not None and quiz_date > config.end_date:
+            continue
+        if local_now.time() < config.push_time:
+            continue
+
+        exists = session.execute(
+            select(DailyQuiz.id).where(
+                DailyQuiz.config_id == config.id,
+                DailyQuiz.quiz_date == quiz_date,
+            )
+        ).scalar_one_or_none()
+        if exists is not None:
+            continue
+
+        push_instant = datetime.combine(quiz_date, config.push_time, tzinfo = tz)
+        due.append(DueConfig(config, quiz_date, push_instant))
+    return due
+
+
+def count_matching_learners(session: Session, config: DailyQuizConfig) -> int:
+    # Same AND-filter shape as the class bulk-add: every set target must match.
+    # A config with no targets at all is company-wide.
+    filters = []
+    if config.target_department_id is not None:
+        filters.append(User.department_id == config.target_department_id)
+    if config.target_seniority_id is not None:
+        filters.append(User.seniority_id == config.target_seniority_id)
+    if config.target_job_position_id is not None:
+        filters.append(User.job_position_id == config.target_job_position_id)
+    if config.target_employee_level_id is not None:
+        filters.append(User.employee_level_id == config.target_employee_level_id)
+
+    return session.scalar(
+        select(func.count())
+        .select_from(User)
+        .where(
+            User.role == "learner",
+            User.is_active.is_(True),
+            *filters,
+        )
+    ) or 0
+
+
+def _build_context(session: Session, config: DailyQuizConfig) -> tuple[str, int]:
+    document = session.get(Document, config.source_document_id)
+    if document is None or not document.is_active:
+        raise ValueError("Source document is unavailable")
+    if document.active_version_number is None:
+        raise ValueError("Source document has no active version")
+
+    version = session.get(
+        DocumentVersion, (config.source_document_id, document.active_version_number)
+    )
+    if version is None or version.processing_status != "ready":
+        raise ValueError("Source document active version is not ready")
+
+    chunks = session.execute(
+        select(DocumentChunk)
+        .where(
+            DocumentChunk.document_id == config.source_document_id,
+            DocumentChunk.version_number == document.active_version_number,
+        )
+        .order_by(DocumentChunk.chunk_index)
+        .limit(MAX_CONTEXT_CHUNKS)
+    ).scalars().all()
+    if not chunks:
+        raise ValueError("Source document active version has no content")
+
+    return "\n\n".join(c.content for c in chunks), document.active_version_number
+
+
+def _validate_batch(generated, question_count: int) -> None:
+    # Same checks the exam generator makes, but raised as ValueError — there is no
+    # HTTP context in the worker to turn an HTTPException into a response.
+    if len(generated) != question_count:
+        raise ValueError("Generator returned the wrong number of questions")
+    for gq in generated:
+        if len(gq.options) < 2 or len(gq.options) > len(OPTION_LABELS):
+            raise ValueError("Generator returned an unusable number of options")
+        if not 0 <= gq.correct_index < len(gq.options):
+            raise ValueError("Generator returned an out-of-range correct_index")
+
+
+def generate_daily_quiz(session: Session, due: DueConfig) -> DailyQuiz:
+    """Generate and persist one shared quiz for a config's quiz_date.
+
+    daily_quizzes has no user_id and is unique on (config_id, quiz_date), so this
+    is one quiz for the whole matched audience, not one per learner.
+    """
+    config = due.config
+    context, version_number = _build_context(session, config)
+
+    generated = _run_async(
+        generate_quiz(context, config.prompt, config.question_count)
+    )
+    _validate_batch(generated, config.question_count)
+
+    # expires_at counts from the scheduled push instant, not from now, so a late
+    # catch-up run doesn't quietly extend the submission window.
+    quiz = DailyQuiz(
+        config_id = config.id,
+        quiz_date = due.quiz_date,
+        expires_at = due.push_instant + timedelta(hours = config.expiry_hours),
+    )
+    for order_index, gq in enumerate(generated):
+        question = DailyQuizQuestion(
+            source_document_id = config.source_document_id,
+            source_version_number = version_number,
+            question_text = gq.question_text,
+            explanation = gq.explanation,
+            points = QUESTION_POINTS,
+            order_index = order_index,
+        )
+        # Shuffle the options so the correct answer isn't biased toward the
+        # first position — the model tends to return correct_index = 0.
+        order = list(range(len(gq.options)))
+        random.shuffle(order)
+        correct_pos = order.index(gq.correct_index)
+        for i, src in enumerate(order):
+            question.options.append(DailyQuizQuestionOption(
+                option_label = OPTION_LABELS[i],
+                option_text = gq.options[src],
+                is_correct = (i == correct_pos),
+            ))
+        quiz.questions.append(question)
+
+    # One commit for the whole graph — a quiz row with no questions would look
+    # like a real quiz to every reader downstream.
+    session.add(quiz)
+    session.commit()
+    return quiz
