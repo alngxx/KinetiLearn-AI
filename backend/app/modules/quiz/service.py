@@ -1,15 +1,16 @@
 import asyncio
 import random
 from dataclasses import dataclass
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from typing import cast
 from uuid import UUID
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from fastapi import HTTPException
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app.core.crud import get_or_404
 from app.core.llm import generate_quiz
@@ -26,11 +27,20 @@ from app.modules.quiz.models import (
     DailyQuizConfig,
     DailyQuizQuestion,
     DailyQuizQuestionOption,
+    DailyQuizSubmission,
+    DailyQuizSubmissionAnswer,
 )
 from app.modules.quiz.schemas import (
     DailyQuizConfigCreate,
     DailyQuizConfigResponse,
     DailyQuizConfigUpdate,
+    DailyQuizOptionOut,
+    DailyQuizQuestionOut,
+    DailyQuizSubmissionAnswerResponse,
+    DailyQuizSubmissionDetailResponse,
+    DailyQuizSubmissionResponse,
+    DailyQuizSubmitRequest,
+    DailyQuizTodayResponse,
 )
 
 NOT_FOUND = "Daily quiz config not found."
@@ -159,6 +169,226 @@ class DailyQuizConfigService:
         await self.db.commit()
         await self.db.refresh(row)
         return DailyQuizConfigResponse.model_validate(row)
+
+
+ALREADY_SUBMITTED = "You have already submitted this daily quiz."
+QUIZ_NOT_FOUND = "Daily quiz not found."
+
+
+# Nothing records who a quiz was generated for, so audience is recomputed from
+# the config and the learner's current profile — someone who has since changed
+# department is no longer eligible. This repeats count_matching_learners' filters
+# rather than sharing them: that half runs on a sync session and stays separate.
+def _user_matches_config(user: User, config: DailyQuizConfig) -> bool:
+    if user.role != "learner" or not user.is_active:
+        return False
+    targets = (
+        (config.target_department_id, user.department_id),
+        (config.target_seniority_id, user.seniority_id),
+        (config.target_job_position_id, user.job_position_id),
+        (config.target_employee_level_id, user.employee_level_id),
+    )
+    return all(target is None or target == held for target, held in targets)
+
+
+class DailyQuizSubmissionService:
+    def __init__(self, db: AsyncSession):
+        self.db = db
+
+    # config must be eager-loaded with the quiz: it is a lazy relationship, and
+    # touching it later on the async engine raises MissingGreenlet.
+    def _with_relations(self, stmt):
+        return stmt.options(
+            selectinload(DailyQuiz.config),
+            selectinload(DailyQuiz.questions).selectinload(DailyQuizQuestion.options),
+        )
+
+    async def _load_quiz(self, daily_quiz_id: UUID) -> DailyQuiz:
+        result = await self.db.execute(
+            self._with_relations(select(DailyQuiz).where(DailyQuiz.id == daily_quiz_id))
+        )
+        quiz = result.scalar_one_or_none()
+        if quiz is None:
+            raise HTTPException(status_code = 404, detail = QUIZ_NOT_FOUND)
+        return quiz
+
+    # Neither questions nor options declare an order_by, so sort here to keep
+    # the order a learner sees stable between requests.
+    def _questions_out(self, quiz: DailyQuiz) -> list[DailyQuizQuestionOut]:
+        return [
+            DailyQuizQuestionOut(
+                id = question.id,
+                question_text = question.question_text,
+                order_index = question.order_index,
+                options = [
+                    DailyQuizOptionOut.model_validate(option)
+                    for option in sorted(
+                        question.options, key = lambda o: o.option_label
+                    )
+                ],
+            )
+            for question in sorted(quiz.questions, key = lambda q: q.order_index)
+        ]
+
+    async def get_today(self, user: User) -> list[DailyQuizTodayResponse]:
+        now = datetime.now(timezone.utc)
+        result = await self.db.execute(
+            self._with_relations(
+                select(DailyQuiz)
+                .where(DailyQuiz.expires_at > now)
+                .order_by(DailyQuiz.quiz_date.desc())
+            )
+        )
+        quizzes = [
+            quiz for quiz in result.scalars().all()
+            if _user_matches_config(user, quiz.config)
+        ]
+        if not quizzes:
+            return []
+
+        submitted = await self.db.execute(
+            select(DailyQuizSubmission.daily_quiz_id).where(
+                DailyQuizSubmission.user_id == user.id,
+                DailyQuizSubmission.daily_quiz_id.in_([quiz.id for quiz in quizzes]),
+            )
+        )
+        submitted_ids = set(submitted.scalars().all())
+
+        return [
+            DailyQuizTodayResponse(
+                id = quiz.id,
+                quiz_date = quiz.quiz_date,
+                expires_at = quiz.expires_at,
+                already_submitted = quiz.id in submitted_ids,
+                questions = self._questions_out(quiz),
+            )
+            for quiz in quizzes
+        ]
+
+    async def submit(
+        self, user: User, data: DailyQuizSubmitRequest
+    ) -> DailyQuizSubmissionDetailResponse:
+        quiz = await self._load_quiz(data.daily_quiz_id)
+
+        # Eligibility is checked before anything else, so a learner outside the
+        # audience learns nothing about the quiz beyond the fact that it exists.
+        if not _user_matches_config(user, quiz.config):
+            raise HTTPException(
+                status_code = 403,
+                detail = "This daily quiz is not available to you.",
+            )
+
+        existing = await self.db.scalar(
+            select(DailyQuizSubmission.id).where(
+                DailyQuizSubmission.daily_quiz_id == quiz.id,
+                DailyQuizSubmission.user_id == user.id,
+            )
+        )
+        if existing is not None:
+            raise HTTPException(status_code = 400, detail = ALREADY_SUBMITTED)
+
+        questions = {q.id: q for q in quiz.questions}
+        selected = self._validate_answers(data, questions)
+
+        now = datetime.now(timezone.utc)
+        # Expiry only flags the row. A daily quiz has no grading deadline the
+        # way an exam does, so a late answer is still worth recording.
+        submission = DailyQuizSubmission(
+            daily_quiz_id = quiz.id,
+            user_id = user.id,
+            submitted_at = now,
+            is_late = now > quiz.expires_at,
+        )
+
+        # A row is stored for every question, so a skipped one is recorded as
+        # answered-with-nothing rather than being missing from the record.
+        # Appending to the relationship sets the FK on cascade, which keeps the
+        # insert to a single statement — see the commit below.
+        score = 0
+        for question_id, question in questions.items():
+            option = selected.get(question_id)
+            is_correct = None if option is None else bool(option.is_correct)
+            points = question.points if is_correct else 0
+            score += points
+            submission.answers.append(DailyQuizSubmissionAnswer(
+                daily_quiz_question_id = question_id,
+                selected_option_id = None if option is None else option.id,
+                is_correct = is_correct,
+                points_earned = points,
+            ))
+        submission.score = score
+
+        self.db.add(submission)
+        try:
+            # Nothing is flushed before this point on purpose: the unique
+            # constraint on (daily_quiz_id, user_id) raises as soon as the row
+            # is written, so the whole write stays inside the guard.
+            await self.db.commit()
+        except IntegrityError:
+            # Two submissions that both got past the check above. The constraint
+            # is what actually enforces one attempt.
+            await self.db.rollback()
+            raise HTTPException(status_code = 400, detail = ALREADY_SUBMITTED)
+
+        return DailyQuizSubmissionDetailResponse(
+            id = submission.id,
+            daily_quiz_id = quiz.id,
+            quiz_date = quiz.quiz_date,
+            score = submission.score,
+            is_late = submission.is_late,
+            submitted_at = submission.submitted_at,
+            answers = [
+                DailyQuizSubmissionAnswerResponse.model_validate(a)
+                for a in submission.answers
+            ],
+        )
+
+    def _validate_answers(self, data: DailyQuizSubmitRequest, questions: dict) -> dict:
+        selected = {}
+        for answer in data.answers:
+            if answer.daily_quiz_question_id not in questions:
+                raise HTTPException(
+                    status_code = 400,
+                    detail = "Answer references a question not in this quiz.",
+                )
+            if answer.daily_quiz_question_id in selected:
+                raise HTTPException(
+                    status_code = 400, detail = "Duplicate answer for a question."
+                )
+            option = None
+            if answer.selected_option_id is not None:
+                options = {
+                    o.id: o for o in questions[answer.daily_quiz_question_id].options
+                }
+                option = options.get(answer.selected_option_id)
+                if option is None:
+                    raise HTTPException(
+                        status_code = 400,
+                        detail = "Selected option does not belong to the question.",
+                    )
+            selected[answer.daily_quiz_question_id] = option
+        return selected
+
+    async def get_history(self, user_id: UUID) -> list[DailyQuizSubmissionResponse]:
+        result = await self.db.execute(
+            select(DailyQuizSubmission)
+            .where(DailyQuizSubmission.user_id == user_id)
+            .options(selectinload(DailyQuizSubmission.daily_quiz))
+            .order_by(DailyQuizSubmission.submitted_at.desc())
+        )
+        # quiz_date lives on the quiz, not the submission, so the response is
+        # built field by field instead of straight off the row.
+        return [
+            DailyQuizSubmissionResponse(
+                id = row.id,
+                daily_quiz_id = row.daily_quiz_id,
+                quiz_date = row.daily_quiz.quiz_date,
+                score = row.score,
+                is_late = row.is_late,
+                submitted_at = row.submitted_at,
+            )
+            for row in result.scalars().all()
+        ]
 
 
 # ---------------------------------------------------------------------------
