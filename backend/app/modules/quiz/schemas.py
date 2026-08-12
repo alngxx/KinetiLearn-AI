@@ -63,3 +63,64 @@ class DailyQuizConfigResponse(BaseModel):
     created_by: UUID | None
     is_active: bool
     created_at: datetime
+
+
+# is_correct is left out on purpose — this is what a learner sees before
+# answering, so the option rows must not carry the answer key.
+class DailyQuizOptionOut(BaseModel):
+    model_config = ConfigDict(from_attributes = True)
+
+    id: UUID
+    option_label: str
+    option_text: str
+
+
+# explanation is left out for the same reason.
+class DailyQuizQuestionOut(BaseModel):
+    model_config = ConfigDict(from_attributes = True)
+
+    id: UUID
+    question_text: str
+    order_index: int
+    options: list[DailyQuizOptionOut]
+
+
+class DailyQuizTodayResponse(BaseModel):
+    id: UUID
+    quiz_date: date
+    expires_at: datetime
+    already_submitted: bool
+    questions: list[DailyQuizQuestionOut]
+
+
+class DailyQuizAnswerInput(BaseModel):
+    daily_quiz_question_id: UUID
+    # NULL means the learner skipped the question.
+    selected_option_id: UUID | None = None
+
+
+class DailyQuizSubmitRequest(BaseModel):
+    daily_quiz_id: UUID
+    answers: list[DailyQuizAnswerInput]
+
+
+class DailyQuizSubmissionAnswerResponse(BaseModel):
+    model_config = ConfigDict(from_attributes = True)
+
+    daily_quiz_question_id: UUID
+    selected_option_id: UUID | None
+    is_correct: bool | None
+    points_earned: int
+
+
+class DailyQuizSubmissionResponse(BaseModel):
+    id: UUID
+    daily_quiz_id: UUID
+    quiz_date: date
+    score: int
+    is_late: bool
+    submitted_at: datetime
+
+
+class DailyQuizSubmissionDetailResponse(DailyQuizSubmissionResponse):
+    answers: list[DailyQuizSubmissionAnswerResponse]
