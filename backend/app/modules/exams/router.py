@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.dependencies import get_db, require_admin
 from app.modules.auth.models import User
 from app.modules.exams.schemas import (
+    DeleteResponse,
     ExerciseResponse,
     FinalizeExerciseRequest,
     GenerateExerciseRequest,
@@ -97,3 +98,23 @@ async def finalize_exercise(
     db: AsyncSession = Depends(get_db),
 ):
     return await ExamService(db).finalize(exercise_id, payload)
+
+
+@router.delete(
+    "",
+    response_model = DeleteResponse,
+    dependencies = [Depends(require_admin)],
+)
+async def delete_all_exercises(
+    confirm: bool = False, db: AsyncSession = Depends(get_db)
+):
+    return await ExamService(db).delete_all(confirm)
+
+
+@router.delete(
+    "/{exercise_id}",
+    response_model = DeleteResponse,
+    dependencies = [Depends(require_admin)],
+)
+async def delete_exercise(exercise_id: UUID, db: AsyncSession = Depends(get_db)):
+    return await ExamService(db).delete_exercise(exercise_id)

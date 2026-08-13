@@ -68,3 +68,8 @@ class FinalizeExerciseRequest(BaseModel):
     end_time: datetime
     duration_minutes: int
     pass_score: int
+
+
+# Returned by the DELETE endpoints — how many exercises were removed.
+class DeleteResponse(BaseModel):
+    deleted: int

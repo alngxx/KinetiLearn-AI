@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
 from fastapi import HTTPException
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -267,6 +267,25 @@ class ExamService:
         await self.db.commit()
 
         return _to_response(exercise, None, None)
+
+    async def delete_exercise(self, exercise_id: UUID) -> dict:
+        exercise = await self.db.get(Exercise, exercise_id)
+        if exercise is None:
+            raise HTTPException(status_code = 404, detail = "Exercise not found")
+        # Questions and options are removed by the FK ON DELETE CASCADE.
+        await self.db.delete(exercise)
+        await self.db.commit()
+        return {"deleted": 1}
+
+    async def delete_all(self, confirm: bool) -> dict:
+        if not confirm:
+            raise HTTPException(
+                status_code = 400,
+                detail = "Pass confirm=true to delete all exercises",
+            )
+        result = await self.db.execute(delete(Exercise))
+        await self.db.commit()
+        return {"deleted": result.rowcount}
 
 
 def _question_response(question: Question) -> QuestionResponse:
