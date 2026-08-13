@@ -9,7 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field
 class GenerateExerciseRequest(BaseModel):
     title: str = Field(..., min_length = 1, max_length = 255)
     class_id: UUID
-    document_id: UUID
+    document_ids: list[UUID] = Field(..., min_length = 1, max_length = 10)
     num_questions: int = Field(..., ge = 1, le = 50)
     prompt: str = Field(..., min_length = 1)
 
