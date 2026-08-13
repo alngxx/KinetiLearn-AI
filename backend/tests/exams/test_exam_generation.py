@@ -79,7 +79,7 @@ async def _generate(client, db, *, num_questions = 3):
         resp = await client.post(f"{BASE}/generate", json = {
             "title": "Quiz A",
             "class_id": str(cls.id),
-            "document_id": str(doc.id),
+            "document_ids": [str(doc.id)],
             "num_questions": num_questions,
             "prompt": "Cover the basics",
         })
@@ -123,7 +123,7 @@ async def test_generate_shuffles_correct_option(client, db_session):
         resp = await client.post(f"{BASE}/generate", json = {
             "title": "Q",
             "class_id": str(cls.id),
-            "document_id": str(doc.id),
+            "document_ids": [str(doc.id)],
             "num_questions": n,
             "prompt": "x",
         })
@@ -150,7 +150,7 @@ async def test_generate_no_active_version_rejected(client, db_session):
         resp = await client.post(f"{BASE}/generate", json = {
             "title": "Q",
             "class_id": str(cls.id),
-            "document_id": str(doc.id),
+            "document_ids": [str(doc.id)],
             "num_questions": 3,
             "prompt": "x",
         })
@@ -167,7 +167,7 @@ async def test_generate_version_not_ready_rejected(client, db_session):
         resp = await client.post(f"{BASE}/generate", json = {
             "title": "Q",
             "class_id": str(cls.id),
-            "document_id": str(doc.id),
+            "document_ids": [str(doc.id)],
             "num_questions": 3,
             "prompt": "x",
         })
@@ -185,7 +185,7 @@ async def test_generate_wrong_count_saves_nothing(client, db_session):
         resp = await client.post(f"{BASE}/generate", json = {
             "title": "Q",
             "class_id": str(cls.id),
-            "document_id": str(doc.id),
+            "document_ids": [str(doc.id)],
             "num_questions": 3,
             "prompt": "x",
         })
@@ -202,7 +202,7 @@ async def test_generate_bad_correct_index_saves_nothing(client, db_session):
         resp = await client.post(f"{BASE}/generate", json = {
             "title": "Q",
             "class_id": str(cls.id),
-            "document_id": str(doc.id),
+            "document_ids": [str(doc.id)],
             "num_questions": 2,
             "prompt": "x",
         })
@@ -220,7 +220,7 @@ async def test_generate_reports_partial_chunk_coverage(client, db_session):
         resp = await client.post(f"{BASE}/generate", json = {
             "title": "Q",
             "class_id": str(cls.id),
-            "document_id": str(doc.id),
+            "document_ids": [str(doc.id)],
             "num_questions": 2,
             "prompt": "x",
         })
@@ -228,6 +228,71 @@ async def test_generate_reports_partial_chunk_coverage(client, db_session):
     body = resp.json()
     assert body["chunks_total"] == 5
     assert body["chunks_used"] == 2
+
+
+async def test_generate_multi_document_combines_sources(client, db_session):
+    _use_stub_admin()
+    cls = await _seed_class(db_session)
+    doc1 = await _seed_document(db_session, num_chunks = 3)
+    doc2 = await _seed_document(db_session, num_chunks = 3)
+    with _mock_generate(_fake_questions(2)):
+        resp = await client.post(f"{BASE}/generate", json = {
+            "title": "Q",
+            "class_id": str(cls.id),
+            "document_ids": [str(doc1.id), str(doc2.id)],
+            "num_questions": 2,
+            "prompt": "x",
+        })
+    assert resp.status_code == 201
+    body = resp.json()
+    assert body["chunks_used"] == 6
+    assert body["chunks_total"] == 6
+
+    # Multiple sources -> per-question provenance is left null.
+    rows = (await db_session.execute(
+        select(Question).where(Question.exercise_id == uuid.UUID(body["id"]))
+    )).scalars().all()
+    assert len(rows) == 2
+    assert all(r.source_document_id is None for r in rows)
+
+
+async def test_generate_multi_document_one_not_ready_rejected(client, db_session):
+    _use_stub_admin()
+    cls = await _seed_class(db_session)
+    doc1 = await _seed_document(db_session)
+    doc2 = await _seed_document(db_session, status = "pending")
+    with _mock_generate(_fake_questions(2)):
+        resp = await client.post(f"{BASE}/generate", json = {
+            "title": "Q",
+            "class_id": str(cls.id),
+            "document_ids": [str(doc1.id), str(doc2.id)],
+            "num_questions": 2,
+            "prompt": "x",
+        })
+    assert resp.status_code == 400
+    count = await db_session.scalar(select(func.count()).select_from(Exercise))
+    assert count == 0
+
+
+async def test_generate_combined_chunk_cap(client, db_session):
+    _use_stub_admin()
+    cls = await _seed_class(db_session)
+    doc1 = await _seed_document(db_session, num_chunks = 5)
+    doc2 = await _seed_document(db_session, num_chunks = 5)
+    # Budget of 4 across 2 docs -> 2 chunks per doc used, 10 exist in total.
+    with patch("app.modules.exams.service.MAX_CONTEXT_CHUNKS", 4), \
+         _mock_generate(_fake_questions(2)):
+        resp = await client.post(f"{BASE}/generate", json = {
+            "title": "Q",
+            "class_id": str(cls.id),
+            "document_ids": [str(doc1.id), str(doc2.id)],
+            "num_questions": 2,
+            "prompt": "x",
+        })
+    assert resp.status_code == 201
+    body = resp.json()
+    assert body["chunks_used"] == 4
+    assert body["chunks_total"] == 10
 
 
 async def test_get_exercise(client, db_session):

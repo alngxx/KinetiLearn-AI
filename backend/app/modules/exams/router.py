@@ -32,7 +32,7 @@ async def generate_exercise(
     return await ExamService(db).generate(
         title = payload.title,
         class_id = payload.class_id,
-        document_id = payload.document_id,
+        document_ids = payload.document_ids,
         num_questions = payload.num_questions,
         prompt = payload.prompt,
         creator_id = current_user.id,

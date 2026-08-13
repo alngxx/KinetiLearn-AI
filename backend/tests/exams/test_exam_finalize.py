@@ -83,7 +83,7 @@ async def _generate_draft(client, db, *, num_questions = 3):
         resp = await client.post(f"{BASE}/generate", json = {
             "title": "Quiz A",
             "class_id": str(cls.id),
-            "document_id": str(doc.id),
+            "document_ids": [str(doc.id)],
             "num_questions": num_questions,
             "prompt": "Cover the basics",
         })

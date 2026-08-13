@@ -35,51 +35,68 @@ class ExamService:
         *,
         title: str,
         class_id: UUID,
-        document_id: UUID,
+        document_ids: list[UUID],
         num_questions: int,
         prompt: str,
         creator_id: UUID | None,
     ) -> ExerciseResponse:
         await get_or_404(self.db, Class, class_id, "Class not found")
-        document = await get_or_404(self.db, Document, document_id, "Document not found")
 
-        # Must use the document's ACTIVE version, and only if it finished processing.
-        if document.active_version_number is None:
-            raise HTTPException(
-                status_code = 400, detail = "Document has no active version"
-            )
-        version = await self.db.get(
-            DocumentVersion, (document_id, document.active_version_number)
-        )
-        if version is None or version.processing_status != "ready":
-            raise HTTPException(
-                status_code = 400, detail = "Document active version is not ready"
-            )
+        # Dedupe while preserving order, then share the chunk budget across the
+        # documents so the combined context still fits the model's window.
+        unique_ids = list(dict.fromkeys(document_ids))
+        per_doc_cap = max(1, MAX_CONTEXT_CHUNKS // len(unique_ids))
 
-        chunks_total = await self.db.scalar(
-            select(func.count())
-            .select_from(DocumentChunk)
-            .where(
-                DocumentChunk.document_id == document_id,
-                DocumentChunk.version_number == document.active_version_number,
+        context_parts = []
+        chunks_used = 0
+        chunks_total = 0
+        sources = []
+        for document_id in unique_ids:
+            document = await get_or_404(
+                self.db, Document, document_id, "Document not found"
             )
-        )
-        result = await self.db.execute(
-            select(DocumentChunk)
-            .where(
-                DocumentChunk.document_id == document_id,
-                DocumentChunk.version_number == document.active_version_number,
+            # Must use the document's ACTIVE version, and only if it finished processing.
+            if document.active_version_number is None:
+                raise HTTPException(
+                    status_code = 400, detail = "Document has no active version"
+                )
+            version = await self.db.get(
+                DocumentVersion, (document_id, document.active_version_number)
             )
-            .order_by(DocumentChunk.chunk_index)
-            .limit(MAX_CONTEXT_CHUNKS)
-        )
-        chunks = result.scalars().all()
-        if not chunks:
-            raise HTTPException(
-                status_code = 400, detail = "Document active version has no content"
-            )
+            if version is None or version.processing_status != "ready":
+                raise HTTPException(
+                    status_code = 400, detail = "Document active version is not ready"
+                )
 
-        context = "\n\n".join(c.content for c in chunks)
+            total = await self.db.scalar(
+                select(func.count())
+                .select_from(DocumentChunk)
+                .where(
+                    DocumentChunk.document_id == document_id,
+                    DocumentChunk.version_number == document.active_version_number,
+                )
+            )
+            result = await self.db.execute(
+                select(DocumentChunk)
+                .where(
+                    DocumentChunk.document_id == document_id,
+                    DocumentChunk.version_number == document.active_version_number,
+                )
+                .order_by(DocumentChunk.chunk_index)
+                .limit(per_doc_cap)
+            )
+            chunks = result.scalars().all()
+            if not chunks:
+                raise HTTPException(
+                    status_code = 400, detail = "Document active version has no content"
+                )
+
+            context_parts.append("\n\n".join(c.content for c in chunks))
+            chunks_used += len(chunks)
+            chunks_total += total
+            sources.append((document_id, document.active_version_number))
+
+        context = "\n\n".join(context_parts)
         try:
             generated = await generate_quiz(context, prompt, num_questions)
         except LLMError:
@@ -88,6 +105,10 @@ class ExamService:
             )
 
         self._validate_batch(generated, num_questions)
+
+        # With a single source we can attribute every question to it; with several
+        # sources a per-question attribution isn't knowable from one LLM call.
+        src_doc, src_ver = sources[0] if len(sources) == 1 else (None, None)
 
         # Build the whole graph in memory and commit once — a partial exercise
         # would silently mislead downstream consumers (same rule as Task 20).
@@ -104,8 +125,8 @@ class ExamService:
         )
         for order_index, gq in enumerate(generated):
             question = Question(
-                source_document_id = document_id,
-                source_version_number = document.active_version_number,
+                source_document_id = src_doc,
+                source_version_number = src_ver,
                 question_text = gq.question_text,
                 explanation = gq.explanation,
                 points = QUESTION_POINTS,
@@ -128,7 +149,7 @@ class ExamService:
         await self.db.commit()
 
         exercise = await self._load_exercise(exercise.id)
-        return _to_response(exercise, len(chunks), chunks_total)
+        return _to_response(exercise, chunks_used, chunks_total)
 
     def _validate_batch(self, generated, num_questions: int) -> None:
         if len(generated) != num_questions:
