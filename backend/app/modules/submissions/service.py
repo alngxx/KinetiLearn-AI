@@ -8,6 +8,7 @@ from sqlalchemy.orm import selectinload
 
 from app.modules.classes.models import ClassMember
 from app.modules.exams.models import Exercise, Question
+from app.modules.scoring.service import SkillScoringService
 from app.modules.submissions.models import Submission, SubmissionAnswer
 from app.modules.submissions.schemas import (
     ScoreUpdate,
@@ -112,6 +113,11 @@ class SubmissionService:
         submission.score = score
         submission.is_passed = score >= exercise.pass_score
         self.db.add_all(answers)
+        # Scored before the commit so the submission and its skill rows are one
+        # transaction — no partially scored submission can survive a failure.
+        await SkillScoringService(self.db).score_exam_submission(
+            submission, questions, answers
+        )
         await self.db.commit()
 
         return await self.get_detail_by_id(submission.id)
