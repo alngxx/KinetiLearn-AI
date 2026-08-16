@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import random
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
@@ -42,6 +43,9 @@ from app.modules.quiz.schemas import (
     DailyQuizSubmitRequest,
     DailyQuizTodayResponse,
 )
+from app.modules.scoring.service import SkillScoringService
+
+logger = logging.getLogger(__name__)
 
 NOT_FOUND = "Daily quiz config not found."
 
@@ -330,7 +334,10 @@ class DailyQuizSubmissionService:
             await self.db.rollback()
             raise HTTPException(status_code = 400, detail = ALREADY_SUBMITTED)
 
-        return DailyQuizSubmissionDetailResponse(
+        # Built before scoring runs: a rollback below expires every object in the
+        # session, and reading an expired attribute on the async engine raises
+        # MissingGreenlet.
+        response = DailyQuizSubmissionDetailResponse(
             id = submission.id,
             daily_quiz_id = quiz.id,
             quiz_date = quiz.quiz_date,
@@ -342,6 +349,23 @@ class DailyQuizSubmissionService:
                 for a in submission.answers
             ],
         )
+
+        # Scoring is a second transaction: the submission is already committed, so
+        # a failure here costs the skill rows, not the learner's answers. Logged
+        # rather than raised for the same reason — the submission did succeed.
+        try:
+            await SkillScoringService(self.db).score_daily_quiz_submission(
+                submission, questions
+            )
+            await self.db.commit()
+        except Exception as e:
+            await self.db.rollback()
+            logger.exception(
+                "Skill scoring failed for daily quiz submission %s: %s",
+                submission.id, e,
+            )
+
+        return response
 
     def _validate_answers(self, data: DailyQuizSubmitRequest, questions: dict) -> dict:
         selected = {}
