@@ -13,6 +13,7 @@ class ChatSessionResponse(BaseModel):
     model_config = ConfigDict(from_attributes = True)
 
     id: UUID
+    exercise_id: UUID | None
     document_id: UUID | None
     title: str | None
     is_active: bool

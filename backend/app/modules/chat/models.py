@@ -29,10 +29,25 @@ class ChatSession(Base):
         ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
     )
-    # Set when the chat is tied to one document; NULL means the whole corpus.
+    # Two ways a chat can be scoped, checked in this order: an exercise pins it to
+    # every document that exam was generated from, a document pins it to that one.
+    # Both NULL means the whole corpus.
+    exercise_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey(
+            "exercises.id",
+            ondelete="SET NULL",
+            name="fk_chat_sessions_exercise_id",
+        ),
+        nullable=True,
+    )
     document_id = Column(
         UUID(as_uuid=True),
-        ForeignKey("documents.id", ondelete="SET NULL"),
+        ForeignKey(
+            "documents.id",
+            ondelete="SET NULL",
+            name="fk_chat_sessions_document_id",
+        ),
         nullable=True,
     )
     title = Column(String(255), nullable=True)
@@ -59,6 +74,7 @@ class ChatSession(Base):
         Index("ix_chat_sessions_user_id", "user_id"),
         Index("ix_chat_sessions_updated_at", "updated_at"),
         Index("ix_chat_sessions_document_id", "document_id"),
+        Index("ix_chat_sessions_exercise_id", "exercise_id"),
     )
 
 

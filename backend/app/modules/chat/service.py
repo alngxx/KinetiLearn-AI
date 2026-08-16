@@ -6,7 +6,7 @@ from typing import AsyncIterator
 from uuid import UUID
 
 from fastapi import HTTPException
-from sqlalchemy import select, tuple_
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -27,7 +27,12 @@ from app.modules.chat.schemas import (
     MessageCreate,
 )
 from app.modules.documents.models import Document, DocumentChunk, DocumentVersion
-from app.modules.exams.models import Exercise, Question, QuestionOption
+from app.modules.exams.models import (
+    Exercise,
+    ExerciseDocument,
+    Question,
+    QuestionOption,
+)
 from app.modules.submissions.models import Submission
 
 TOP_K = 5
@@ -179,8 +184,8 @@ class ChatService:
         # still reach the client as normal JSON errors rather than mid-stream events.
         session = await self._load_session(data.session_id, user_id)    # check auth, can throw 404
         history = await self._history(session.id)                       # take the last 10 messages
-        # A session tied to a document only ever searches that document.
-        scope = await self._active_scope(session.document_id)
+        # A scoped session only ever searches its own material.
+        scope = await self._session_scope(session)
         try:
             retrieved = await self._retrieve(data.content, scope)       # enbed + search Chroma + take the chunks
         except LLMError:
@@ -222,7 +227,9 @@ class ChatService:
         all_wrong = list(result.scalars().all())
         questions = all_wrong[:MAX_EXPLAIN_QUESTIONS]
 
-        scope = await self._provenance_scope(questions)
+        # Scope comes from the exam, so it covers every source document whether the
+        # exam was generated from one or ten.
+        scope = await self._provenance_scope(exercise.id)
         try:
             retrieved = await self._retrieve_for_questions(questions, scope)
         except LLMError:
@@ -231,14 +238,9 @@ class ChatService:
         selected = {a.question_id: a.selected_option_id for a in submission.answers}
         content = _build_explain_request(exercise, questions, selected, len(all_wrong))
 
-        # Scoping the new session to the source document keeps follow-up questions
-        # on the same material. Only unambiguous when every question shares one.
-        source_ids = {q.source_document_id for q in questions}
-        document_id = source_ids.pop() if len(source_ids) == 1 else None
-        if document_id is not None and not await self._active_scope(document_id):
-            document_id = None
-
-        session = ChatSession(user_id = user_id, document_id = document_id)
+        # Storing the exercise keeps follow-up questions on the same material —
+        # they arrive with only a session_id and no way to re-derive the exam.
+        session = ChatSession(user_id = user_id, exercise_id = exercise.id)
         self.db.add(session)
         # Flush, not commit: _persist_turn commits the session together with the
         # turn, so an LLM failure rolls back the empty session too.
@@ -265,34 +267,34 @@ class ChatService:
             raise HTTPException(status_code = 404, detail = "Submission not found.")
         return row[0], row[1]
 
-    # The (document, version) pairs the wrong questions were generated from — not
-    # the active scope. The question was authored from that exact version, so
-    # explaining it from a newer one could contradict what was graded. Provenance
-    # is nullable (ON DELETE SET NULL), and a soft-deleted or unprocessed version
-    # is still excluded.
-    async def _provenance_scope(
-        self, questions: list[Question]
-    ) -> list[tuple[UUID, int]]:
-        pairs = {
-            (q.source_document_id, q.source_version_number)
-            for q in questions
-            if q.source_document_id is not None and q.source_version_number is not None
-        }
-        if not pairs:
-            return []
-
+    # Every (document, version) the exam was generated from — read from
+    # exercise_documents, not from per-question provenance, which is null whenever
+    # more than one document fed generation. These are the versions the learner was
+    # graded against, so a newer one could contradict the answer that was marked
+    # correct. A soft-deleted document is still excluded.
+    async def _provenance_scope(self, exercise_id: UUID) -> list[tuple[UUID, int]]:
         result = await self.db.execute(
-            select(DocumentVersion.document_id, DocumentVersion.version_number)
-            .join(Document, Document.id == DocumentVersion.document_id)
+            select(ExerciseDocument.document_id, ExerciseDocument.version_number)
+            .join(
+                DocumentVersion,
+                (DocumentVersion.document_id == ExerciseDocument.document_id)
+                & (DocumentVersion.version_number == ExerciseDocument.version_number),
+            )
+            .join(Document, Document.id == ExerciseDocument.document_id)
             .where(
+                ExerciseDocument.exercise_id == exercise_id,
                 Document.is_active.is_(True),
                 DocumentVersion.processing_status == "ready",
-                tuple_(
-                    DocumentVersion.document_id, DocumentVersion.version_number
-                ).in_(pairs),
             )
         )
         return [(row[0], row[1]) for row in result.all()]
+
+    # An exam-scoped session covers every source document of that exam; a
+    # document-scoped one covers exactly that document; neither means the corpus.
+    async def _session_scope(self, session: ChatSession) -> list[tuple[UUID, int]]:
+        if session.exercise_id is not None:
+            return await self._provenance_scope(session.exercise_id)
+        return await self._active_scope(session.document_id)
 
     # One search per question, since a single embedding of ten stitched-together
     # questions matches nothing well. Duplicates keep their best similarity.

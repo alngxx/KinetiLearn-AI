@@ -11,7 +11,12 @@ from app.core.crud import get_or_404
 from app.core.llm import LLMError, generate_quiz
 from app.modules.classes.models import Class
 from app.modules.documents.models import Document, DocumentChunk, DocumentVersion
-from app.modules.exams.models import Exercise, Question, QuestionOption
+from app.modules.exams.models import (
+    Exercise,
+    ExerciseDocument,
+    Question,
+    QuestionOption,
+)
 from app.modules.exams.schemas import (
     ExerciseResponse,
     FinalizeExerciseRequest,
@@ -21,7 +26,12 @@ from app.modules.exams.schemas import (
     QuestionUpdate,
 )
 
-MAX_CONTEXT_CHUNKS = 120
+# Chunks are cut at CHUNK_TARGET_TOKENS = 500 (worker/processing.py), so this is a
+# worst-case ceiling of ~25k prompt tokens. That has to leave room for the generated
+# questions inside the account's per-minute token budget — the previous 120 allowed
+# ~60k tokens in a single call, which a 30k TPM tier rejects outright with a 429.
+# Raise it if the OpenAI plan allows a larger TPM.
+MAX_CONTEXT_CHUNKS = 50
 OPTION_LABELS = "ABCDEFGHIJ"
 QUESTION_POINTS = 1
 
@@ -145,6 +155,14 @@ class ExamService:
                 ))
             exercise.questions.append(question)
 
+        # Recorded whether there is one source or ten — with several, this is the
+        # only surviving link back to the material the questions came from.
+        for document_id, version_number in sources:
+            exercise.source_documents.append(ExerciseDocument(
+                document_id = document_id,
+                version_number = version_number,
+            ))
+
         self.db.add(exercise)
         await self.db.commit()
 
@@ -171,7 +189,10 @@ class ExamService:
         result = await self.db.execute(
             select(Exercise)
             .where(Exercise.id == exercise_id)
-            .options(selectinload(Exercise.questions).selectinload(Question.options))
+            .options(
+                selectinload(Exercise.questions).selectinload(Question.options),
+                selectinload(Exercise.source_documents),
+            )
         )
         return result.scalar_one_or_none()
 
@@ -191,19 +212,25 @@ class ExamService:
         if exercise is None:
             raise HTTPException(status_code = 404, detail = "Exercise not found")
 
+        # Read from the recorded sources rather than the first question's
+        # provenance, which is null whenever more than one document fed generation.
+        # The budget split mirrors generate() so the numbers match what it returned.
+        sources = exercise.source_documents
         chunks_used = chunks_total = None
-        if exercise.questions:
-            q = exercise.questions[0]
-            if q.source_document_id is not None:
-                chunks_total = await self.db.scalar(
+        if sources:
+            per_doc_cap = max(1, MAX_CONTEXT_CHUNKS // len(sources))
+            chunks_used = chunks_total = 0
+            for source in sources:
+                total = await self.db.scalar(
                     select(func.count())
                     .select_from(DocumentChunk)
                     .where(
-                        DocumentChunk.document_id == q.source_document_id,
-                        DocumentChunk.version_number == q.source_version_number,
+                        DocumentChunk.document_id == source.document_id,
+                        DocumentChunk.version_number == source.version_number,
                     )
                 )
-                chunks_used = min(chunks_total, MAX_CONTEXT_CHUNKS)
+                chunks_used += min(total, per_doc_cap)
+                chunks_total += total
         return _to_response(exercise, chunks_used, chunks_total)
 
     async def update_question(

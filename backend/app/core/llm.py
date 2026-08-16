@@ -93,14 +93,21 @@ async def _generate_batch(
     parts.append(f"Source material:\n{context}")
     user_prompt = "\n\n".join(parts)
 
-    completion = await _get_client().chat.completions.parse(
-        model = CHAT_MODEL,
-        messages = [
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": user_prompt},
-        ],
-        response_format = GeneratedQuiz,
-    )
+    # Same contract as embed_query and stream_chat: every OpenAI failure leaves this
+    # module as an LLMError. Without this a rate limit or timeout escapes as a raw
+    # OpenAIError and the caller's `except LLMError` never fires, turning a 502 into
+    # an unhandled 500.
+    try:
+        completion = await _get_client().chat.completions.parse(
+            model = CHAT_MODEL,
+            messages = [
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": user_prompt},
+            ],
+            response_format = GeneratedQuiz,
+        )
+    except OpenAIError as e:
+        raise LLMError(str(e))
     message = completion.choices[0].message
     if message.refusal:
         raise LLMError(message.refusal)

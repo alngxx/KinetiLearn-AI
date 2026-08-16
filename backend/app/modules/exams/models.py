@@ -57,6 +57,11 @@ class Exercise(Base):
         back_populates="exercise",
         cascade="all, delete-orphan",
     )
+    source_documents = relationship(
+        "ExerciseDocument",
+        back_populates="exercise",
+        cascade="all, delete-orphan",
+    )
 
     __table_args__ = (
         CheckConstraint("end_time > start_time", name="ck_exercises_end_after_start"),
@@ -67,6 +72,39 @@ class Exercise(Base):
         Index("ix_exercises_class_id", "class_id"),
         Index("ix_exercises_start_time", "start_time"),
         Index("ix_exercises_end_time", "end_time"),
+    )
+
+
+# Which (document, version) pairs fed generation. Per-question provenance is only
+# knowable with a single source, so this records it at the exercise level instead —
+# it is the only way back from a multi-document exam to its source material.
+class ExerciseDocument(Base):
+    __tablename__ = "exercise_documents"
+
+    exercise_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("exercises.id", ondelete="CASCADE"),
+        primary_key=True,
+        nullable=False,
+    )
+    document_id = Column(UUID(as_uuid=True), primary_key=True, nullable=False)
+    version_number = Column(Integer, nullable=False)
+    created_at = Column(
+        TIMESTAMP(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+    exercise = relationship("Exercise", back_populates="source_documents")
+
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["document_id", "version_number"],
+            ["document_versions.document_id", "document_versions.version_number"],
+            ondelete="CASCADE",
+            name="fk_exercise_documents_document_version",
+        ),
+        Index("ix_exercise_documents_exercise_id", "exercise_id"),
     )
 
 

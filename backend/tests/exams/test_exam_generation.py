@@ -1,6 +1,7 @@
 import uuid
 from unittest.mock import AsyncMock, patch
 
+from openai import OpenAIError
 from sqlalchemy import func, select
 
 from app.core.dependencies import require_admin
@@ -8,7 +9,12 @@ from app.core.llm import GeneratedQuestion
 from app.main import app
 from app.modules.classes.models import Class
 from app.modules.documents.models import Document, DocumentChunk, DocumentVersion
-from app.modules.exams.models import Exercise, Question, QuestionOption
+from app.modules.exams.models import (
+    Exercise,
+    ExerciseDocument,
+    Question,
+    QuestionOption,
+)
 
 BASE = "/api/v1/exams"
 
@@ -230,6 +236,32 @@ async def test_generate_reports_partial_chunk_coverage(client, db_session):
     assert body["chunks_used"] == 2
 
 
+async def test_generate_openai_failure_returns_502_not_500(client, db_session):
+    # The real generate_quiz runs here, only the OpenAI client is stubbed: an SDK
+    # error has to leave llm.py as an LLMError, otherwise the service's
+    # `except LLMError` never fires and a rate limit escapes as an unhandled 500.
+    _use_stub_admin()
+    cls = await _seed_class(db_session)
+    doc = await _seed_document(db_session)
+    with patch("app.core.llm._get_client") as get_client:
+        get_client.return_value.chat.completions.parse = AsyncMock(
+            side_effect = OpenAIError("tokens per min (TPM): Limit 30000")
+        )
+        resp = await client.post(f"{BASE}/generate", json = {
+            "title": "Q",
+            "class_id": str(cls.id),
+            "document_ids": [str(doc.id)],
+            "num_questions": 2,
+            "prompt": "x",
+        })
+
+    assert resp.status_code == 502
+    assert resp.json() == {"detail": "Failed to generate questions"}
+    # A failed generation must not leave a half-built exercise behind.
+    count = await db_session.scalar(select(func.count()).select_from(Exercise))
+    assert count == 0
+
+
 async def test_generate_multi_document_combines_sources(client, db_session):
     _use_stub_admin()
     cls = await _seed_class(db_session)
@@ -254,6 +286,66 @@ async def test_generate_multi_document_combines_sources(client, db_session):
     )).scalars().all()
     assert len(rows) == 2
     assert all(r.source_document_id is None for r in rows)
+
+    # ...so exercise_documents is the only surviving link back to the sources.
+    sources = (await db_session.execute(
+        select(ExerciseDocument).where(
+            ExerciseDocument.exercise_id == uuid.UUID(body["id"])
+        )
+    )).scalars().all()
+    assert {(s.document_id, s.version_number) for s in sources} == {
+        (doc1.id, 1), (doc2.id, 1)
+    }
+
+
+async def test_generate_single_document_also_records_source(client, db_session):
+    _use_stub_admin()
+    cls = await _seed_class(db_session)
+    doc = await _seed_document(db_session)
+    with _mock_generate(_fake_questions(2)):
+        resp = await client.post(f"{BASE}/generate", json = {
+            "title": "Q",
+            "class_id": str(cls.id),
+            "document_ids": [str(doc.id)],
+            "num_questions": 2,
+            "prompt": "x",
+        })
+    assert resp.status_code == 201
+
+    sources = (await db_session.execute(
+        select(ExerciseDocument).where(
+            ExerciseDocument.exercise_id == uuid.UUID(resp.json()["id"])
+        )
+    )).scalars().all()
+    assert len(sources) == 1
+    assert sources[0].document_id == doc.id
+    assert sources[0].version_number == 1
+
+
+async def test_get_exercise_reports_coverage_for_multi_document(client, db_session):
+    # Coverage used to read the first question's provenance, which is null here,
+    # so a multi-document exam reported nothing at all.
+    _use_stub_admin()
+    cls = await _seed_class(db_session)
+    doc1 = await _seed_document(db_session, num_chunks = 5)
+    doc2 = await _seed_document(db_session, num_chunks = 5)
+    with patch("app.modules.exams.service.MAX_CONTEXT_CHUNKS", 4), \
+         _mock_generate(_fake_questions(2)):
+        created = await client.post(f"{BASE}/generate", json = {
+            "title": "Q",
+            "class_id": str(cls.id),
+            "document_ids": [str(doc1.id), str(doc2.id)],
+            "num_questions": 2,
+            "prompt": "x",
+        })
+    assert created.status_code == 201
+
+    with patch("app.modules.exams.service.MAX_CONTEXT_CHUNKS", 4):
+        resp = await client.get(f"{BASE}/{created.json()['id']}")
+    assert resp.status_code == 200
+    # Same numbers generation returned: 2 chunks per doc used, 10 exist.
+    assert resp.json()["chunks_used"] == 4
+    assert resp.json()["chunks_total"] == 10
 
 
 async def test_generate_multi_document_one_not_ready_rejected(client, db_session):

@@ -15,7 +15,12 @@ from app.modules.auth.models import User
 from app.modules.chat.models import ChatMessage, ChatMessageCitation, ChatSession
 from app.modules.classes.models import Class, ClassMember
 from app.modules.documents.models import Document, DocumentChunk, DocumentVersion
-from app.modules.exams.models import Exercise, Question, QuestionOption
+from app.modules.exams.models import (
+    Exercise,
+    ExerciseDocument,
+    Question,
+    QuestionOption,
+)
 from app.modules.submissions.models import Submission, SubmissionAnswer
 
 BASE = "/api/v1/chat"
@@ -82,10 +87,11 @@ async def _seed_document(db, *, num_chunks = 3, status = "ready", is_active = Tr
     return doc
 
 
-# Builds an exercise whose questions all carry provenance back to `document`,
-# then a submission answering each one right or wrong per `results`:
-# True = correct, False = wrong, None = skipped.
-async def _seed_submission(db, user, document, results, *, num_options = 2):
+# Builds an exercise sourced from `documents`, then a submission answering each
+# question right or wrong per `results`: True = correct, False = wrong, None =
+# skipped. Mirrors ExamService.generate(): the sources are always recorded in
+# exercise_documents, but per-question provenance is only set with a single source.
+async def _seed_submission(db, user, documents, results, *, num_options = 2):
     cls = Class(name = f"Class {uuid.uuid4()}")
     db.add(cls)
     await db.flush()
@@ -104,6 +110,18 @@ async def _seed_submission(db, user, document, results, *, num_options = 2):
     db.add(exercise)
     await db.flush()
 
+    for document in documents:
+        db.add(ExerciseDocument(
+            exercise_id = exercise.id,
+            document_id = document.id,
+            version_number = 1,
+        ))
+    await db.flush()
+
+    # Only a single source is attributable per question, same rule as generate().
+    src_doc = documents[0].id if len(documents) == 1 else None
+    src_ver = 1 if len(documents) == 1 else None
+
     questions = []
     # Options are tracked here rather than read back off question.options — the
     # relationship would lazy-load outside the greenlet context.
@@ -111,8 +129,8 @@ async def _seed_submission(db, user, document, results, *, num_options = 2):
     for i in range(len(results)):
         question = Question(
             exercise_id = exercise.id,
-            source_document_id = None if document is None else document.id,
-            source_version_number = None if document is None else 1,
+            source_document_id = src_doc,
+            source_version_number = src_ver,
             question_text = f"Question text {i}",
             explanation = f"Author note {i}",
             points = 1,
@@ -158,7 +176,7 @@ async def _seed_submission(db, user, document, results, *, num_options = 2):
             points_earned = 1 if correct else 0,
         ))
     await db.flush()
-    return submission, questions
+    return submission, exercise
 
 
 def _parse_sse(raw: str) -> list[tuple[str, dict]]:
@@ -222,7 +240,9 @@ async def _explain(client, user, submission_id):
 async def test_explain_streams_and_persists(auth_client, db_session):
     user = await _seed_user(db_session)
     doc = await _seed_document(db_session)
-    submission, _ = await _seed_submission(db_session, user, doc, [True, False, False])
+    submission, exercise = await _seed_submission(
+        db_session, user, [doc], [True, False, False]
+    )
     await db_session.commit()
 
     hits = [{"vector_id": f"{doc.id}:1:0", "similarity": 0.7}]
@@ -240,12 +260,14 @@ async def test_explain_streams_and_persists(auth_client, db_session):
     assert len(done["citations"]) == 1
     assert done["citations"][0]["document_id"] == str(doc.id)
 
-    # The endpoint creates the session itself and scopes it to the source document.
+    # The endpoint creates the session itself and pins it to the exam, so follow-up
+    # questions re-derive the same sources however many documents fed it.
     session = (await db_session.execute(
         select(ChatSession).where(ChatSession.id == uuid.UUID(done["session_id"]))
     )).scalar_one()
     assert session.user_id == user.id
-    assert session.document_id == doc.id
+    assert session.exercise_id == exercise.id
+    assert session.document_id is None
 
     rows = (await db_session.execute(
         select(ChatMessage).where(ChatMessage.session_id == session.id)
@@ -266,7 +288,7 @@ async def test_explain_prompt_covers_only_wrong_questions(auth_client, db_sessio
     doc = await _seed_document(db_session)
     # Question 0 correct, question 1 wrong, question 2 skipped.
     submission, questions = await _seed_submission(
-        db_session, user, doc, [True, False, None]
+        db_session, user, [doc], [True, False, None]
     )
     await db_session.commit()
 
@@ -289,12 +311,12 @@ async def test_explain_prompt_covers_only_wrong_questions(auth_client, db_sessio
     assert "Onboarding Basics" in prompt
 
 
-async def test_explain_scope_comes_from_question_provenance(auth_client, db_session):
+async def test_explain_scope_comes_from_exam_sources(auth_client, db_session):
     user = await _seed_user(db_session)
     source = await _seed_document(db_session)
     # A second live document that must not be searched.
     await _seed_document(db_session)
-    submission, _ = await _seed_submission(db_session, user, source, [False])
+    submission, _ = await _seed_submission(db_session, user, [source], [False])
     await db_session.commit()
 
     search = MagicMock(return_value = [{"vector_id": f"{source.id}:1:0", "similarity": 0.7}])
@@ -308,10 +330,78 @@ async def test_explain_scope_comes_from_question_provenance(auth_client, db_sess
     assert search.call_args.args[2] == 3
 
 
+async def test_explain_multi_document_exam_covers_every_source(auth_client, db_session):
+    # The regression that matters: a multi-document exam leaves per-question
+    # provenance null, so scope has to come from exercise_documents or retrieval
+    # silently returns nothing.
+    user = await _seed_user(db_session)
+    first = await _seed_document(db_session)
+    second = await _seed_document(db_session)
+    # A third live document that is not part of the exam.
+    outsider = await _seed_document(db_session)
+    submission, exercise = await _seed_submission(
+        db_session, user, [first, second], [False]
+    )
+    await db_session.commit()
+
+    search = MagicMock(return_value = [{"vector_id": f"{first.id}:1:0", "similarity": 0.7}])
+    with _mock_embed(), patch("app.core.vectorstore.search", search), patch(
+        "app.modules.chat.service.stream_chat", _fake_stream(["ok"])
+    ):
+        _, body = await _explain(auth_client, user, submission.id)
+
+    scope = search.call_args.args[1]
+    assert set(scope) == {(first.id, 1), (second.id, 1)}
+    assert (outsider.id, 1) not in scope
+
+    # Per-question provenance really is null here — the scope came from the exam.
+    questions = (await db_session.execute(
+        select(Question).where(Question.exercise_id == exercise.id)
+    )).scalars().all()
+    assert all(q.source_document_id is None for q in questions)
+
+    done = next(d for name, d in _parse_sse(body) if name == "done")
+    assert len(done["citations"]) == 1
+
+
+async def test_followup_in_explain_session_keeps_exam_scope(auth_client, db_session):
+    user = await _seed_user(db_session)
+    first = await _seed_document(db_session)
+    second = await _seed_document(db_session)
+    await _seed_document(db_session)
+    submission, _ = await _seed_submission(db_session, user, [first, second], [False])
+    await db_session.commit()
+
+    hits = [{"vector_id": f"{first.id}:1:0", "similarity": 0.7}]
+    with _mock_embed(), _mock_search(hits), patch(
+        "app.modules.chat.service.stream_chat", _fake_stream(["ok"])
+    ):
+        _, body = await _explain(auth_client, user, submission.id)
+    session_id = next(d for name, d in _parse_sse(body) if name == "done")["session_id"]
+
+    # The follow-up carries only a session_id, so the stored exercise is the only
+    # thing keeping it off the rest of the corpus.
+    search = MagicMock(return_value = hits)
+    with _mock_embed(), patch("app.core.vectorstore.search", search), patch(
+        "app.modules.chat.service.stream_chat", _fake_stream(["more"])
+    ):
+        async with auth_client.stream(
+            "POST",
+            f"{BASE}/messages",
+            json = {"session_id": session_id, "content": "giải thích kỹ hơn"},
+            headers = _auth(user),
+        ) as resp:
+            assert resp.status_code == 200
+            async for _ in resp.aiter_text():
+                pass
+
+    assert set(search.call_args.args[1]) == {(first.id, 1), (second.id, 1)}
+
+
 async def test_explain_skips_soft_deleted_source_document(auth_client, db_session):
     user = await _seed_user(db_session)
     hidden = await _seed_document(db_session, is_active = False)
-    submission, _ = await _seed_submission(db_session, user, hidden, [False])
+    submission, _ = await _seed_submission(db_session, user, [hidden], [False])
     await db_session.commit()
 
     search = MagicMock(return_value = [])
@@ -328,7 +418,7 @@ async def test_explain_skips_soft_deleted_source_document(auth_client, db_sessio
 
 async def test_explain_without_provenance_still_answers(auth_client, db_session):
     user = await _seed_user(db_session)
-    submission, _ = await _seed_submission(db_session, user, None, [False, False])
+    submission, exercise = await _seed_submission(db_session, user, [], [False, False])
     await db_session.commit()
 
     fake = _fake_stream(["Explained from the question itself."])
@@ -343,10 +433,11 @@ async def test_explain_without_provenance_still_answers(auth_client, db_session)
     done = next(d for name, d in events if name == "done")
     assert done["citations"] == []
 
-    # No usable source document, so the session stays unscoped.
+    # Still pinned to the exam, but the exam recorded no sources, so scope is empty.
     session = (await db_session.execute(
         select(ChatSession).where(ChatSession.id == uuid.UUID(done["session_id"]))
     )).scalar_one()
+    assert session.exercise_id == exercise.id
     assert session.document_id is None
 
     prompt = fake.calls[0][-1]["content"]
@@ -356,7 +447,7 @@ async def test_explain_without_provenance_still_answers(auth_client, db_session)
 async def test_explain_caps_questions_and_says_so(auth_client, db_session):
     user = await _seed_user(db_session)
     doc = await _seed_document(db_session)
-    submission, _ = await _seed_submission(db_session, user, doc, [False] * 14)
+    submission, _ = await _seed_submission(db_session, user, [doc], [False] * 14)
     await db_session.commit()
 
     fake = _fake_stream(["ok"])
@@ -386,7 +477,7 @@ async def test_explain_caps_questions_and_says_so(auth_client, db_session):
 async def test_explain_no_caveat_when_nothing_truncated(auth_client, db_session):
     user = await _seed_user(db_session)
     doc = await _seed_document(db_session)
-    submission, _ = await _seed_submission(db_session, user, doc, [False] * 10)
+    submission, _ = await _seed_submission(db_session, user, [doc], [False] * 10)
     await db_session.commit()
 
     fake = _fake_stream(["ok"])
@@ -404,7 +495,7 @@ async def test_explain_no_caveat_when_nothing_truncated(auth_client, db_session)
 async def test_explain_all_correct_rejected(auth_client, db_session):
     user = await _seed_user(db_session)
     doc = await _seed_document(db_session)
-    submission, _ = await _seed_submission(db_session, user, doc, [True, True])
+    submission, _ = await _seed_submission(db_session, user, [doc], [True, True])
     await db_session.commit()
 
     resp = await auth_client.post(
@@ -420,7 +511,7 @@ async def test_explain_other_users_submission_rejected(auth_client, db_session):
     owner = await _seed_user(db_session)
     intruder = await _seed_user(db_session)
     doc = await _seed_document(db_session)
-    submission, _ = await _seed_submission(db_session, owner, doc, [False])
+    submission, _ = await _seed_submission(db_session, owner, [doc], [False])
     await db_session.commit()
 
     resp = await auth_client.post(
@@ -447,7 +538,7 @@ async def test_explain_other_users_submission_rejected(auth_client, db_session):
 async def test_explain_llm_failure_persists_nothing(auth_client, db_session):
     user = await _seed_user(db_session)
     doc = await _seed_document(db_session)
-    submission, _ = await _seed_submission(db_session, user, doc, [False])
+    submission, _ = await _seed_submission(db_session, user, [doc], [False])
     await db_session.commit()
 
     hits = [{"vector_id": f"{doc.id}:1:0", "similarity": 0.7}]
@@ -473,7 +564,7 @@ async def test_explain_llm_failure_persists_nothing(auth_client, db_session):
 async def test_explain_embedding_failure_returns_502(auth_client, db_session):
     user = await _seed_user(db_session)
     doc = await _seed_document(db_session)
-    submission, _ = await _seed_submission(db_session, user, doc, [False])
+    submission, _ = await _seed_submission(db_session, user, [doc], [False])
     await db_session.commit()
 
     with patch(
