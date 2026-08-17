@@ -3,13 +3,14 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.dependencies import get_db, require_admin
+from app.core.dependencies import get_current_user, get_db, require_admin
 from app.modules.auth.models import User
 from app.modules.exams.schemas import (
     DeleteResponse,
     ExerciseResponse,
     FinalizeExerciseRequest,
     GenerateExerciseRequest,
+    LearnerExerciseDetail,
     OptionUpdate,
     QuestionResponse,
     QuestionUpdate,
@@ -46,6 +47,17 @@ async def generate_exercise(
 )
 async def get_exercise(exercise_id: UUID, db: AsyncSession = Depends(get_db)):
     return await ExamService(db).get_exercise(exercise_id)
+
+
+# Learner-facing: the response schemas carry no is_correct and no explanation, so
+# this is the only exam read a learner is given.
+@router.get("/{exercise_id}/take", response_model = LearnerExerciseDetail)
+async def take_exercise(
+    exercise_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    return await ExamService(db).get_for_learner(exercise_id, current_user.id)
 
 
 @router.get(

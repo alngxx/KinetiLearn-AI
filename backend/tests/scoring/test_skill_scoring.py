@@ -62,13 +62,15 @@ async def _seed_user(db, role = "learner"):
     return user
 
 
-async def _seed_skill(db, *, basic_max = 2, intermediate_max = 4):
-    category = Category(name = f"Cat {uuid.uuid4()}")
+async def _seed_skill(
+    db, *, basic_max = 2, intermediate_max = 4, name = None, category_name = None
+):
+    category = Category(name = category_name or f"Cat {uuid.uuid4()}")
     db.add(category)
     await db.flush()
     skill = Skill(
         category_id = category.id,
-        name = f"Skill {uuid.uuid4()}",
+        name = name or f"Skill {uuid.uuid4()}",
         basic_max = basic_max,
         intermediate_max = intermediate_max,
     )
@@ -529,11 +531,17 @@ async def test_daily_quiz_scoring_failure_is_logged_and_does_not_fail_submit(
 
 # --------------------------------------------------------------------------
 # GET /scoring/users/{user_id}/skills
+#
+# The breakdown is driven from skills, not skill_scores: a radar chart needs every
+# active skill as an axis, and an unscored skill is exactly the "weak" one the
+# learner dashboard has to surface.
 # --------------------------------------------------------------------------
 
 async def test_admin_reads_learner_skill_breakdown(client, auth_client, db_session):
     user = await _seed_user(db_session)
-    skill = await _seed_skill(db_session)
+    skill = await _seed_skill(
+        db_session, name = "Alpha", category_name = "Technical"
+    )
     document = await _seed_document(db_session, [skill])
     exercise = await _seed_exam(db_session, user, document)
     assert (await _submit_exam(auth_client, user, exercise)).status_code == 201
@@ -543,13 +551,64 @@ async def test_admin_reads_learner_skill_breakdown(client, auth_client, db_sessi
     body = resp.json()
     assert len(body) == 1
     assert body[0]["skill_id"] == str(skill.id)
-    assert body[0]["skill_name"] == skill.name
+    assert body[0]["skill_name"] == "Alpha"
     assert body[0]["category_id"] == str(skill.category_id)
+    assert body[0]["category_name"] == "Technical"
     assert body[0]["cumulative_score"] == 3
     assert body[0]["current_level"] == "intermediate"
+    # The band edges the level came from, so a chart can shade them.
+    assert body[0]["basic_max"] == 2
+    assert body[0]["intermediate_max"] == 4
+    assert body[0]["last_updated_at"] is not None
 
 
-async def test_breakdown_is_empty_for_a_learner_with_no_scores(client, db_session):
+async def test_unscored_skills_are_returned_as_zeroed_axes(client, db_session):
+    user = await _seed_user(db_session)
+    for name in ("Alpha", "Beta", "Gamma"):
+        await _seed_skill(db_session, name = name)
+
+    resp = await client.get(f"{SCORING}/users/{user.id}/skills")
+    assert resp.status_code == 200
+    body = resp.json()
+
+    # Every active skill is an axis even with no submissions at all.
+    assert [item["skill_name"] for item in body] == ["Alpha", "Beta", "Gamma"]
+    for item in body:
+        assert item["cumulative_score"] == 0
+        assert item["current_level"] == "basic"
+        assert item["last_updated_at"] is None
+
+
+async def test_breakdown_mixes_scored_and_unscored_skills(
+    client, auth_client, db_session
+):
+    user = await _seed_user(db_session)
+    scored = await _seed_skill(db_session, name = "Alpha")
+    await _seed_skill(db_session, name = "Beta")
+    document = await _seed_document(db_session, [scored])
+    exercise = await _seed_exam(db_session, user, document)
+    assert (await _submit_exam(auth_client, user, exercise)).status_code == 201
+
+    resp = await client.get(f"{SCORING}/users/{user.id}/skills")
+    body = {item["skill_name"]: item for item in resp.json()}
+    assert set(body) == {"Alpha", "Beta"}
+    assert body["Alpha"]["cumulative_score"] == 3
+    assert body["Beta"]["cumulative_score"] == 0
+    assert body["Beta"]["current_level"] == "basic"
+
+
+async def test_breakdown_excludes_deactivated_skills(client, db_session):
+    user = await _seed_user(db_session)
+    skill = await _seed_skill(db_session, name = "Alpha")
+    skill.is_active = False
+    await db_session.flush()
+
+    resp = await client.get(f"{SCORING}/users/{user.id}/skills")
+    assert resp.status_code == 200
+    assert resp.json() == []
+
+
+async def test_breakdown_is_empty_when_no_skills_are_configured(client, db_session):
     user = await _seed_user(db_session)
     resp = await client.get(f"{SCORING}/users/{user.id}/skills")
     assert resp.status_code == 200
@@ -568,3 +627,41 @@ async def test_breakdown_is_admin_only(auth_client, db_session):
         f"{SCORING}/users/{learner.id}/skills", headers = _auth(learner)
     )
     assert resp.status_code == 403
+
+
+# --------------------------------------------------------------------------
+# GET /scoring/me/skills
+# --------------------------------------------------------------------------
+
+async def test_learner_reads_their_own_breakdown(auth_client, db_session):
+    user = await _seed_user(db_session)
+    skill = await _seed_skill(db_session, name = "Alpha")
+    await _seed_skill(db_session, name = "Beta")
+    document = await _seed_document(db_session, [skill])
+    exercise = await _seed_exam(db_session, user, document)
+    assert (await _submit_exam(auth_client, user, exercise)).status_code == 201
+
+    resp = await auth_client.get(f"{SCORING}/me/skills", headers = _auth(user))
+    assert resp.status_code == 200
+    body = {item["skill_name"]: item for item in resp.json()}
+    assert body["Alpha"]["cumulative_score"] == 3
+    assert body["Beta"]["cumulative_score"] == 0
+
+
+async def test_my_breakdown_is_scoped_to_the_caller(auth_client, db_session):
+    user = await _seed_user(db_session)
+    other = await _seed_user(db_session)
+    skill = await _seed_skill(db_session, name = "Alpha")
+    document = await _seed_document(db_session, [skill])
+    exercise = await _seed_exam(db_session, other, document)
+    assert (await _submit_exam(auth_client, other, exercise)).status_code == 201
+
+    # The other learner's score must not leak into the caller's own breakdown.
+    resp = await auth_client.get(f"{SCORING}/me/skills", headers = _auth(user))
+    assert resp.status_code == 200
+    assert resp.json()[0]["cumulative_score"] == 0
+
+
+async def test_my_breakdown_requires_authentication(auth_client):
+    resp = await auth_client.get(f"{SCORING}/me/skills")
+    assert resp.status_code == 401

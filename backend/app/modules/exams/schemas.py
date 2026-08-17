@@ -39,8 +39,14 @@ class ExerciseResponse(BaseModel):
 
     id: UUID
     title: str
+    description: str | None
     class_id: UUID
     is_active: bool
+    # Placeholders until finalize runs — is_active is what says which it is.
+    start_time: datetime
+    end_time: datetime
+    duration_minutes: int
+    pass_score: int
     total_points: int
     questions: list[QuestionResponse]
     # How many source chunks fed generation vs how many exist for that version,
@@ -73,3 +79,40 @@ class FinalizeExerciseRequest(BaseModel):
 # Returned by the DELETE endpoints — how many exercises were removed.
 class DeleteResponse(BaseModel):
     deleted: int
+
+
+# is_correct is left out on purpose — this is what a learner sees before
+# answering, so the option rows must not carry the answer key. Same split the
+# daily quiz module makes with DailyQuizOptionOut.
+class LearnerOptionOut(BaseModel):
+    model_config = ConfigDict(from_attributes = True)
+
+    id: UUID
+    option_label: str
+    option_text: str
+
+
+# explanation is left out for the same reason.
+class LearnerQuestionOut(BaseModel):
+    model_config = ConfigDict(from_attributes = True)
+
+    id: UUID
+    question_text: str
+    points: int
+    order_index: int
+    options: list[LearnerOptionOut]
+
+
+class LearnerExerciseDetail(BaseModel):
+    model_config = ConfigDict(from_attributes = True)
+
+    id: UUID
+    class_id: UUID
+    title: str
+    description: str | None
+    start_time: datetime
+    end_time: datetime
+    duration_minutes: int
+    pass_score: int
+    total_points: int
+    questions: list[LearnerQuestionOut]

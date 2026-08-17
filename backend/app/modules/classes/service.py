@@ -4,6 +4,7 @@ from uuid import UUID
 from fastapi import HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.core.crud import get_or_404
 from app.modules.auth.models import User
@@ -16,8 +17,30 @@ from app.modules.classes.schemas import (
     ClassExerciseSummary,
     ClassResponse,
     ClassUpdate,
+    LearnerExerciseBase,
+    LearnerExerciseSummary,
+    MyClassBase,
+    MyClassResponse,
 )
-from app.modules.exams.models import Exercise
+from app.modules.config.models import Skill
+from app.modules.documents.models import DocumentSkill
+from app.modules.exams.models import Exercise, Question
+from app.modules.submissions.models import Submission
+
+
+# Shared by every learner-facing read that hangs off a class. Checked before any
+# other state so a non-member learns nothing beyond the fact that the thing exists.
+async def assert_class_member(db: AsyncSession, class_id: UUID, user_id: UUID) -> None:
+    member = await db.scalar(
+        select(ClassMember.user_id).where(
+            ClassMember.class_id == class_id,
+            ClassMember.user_id == user_id,
+        )
+    )
+    if member is None:
+        raise HTTPException(
+            status_code = 403, detail = "You are not a member of this class."
+        )
 
 
 class ClassService:
@@ -76,6 +99,136 @@ class ClassService:
             member_count = member_count or 0,
             exercises = exercises,
         )
+
+    async def get_my(self, user_id: UUID) -> list[MyClassResponse]:
+        result = await self.db.execute(
+            select(Class, ClassMember.enrolled_at)
+            .join(ClassMember, ClassMember.class_id == Class.id)
+            .where(ClassMember.user_id == user_id, Class.is_active.is_(True))
+            .order_by(Class.created_at.desc())
+        )
+        rows = result.all()
+        if not rows:
+            return []
+
+        class_ids = [row[0].id for row in rows]
+
+        # Only finalized exercises count towards progress — a draft is not
+        # something the learner can do anything about yet.
+        result = await self.db.execute(
+            select(Exercise.class_id, func.count(Exercise.id))
+            .where(Exercise.class_id.in_(class_ids), Exercise.is_active.is_(True))
+            .group_by(Exercise.class_id)
+        )
+        totals = {row[0]: row[1] for row in result.all()}
+
+        # Distinct, so a retried exercise still counts once.
+        result = await self.db.execute(
+            select(Exercise.class_id, func.count(func.distinct(Submission.exercise_id)))
+            .join(Submission, Submission.exercise_id == Exercise.id)
+            .where(
+                Exercise.class_id.in_(class_ids),
+                Exercise.is_active.is_(True),
+                Submission.user_id == user_id,
+            )
+            .group_by(Exercise.class_id)
+        )
+        completed = {row[0]: row[1] for row in result.all()}
+
+        return [
+            MyClassResponse(
+                **MyClassBase.model_validate(row).model_dump(),
+                enrolled_at = enrolled_at,
+                exercise_count = totals.get(row.id, 0),
+                completed_exercise_count = completed.get(row.id, 0),
+            )
+            for row, enrolled_at in rows
+        ]
+
+    async def get_my_exercises(
+        self, class_id: UUID, user_id: UUID
+    ) -> list[LearnerExerciseSummary]:
+        await assert_class_member(self.db, class_id, user_id)
+
+        result = await self.db.execute(
+            select(Exercise)
+            .where(Exercise.class_id == class_id, Exercise.is_active.is_(True))
+            .order_by(Exercise.end_time)
+            .options(selectinload(Exercise.source_documents))
+        )
+        exercises = list(result.scalars().all())
+        if not exercises:
+            return []
+
+        exercise_ids = [e.id for e in exercises]
+
+        result = await self.db.execute(
+            select(Question.exercise_id, func.count(Question.id))
+            .where(Question.exercise_id.in_(exercise_ids))
+            .group_by(Question.exercise_id)
+        )
+        question_counts = {row[0]: row[1] for row in result.all()}
+
+        # Only the caller's own attempts. bool_or ignores NULLs, so is_passed is
+        # "has ever passed" rather than "passed on the last try".
+        result = await self.db.execute(
+            select(
+                Submission.exercise_id,
+                func.count(Submission.id),
+                func.max(Submission.score),
+                func.bool_or(Submission.is_passed),
+            )
+            .where(
+                Submission.exercise_id.in_(exercise_ids),
+                Submission.user_id == user_id,
+            )
+            .group_by(Submission.exercise_id)
+        )
+        attempts = {row[0]: (row[1], row[2], row[3]) for row in result.all()}
+
+        skill_names = await self._skill_names_by_exercise(exercises)
+
+        no_attempts = (0, None, None)
+        return [
+            LearnerExerciseSummary(
+                **LearnerExerciseBase.model_validate(e).model_dump(),
+                question_count = question_counts.get(e.id, 0),
+                attempt_count = attempts.get(e.id, no_attempts)[0],
+                best_score = attempts.get(e.id, no_attempts)[1],
+                is_passed = attempts.get(e.id, no_attempts)[2],
+                skill_names = skill_names.get(e.id, []),
+            )
+            for e in exercises
+        ]
+
+    # A multi-document exam awards no skill points (accepted Task 31 limitation),
+    # so only single-document exercises can honestly advertise what they earn.
+    async def _skill_names_by_exercise(self, exercises: list) -> dict:
+        single_source = {
+            e.id: e.source_documents[0].document_id
+            for e in exercises
+            if len(e.source_documents) == 1
+        }
+        if not single_source:
+            return {}
+
+        result = await self.db.execute(
+            select(DocumentSkill.document_id, Skill.name)
+            .join(Skill, Skill.id == DocumentSkill.skill_id)
+            .where(
+                DocumentSkill.document_id.in_(set(single_source.values())),
+                Skill.is_active.is_(True),
+            )
+            .order_by(Skill.name)
+        )
+        by_document: dict = {}
+        for document_id, name in result.all():
+            by_document.setdefault(document_id, []).append(name)
+
+        return {
+            exercise_id: by_document.get(document_id, [])
+            for exercise_id, document_id in single_source.items()
+        }
 
     async def update(self, class_id: UUID, data: ClassUpdate) -> ClassResponse:
         row = await get_or_404(self.db, Class, class_id, "Class not found.")

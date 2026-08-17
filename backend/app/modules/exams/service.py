@@ -10,6 +10,7 @@ from sqlalchemy.orm import selectinload
 from app.core.crud import get_or_404
 from app.core.llm import LLMError, generate_quiz
 from app.modules.classes.models import Class
+from app.modules.classes.service import assert_class_member
 from app.modules.documents.models import Document, DocumentChunk, DocumentVersion
 from app.modules.exams.models import (
     Exercise,
@@ -20,6 +21,7 @@ from app.modules.exams.models import (
 from app.modules.exams.schemas import (
     ExerciseResponse,
     FinalizeExerciseRequest,
+    LearnerExerciseDetail,
     OptionUpdate,
     QuestionOptionResponse,
     QuestionResponse,
@@ -207,6 +209,35 @@ class ExamService:
             raise HTTPException(status_code = 404, detail = "Question not found")
         return question
 
+    # The guards and their messages mirror SubmissionService.submit exactly, so a
+    # learner can never open an exam they would then be refused on submit.
+    async def get_for_learner(
+        self, exercise_id: UUID, user_id: UUID
+    ) -> LearnerExerciseDetail:
+        exercise = await self._load_exercise(exercise_id)
+        if exercise is None:
+            raise HTTPException(status_code = 404, detail = "Exercise not found.")
+
+        await assert_class_member(self.db, exercise.class_id, user_id)
+
+        if not exercise.is_active:
+            raise HTTPException(status_code = 400, detail = "Exercise is not finalized.")
+
+        # Deliberately no end_time check: submit() accepts late answers and flags
+        # them is_late, so blocking the read would strand that path.
+        if datetime.now(timezone.utc) < exercise.start_time:
+            raise HTTPException(
+                status_code = 400, detail = "Exercise has not started yet."
+            )
+
+        # Validating off the ORM row is what drops is_correct and explanation —
+        # the learner schemas simply have no field to put them in.
+        detail = LearnerExerciseDetail.model_validate(exercise)
+        detail.questions.sort(key = lambda q: q.order_index)
+        for question in detail.questions:
+            question.options.sort(key = lambda o: o.option_label)
+        return detail
+
     async def get_exercise(self, exercise_id: UUID) -> ExerciseResponse:
         exercise = await self._load_exercise(exercise_id)
         if exercise is None:
@@ -357,8 +388,13 @@ def _to_response(
     return ExerciseResponse(
         id = exercise.id,
         title = exercise.title,
+        description = exercise.description,
         class_id = exercise.class_id,
         is_active = exercise.is_active,
+        start_time = exercise.start_time,
+        end_time = exercise.end_time,
+        duration_minutes = exercise.duration_minutes,
+        pass_score = exercise.pass_score,
         total_points = exercise.total_points,
         questions = [_question_response(q) for q in questions],
         chunks_used = chunks_used,

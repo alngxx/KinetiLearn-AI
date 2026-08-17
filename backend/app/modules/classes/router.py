@@ -3,7 +3,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.dependencies import get_db, require_admin
+from app.core.dependencies import get_current_user, get_db, require_admin
 from app.modules.auth.models import User
 from app.modules.classes.schemas import (
     BulkAddMembersRequest,
@@ -12,10 +12,36 @@ from app.modules.classes.schemas import (
     ClassDetailResponse,
     ClassResponse,
     ClassUpdate,
+    LearnerExerciseSummary,
+    MyClassResponse,
 )
 from app.modules.classes.service import ClassService
 
 router = APIRouter(dependencies = [Depends(require_admin)])
+
+# The admin router applies require_admin to every route, so the learner-facing
+# reads live on their own router — same split as the daily quiz module. It must be
+# mounted before the admin one so /classes/me isn't matched as /classes/{class_id}.
+my_classes_router = APIRouter(prefix = "/classes", tags = ["Classes — Learner"])
+
+
+@my_classes_router.get("/me", response_model = list[MyClassResponse])
+async def list_my_classes(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    return await ClassService(db).get_my(current_user.id)
+
+
+@my_classes_router.get(
+    "/{class_id}/exercises", response_model = list[LearnerExerciseSummary]
+)
+async def list_my_class_exercises(
+    class_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    return await ClassService(db).get_my_exercises(class_id, current_user.id)
 
 
 @router.post("", response_model = ClassResponse, status_code = status.HTTP_201_CREATED)

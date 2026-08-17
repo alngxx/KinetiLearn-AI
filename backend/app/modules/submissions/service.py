@@ -6,7 +6,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.modules.classes.models import ClassMember
+from app.modules.classes.service import assert_class_member
 from app.modules.exams.models import Exercise, Question
 from app.modules.scoring.service import SkillScoringService
 from app.modules.submissions.models import Submission, SubmissionAnswer
@@ -49,16 +49,7 @@ class SubmissionService:
 
         # Membership is checked before any exercise state, so a non-member
         # learns nothing about the exercise beyond the fact that it exists.
-        member = await self.db.scalar(
-            select(ClassMember.user_id).where(
-                ClassMember.class_id == exercise.class_id,
-                ClassMember.user_id == user_id,
-            )
-        )
-        if member is None:
-            raise HTTPException(
-                status_code = 403, detail = "You are not a member of this class."
-            )
+        await assert_class_member(self.db, exercise.class_id, user_id)
 
         if not exercise.is_active:
             raise HTTPException(
