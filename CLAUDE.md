@@ -118,6 +118,26 @@ to double-check it again afterward.
   narrowing, or transforming it.
 - Finish the whole task. Stop short of actions clearly beyond what was asked.
 
+## Frontend Visual Quality (Phase 3 onward)
+- Use the `frontend-design` skill for every screen — this project's UI must
+  look distinctive and polished, not like a generic AI-generated template
+  (no default fonts, no cookie-cutter purple gradients, no unstyled shadcn
+  defaults left as-is). This baseline applies to every task, not deferred.
+- Add tasteful micro-interactions and motion: hover/focus states, smooth
+  transitions (Tailwind transition utilities for simple cases, framer-motion
+  for page transitions, scroll-reveal, staggered list entrances, animated
+  chart/number reveals). Applied per-task; Task 43 is a consistency pass
+  across screens, not the first time motion is added.
+- All motion must respect prefers-reduced-motion — gate animations behind a
+  useReducedMotion check or equivalent CSS media query. Non-negotiable for
+  accessibility.
+- Recharts visualizations use built-in entrance animations, not static render.
+- Component tests (RTL) assert content/state, never animation timing.
+  framer-motion is mocked in test/setup.ts if it causes jsdom flakiness.
+- Still bound by Simplicity First — animate what earns it (state changes,
+  data reveals, navigation), not everything. No animation on static text
+  with no state change.
+
 ---
 
 **These guidelines are working if:** fewer unnecessary changes in diffs, fewer
