@@ -60,3 +60,50 @@ class BulkAddMembersResponse(BaseModel):
     total_matched: int
     added: int
     skipped: int
+
+
+# The Class columns a learner is allowed to see — no created_by. Split out so the
+# service can build it straight off the ORM row, same as ClassResponse.
+class MyClassBase(BaseModel):
+    model_config = ConfigDict(from_attributes = True)
+
+    id: UUID
+    name: str
+    description: str | None
+    start_date: date | None
+    end_date: date | None
+
+
+# Progress is "how many of the class's finalized exercises this learner has
+# submitted at least once".
+class MyClassResponse(MyClassBase):
+    enrolled_at: datetime
+    exercise_count: int
+    completed_exercise_count: int
+
+
+# The Exercise columns a learner may see. Carries the schedule so the UI can show
+# a deadline. No question content — that comes from GET /exams/{id}/take.
+class LearnerExerciseBase(BaseModel):
+    model_config = ConfigDict(from_attributes = True)
+
+    id: UUID
+    title: str
+    description: str | None
+    start_time: datetime
+    end_time: datetime
+    duration_minutes: int
+    pass_score: int
+    total_points: int
+
+
+class LearnerExerciseSummary(LearnerExerciseBase):
+    question_count: int
+    # The caller's own attempts only. 0 means "chưa làm".
+    attempt_count: int
+    best_score: int | None
+    is_passed: bool | None
+    # Only populated for single-document exercises: a multi-document exam awards
+    # no skill points at all, so listing skills for one would promise something
+    # the scoring engine never delivers.
+    skill_names: list[str]

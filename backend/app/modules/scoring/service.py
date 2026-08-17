@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.crud import get_or_404
 from app.modules.auth.models import User
-from app.modules.config.models import Skill
+from app.modules.config.models import Category, Skill
 from app.modules.documents.models import DocumentSkill
 from app.modules.scoring.models import SkillScore, SkillScoreHistory
 from app.modules.scoring.schemas import SkillBreakdownItem
@@ -109,12 +109,18 @@ class SkillScoringService:
 
         await self.db.flush()
 
+    # Driven from skills, not skill_scores: a radar chart needs every active skill
+    # as an axis, and an unscored skill is exactly the "weak" one worth showing.
     async def get_breakdown(self, user_id: UUID) -> list[SkillBreakdownItem]:
         await get_or_404(self.db, User, user_id, "User not found.")
         result = await self.db.execute(
-            select(SkillScore, Skill)
-            .join(Skill, Skill.id == SkillScore.skill_id)
-            .where(SkillScore.user_id == user_id)
+            select(Skill, Category.name, SkillScore)
+            .join(Category, Category.id == Skill.category_id)
+            .outerjoin(
+                SkillScore,
+                (SkillScore.skill_id == Skill.id) & (SkillScore.user_id == user_id),
+            )
+            .where(Skill.is_active.is_(True))
             .order_by(Skill.name)
         )
         return [
@@ -122,9 +128,12 @@ class SkillScoringService:
                 skill_id = skill.id,
                 skill_name = skill.name,
                 category_id = skill.category_id,
-                cumulative_score = score.cumulative_score,
-                current_level = score.current_level,
-                last_updated_at = score.last_updated_at,
+                category_name = category_name,
+                cumulative_score = 0 if score is None else score.cumulative_score,
+                current_level = "basic" if score is None else score.current_level,
+                basic_max = skill.basic_max,
+                intermediate_max = skill.intermediate_max,
+                last_updated_at = None if score is None else score.last_updated_at,
             )
-            for score, skill in result.all()
+            for skill, category_name, score in result.all()
         ]
