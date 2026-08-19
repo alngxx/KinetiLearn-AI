@@ -562,6 +562,40 @@ export interface paths {
         patch: operations["deactivate_user_api_v1_users__user_id__deactivate_patch"];
         trace?: never;
     };
+    "/api/v1/documents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Documents */
+        get: operations["list_documents_api_v1_documents_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/documents/{document_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Document */
+        get: operations["get_document_api_v1_documents__document_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/documents/upload": {
         parameters: {
             query?: never;
@@ -1722,6 +1756,33 @@ export interface components {
             /** Description */
             description?: string | null;
         };
+        /** DocumentDetailResponse */
+        DocumentDetailResponse: {
+            /**
+             * Document Id
+             * Format: uuid
+             */
+            document_id: string;
+            /** Title */
+            title: string;
+            /** Description */
+            description: string | null;
+            /** Category Id */
+            category_id: string | null;
+            /** Active Version Number */
+            active_version_number: number | null;
+            /** Is Active */
+            is_active: boolean;
+            /** Skill Ids */
+            skill_ids: string[];
+            /** Versions */
+            versions: components["schemas"]["DocumentVersionDetail"][];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
         /** DocumentResponse */
         DocumentResponse: {
             /**
@@ -1737,6 +1798,8 @@ export interface components {
             active_version_number: number | null;
             /** Is Active */
             is_active: boolean;
+            /** Active Version Processing Status */
+            active_version_processing_status: string | null;
             /** Skill Ids */
             skill_ids: string[];
             /**
@@ -1764,6 +1827,28 @@ export interface components {
             file_size_bytes: number;
             /** Processing Status */
             processing_status: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** DocumentVersionDetail */
+        DocumentVersionDetail: {
+            /** Version Number */
+            version_number: number;
+            /** File Name */
+            file_name: string;
+            /** File Size Bytes */
+            file_size_bytes: number;
+            /** Mime Type */
+            mime_type: string;
+            /** Processing Status */
+            processing_status: string;
+            /** Processing Error */
+            processing_error: string | null;
+            /** Change Note */
+            change_note: string | null;
             /**
              * Created At
              * Format: date-time
@@ -3920,6 +4005,69 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UserResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_documents_api_v1_documents_get: {
+        parameters: {
+            query?: {
+                category_id?: string | null;
+                include_inactive?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentResponse"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_document_api_v1_documents__document_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                document_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentDetailResponse"];
                 };
             };
             /** @description Validation Error */

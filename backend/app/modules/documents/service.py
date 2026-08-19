@@ -12,8 +12,10 @@ from app.core.storage import R2Storage, StorageError
 from app.modules.config.models import Category, Skill
 from app.modules.documents.models import Document, DocumentSkill, DocumentVersion
 from app.modules.documents.schemas import (
+    DocumentDetailResponse,
     DocumentResponse,
     DocumentUploadResponse,
+    DocumentVersionDetail,
     DocumentVersionResponse,
 )
 
@@ -175,6 +177,22 @@ class DocumentService:
             raise HTTPException(status_code = 404, detail = "Document version not found")
         return version
 
+    async def _active_version_status(
+        self, document_id: UUID, active_version_number: int | None
+    ) -> str | None:
+        if active_version_number is not None:
+            version = await self.db.get(
+                DocumentVersion, (document_id, active_version_number)
+            )
+            return version.processing_status if version else None
+        result = await self.db.execute(
+            select(DocumentVersion.processing_status)
+            .where(DocumentVersion.document_id == document_id)
+            .order_by(DocumentVersion.version_number.desc())
+            .limit(1)
+        )
+        return result.scalar_one_or_none()
+
     async def _document_response(self, document_id: UUID) -> DocumentResponse:
         document = await get_or_404(self.db, Document, document_id, "Document not found")
         result = await self.db.execute(
@@ -182,13 +200,108 @@ class DocumentService:
                 DocumentSkill.document_id == document_id
             )
         )
+        status = await self._active_version_status(
+            document_id, document.active_version_number
+        )
         return DocumentResponse(
             document_id = document.id,
             title = document.title,
             category_id = document.category_id,
             active_version_number = document.active_version_number,
             is_active = document.is_active,
+            active_version_processing_status = status,
             skill_ids = list(result.scalars().all()),
+            created_at = document.created_at,
+        )
+
+    async def get_all(
+        self,
+        category_id: UUID | None = None,
+        include_inactive: bool = False,
+    ) -> list[DocumentResponse]:
+        stmt = select(Document)
+        if category_id is not None:
+            stmt = stmt.where(Document.category_id == category_id)
+        if not include_inactive:
+            stmt = stmt.where(Document.is_active.is_(True))
+        stmt = stmt.order_by(Document.created_at.desc())
+        result = await self.db.execute(stmt)
+        documents = list(result.scalars().all())
+        if not documents:
+            return []
+
+        document_ids = [document.id for document in documents]
+
+        skill_result = await self.db.execute(
+            select(DocumentSkill.document_id, DocumentSkill.skill_id).where(
+                DocumentSkill.document_id.in_(document_ids)
+            )
+        )
+        skill_ids_by_document: dict[UUID, list[UUID]] = {}
+        for doc_id, skill_id in skill_result.all():
+            skill_ids_by_document.setdefault(doc_id, []).append(skill_id)
+
+        version_result = await self.db.execute(
+            select(
+                DocumentVersion.document_id,
+                DocumentVersion.version_number,
+                DocumentVersion.processing_status,
+            ).where(DocumentVersion.document_id.in_(document_ids))
+        )
+        versions_by_document: dict[UUID, dict[int, str]] = {}
+        for doc_id, version_number, status in version_result.all():
+            versions_by_document.setdefault(doc_id, {})[version_number] = status
+
+        def active_status(document: Document) -> str | None:
+            versions = versions_by_document.get(document.id)
+            if not versions:
+                return None
+            if document.active_version_number is not None:
+                return versions.get(document.active_version_number)
+            return versions[max(versions)]
+
+        return [
+            DocumentResponse(
+                document_id = document.id,
+                title = document.title,
+                category_id = document.category_id,
+                active_version_number = document.active_version_number,
+                is_active = document.is_active,
+                active_version_processing_status = active_status(document),
+                skill_ids = skill_ids_by_document.get(document.id, []),
+                created_at = document.created_at,
+            )
+            for document in documents
+        ]
+
+    async def get_detail(self, document_id: UUID) -> DocumentDetailResponse:
+        document = await get_or_404(self.db, Document, document_id, "Document not found")
+
+        version_result = await self.db.execute(
+            select(DocumentVersion)
+            .where(DocumentVersion.document_id == document_id)
+            .order_by(DocumentVersion.version_number.desc())
+        )
+        versions = [
+            DocumentVersionDetail.model_validate(version)
+            for version in version_result.scalars().all()
+        ]
+
+        skill_result = await self.db.execute(
+            select(DocumentSkill.skill_id).where(
+                DocumentSkill.document_id == document_id
+            )
+        )
+
+        return DocumentDetailResponse(
+            document_id = document.id,
+            title = document.title,
+            description = document.description,
+            category_id = document.category_id,
+            active_version_number = document.active_version_number,
+            is_active = document.is_active,
+            skill_ids = list(skill_result.scalars().all()),
+            versions = versions,
             created_at = document.created_at,
         )
 

@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.dependencies import get_db, require_admin
 from app.modules.auth.models import User
 from app.modules.documents.schemas import (
+    DocumentDetailResponse,
     DocumentResponse,
     DocumentUploadResponse,
     DocumentVersionResponse,
@@ -13,6 +14,28 @@ from app.modules.documents.schemas import (
 from app.modules.documents.service import DocumentService
 
 router = APIRouter()
+
+
+@router.get(
+    "",
+    response_model = list[DocumentResponse],
+    dependencies = [Depends(require_admin)],
+)
+async def list_documents(
+    category_id: UUID | None = None,
+    include_inactive: bool = False,
+    db: AsyncSession = Depends(get_db),
+):
+    return await DocumentService(db).get_all(category_id, include_inactive)
+
+
+@router.get(
+    "/{document_id}",
+    response_model = DocumentDetailResponse,
+    dependencies = [Depends(require_admin)],
+)
+async def get_document(document_id: UUID, db: AsyncSession = Depends(get_db)):
+    return await DocumentService(db).get_detail(document_id)
 
 
 @router.post(
