@@ -128,6 +128,10 @@ to double-check it again afterward.
   for page transitions, scroll-reveal, staggered list entrances, animated
   chart/number reveals). Applied per-task; Task 43 is a consistency pass
   across screens, not the first time motion is added.
+- Headings and buttons use sentence case, not Title Case, project-wide.
+  frontend-design and web-design-guidelines disagree here; decided in Task 34
+  in favour of sentence case, which reads better in a dense internal console.
+  Settled — do not re-litigate in Task 43.
 - All motion must respect prefers-reduced-motion — gate animations behind a
   useReducedMotion check or equivalent CSS media query. Non-negotiable for
   accessibility.

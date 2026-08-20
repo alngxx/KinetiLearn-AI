@@ -1,5 +1,6 @@
 import { QueryClientProvider } from "@tanstack/react-query"
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom"
+import { Toaster } from "@/components/ui/sonner"
 import { AdminLayout } from "@/layouts/AdminLayout"
 import { LearnerLayout } from "@/layouts/LearnerLayout"
 import { queryClient } from "@/lib/queryClient"
@@ -9,6 +10,8 @@ import { ProtectedRoute } from "@/modules/auth/ProtectedRoute"
 import { RoleRoute } from "@/modules/auth/RoleRoute"
 import { homePathForRole } from "@/modules/auth/roles"
 import { useAuth } from "@/modules/auth/useAuth"
+import { ConfigEntityPage } from "@/modules/config/ConfigEntityPage"
+import { UsersPage } from "@/modules/users/UsersPage"
 
 function HomeRedirect() {
   const { user } = useAuth()
@@ -24,11 +27,15 @@ export default function App() {
             <Route path="/" element={<HomeRedirect />} />
             <Route path="/login" element={<LoginPage />} />
 
-            {/* Screens are added under these layouts in Task 34+. */}
             <Route element={<ProtectedRoute />}>
               <Route element={<RoleRoute role="admin" />}>
-                <Route path="/admin" element={<AdminLayout />} />
+                <Route path="/admin" element={<AdminLayout />}>
+                  <Route index element={<Navigate to="/admin/users" replace />} />
+                  <Route path="users" element={<UsersPage />} />
+                  <Route path="config/:entityKey" element={<ConfigEntityPage />} />
+                </Route>
               </Route>
+              {/* Learner screens land here in a later task. */}
               <Route element={<RoleRoute role="learner" />}>
                 <Route path="/learner" element={<LearnerLayout />} />
               </Route>
@@ -36,6 +43,7 @@ export default function App() {
 
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
+          <Toaster />
         </AuthProvider>
       </BrowserRouter>
     </QueryClientProvider>
