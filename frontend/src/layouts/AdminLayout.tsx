@@ -1,4 +1,4 @@
-import { LogOutIcon, UsersIcon } from "lucide-react"
+import { FileTextIcon, LogOutIcon, UsersIcon } from "lucide-react"
 import { NavLink, Outlet, useNavigate } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -44,6 +44,17 @@ export function AdminLayout() {
             >
               <UsersIcon className="size-4" />
               Users
+            </NavLink>
+          </div>
+
+          <div className="flex flex-col gap-0.5">
+            <span className="label-micro px-2.5 pb-1">Content</span>
+            <NavLink
+              to="/admin/documents"
+              className={({ isActive }) => cn(navLinkClasses, isActive && activeClasses)}
+            >
+              <FileTextIcon className="size-4" />
+              Documents
             </NavLink>
           </div>
 

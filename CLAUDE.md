@@ -119,28 +119,36 @@ to double-check it again afterward.
 - Finish the whole task. Stop short of actions clearly beyond what was asked.
 
 ## Frontend Visual Quality (Phase 3 onward)
-- Use the `frontend-design` skill for every screen — this project's UI must
-  look distinctive and polished, not like a generic AI-generated template
-  (no default fonts, no cookie-cutter purple gradients, no unstyled shadcn
-  defaults left as-is). This baseline applies to every task, not deferred.
-- Add tasteful micro-interactions and motion: hover/focus states, smooth
-  transitions (Tailwind transition utilities for simple cases, framer-motion
-  for page transitions, scroll-reveal, staggered list entrances, animated
-  chart/number reveals). Applied per-task; Task 43 is a consistency pass
-  across screens, not the first time motion is added.
-- Headings and buttons use sentence case, not Title Case, project-wide.
-  frontend-design and web-design-guidelines disagree here; decided in Task 34
-  in favour of sentence case, which reads better in a dense internal console.
-  Settled — do not re-litigate in Task 43.
-- All motion must respect prefers-reduced-motion — gate animations behind a
-  useReducedMotion check or equivalent CSS media query. Non-negotiable for
-  accessibility.
-- Recharts visualizations use built-in entrance animations, not static render.
-- Component tests (RTL) assert content/state, never animation timing.
-  framer-motion is mocked in test/setup.ts if it causes jsdom flakiness.
-- Still bound by Simplicity First — animate what earns it (state changes,
-  data reveals, navigation), not everything. No animation on static text
-  with no state change.
+- Use the `frontend-design` skill for aesthetic direction and the
+  `web-design-guidelines` skill for a correctness/accessibility audit, on
+  every screen. This baseline applies every task, not deferred.
+- Baseline interactivity — hover/focus states, transition-colors on
+  interactive elements, prefers-reduced-motion-respecting spinners — is
+  mandatory every task.
+- A signature/bespoke design element (like ThresholdLadder — something that
+  encodes real data, not decoration) is optional per task: add one only
+  when a screen's data genuinely earns it. Most screens won't need one.
+- Heavier motion (framer-motion sequences, scroll-reveal, staggered list
+  entrances, animated chart/number reveals) is intentionally deferred to
+  Task 43's single consistency pass across all screens, not built
+  piecemeal per task.
+- Headings and buttons use sentence case, not Title Case, project-wide —
+  settled in Task 34, do not re-litigate.
+
+## Frontend Consistency Passes (Phase 3)
+- A mid-point consistency pass runs around Task 37-38 (after the admin
+  portal is complete, before the learner portal begins): review all admin
+  screens together for drift in motion, spacing, and any deferred items
+  that have accumulated (dark mode, URL-synced filters, virtualization,
+  focus-first-error, etc.) — fix what's cheap and genuinely cross-cutting,
+  re-defer the rest to the final pass.
+- The final pass (originally Task 42, "Polish") remains the complete pass:
+  heavier motion (framer-motion sequences, scroll-reveal, staggered
+  entrances), full accessibility re-audit, and E2E smoke tests across both
+  portals.
+- This does not change per-task scope otherwise — baseline design quality
+  (typography, palette, hover/focus states, accessibility) stays mandatory
+  every task, same as before.
 
 ---
 
