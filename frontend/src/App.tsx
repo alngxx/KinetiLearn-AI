@@ -10,6 +10,8 @@ import { ProtectedRoute } from "@/modules/auth/ProtectedRoute"
 import { RoleRoute } from "@/modules/auth/RoleRoute"
 import { homePathForRole } from "@/modules/auth/roles"
 import { useAuth } from "@/modules/auth/useAuth"
+import { ClassDetailPage } from "@/modules/classes/ClassDetailPage"
+import { ClassesPage } from "@/modules/classes/ClassesPage"
 import { ConfigEntityPage } from "@/modules/config/ConfigEntityPage"
 import { DocumentDetailPage } from "@/modules/documents/DocumentDetailPage"
 import { DocumentsPage } from "@/modules/documents/DocumentsPage"
@@ -36,6 +38,8 @@ export default function App() {
                   <Route path="/admin" element={<AdminLayout />}>
                     <Route index element={<Navigate to="/admin/users" replace />} />
                     <Route path="users" element={<UsersPage />} />
+                    <Route path="classes" element={<ClassesPage />} />
+                    <Route path="classes/:classId" element={<ClassDetailPage />} />
                     <Route path="documents" element={<DocumentsPage />} />
                     <Route path="documents/:documentId" element={<DocumentDetailPage />} />
                     <Route path="config/:entityKey" element={<ConfigEntityPage />} />

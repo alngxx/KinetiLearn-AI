@@ -1,4 +1,4 @@
-import { FileTextIcon, LogOutIcon, UsersIcon } from "lucide-react"
+import { FileTextIcon, GraduationCapIcon, LogOutIcon, UsersIcon } from "lucide-react"
 import { NavLink, Outlet, useNavigate } from "react-router-dom"
 import { ThemeToggle } from "@/components/ThemeToggle"
 import { Button } from "@/components/ui/button"
@@ -45,6 +45,13 @@ export function AdminLayout() {
             >
               <UsersIcon className="size-4" />
               Users
+            </NavLink>
+            <NavLink
+              to="/admin/classes"
+              className={({ isActive }) => cn(navLinkClasses, isActive && activeClasses)}
+            >
+              <GraduationCapIcon className="size-4" />
+              Classes
             </NavLink>
           </div>
 
