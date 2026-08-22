@@ -125,7 +125,7 @@ function EntityView({ descriptorKey }: { descriptorKey: string }) {
               id="entity-filter"
               value={filterValue}
               onChange={(event) => setFilterValue(event.target.value)}
-              className="h-8 w-52 appearance-none rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30"
+              className="h-8 w-52 appearance-none rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm text-foreground transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30"
             >
               <option value="">All categories</option>
               {options.categories.map((option) => (

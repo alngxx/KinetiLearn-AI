@@ -7,9 +7,26 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { Toaster } from "@/components/ui/sonner"
 import { DocumentDetailPage } from "@/modules/documents/DocumentDetailPage"
 import { POLL_INTERVAL_MS } from "@/modules/documents/queries"
+import { ThemeProvider } from "@/modules/theme/ThemeContext"
 import { server } from "@/test/server"
 
 const API = "http://localhost:8000"
+
+beforeEach(() => {
+  vi.stubGlobal(
+    "matchMedia",
+    vi.fn(() => ({
+      matches: false,
+      media: "(prefers-color-scheme: dark)",
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    })),
+  )
+})
+
+afterEach(() => {
+  vi.unstubAllGlobals()
+})
 
 function version(number: number, status: string, extra: Record<string, unknown> = {}) {
   return {
@@ -34,14 +51,16 @@ function renderDetail() {
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   })
   return render(
-    <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={["/admin/documents/d1"]}>
-        <Routes>
-          <Route path="/admin/documents/:documentId" element={<DocumentDetailPage />} />
-        </Routes>
-        <Toaster />
-      </MemoryRouter>
-    </QueryClientProvider>,
+    <ThemeProvider>
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={["/admin/documents/d1"]}>
+          <Routes>
+            <Route path="/admin/documents/:documentId" element={<DocumentDetailPage />} />
+          </Routes>
+          <Toaster />
+        </MemoryRouter>
+      </QueryClientProvider>
+    </ThemeProvider>,
   )
 }
 

@@ -57,6 +57,7 @@
    rationed — focus rings, the active nav marker, and the skill threshold
    ladder — so it stays a signal instead of decoration. */
 :root {
+    color-scheme: light;
     --background: oklch(0.993 0.0025 250);
     --foreground: oklch(0.205 0.024 256);
     --card: oklch(1 0 0);
@@ -92,6 +93,7 @@
 }
 
 .dark {
+    color-scheme: dark;
     --background: oklch(0.185 0.018 256);
     --foreground: oklch(0.955 0.004 250);
     --card: oklch(0.225 0.021 256);

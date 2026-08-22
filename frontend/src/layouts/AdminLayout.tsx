@@ -1,5 +1,6 @@
 import { FileTextIcon, LogOutIcon, UsersIcon } from "lucide-react"
 import { NavLink, Outlet, useNavigate } from "react-router-dom"
+import { ThemeToggle } from "@/components/ThemeToggle"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { configEntities } from "@/modules/config/descriptors"
@@ -72,18 +73,22 @@ export function AdminLayout() {
           </div>
         </nav>
 
-        <Button
-          variant="ghost"
-          size="sm"
-          className="mt-auto justify-start"
-          onClick={() => {
-            logout()
-            navigate("/login", { replace: true })
-          }}
-        >
-          <LogOutIcon />
-          Sign out
-        </Button>
+        <div className="mt-auto flex flex-col gap-2">
+          <ThemeToggle />
+
+          <Button
+            variant="ghost"
+            size="sm"
+            className="justify-start"
+            onClick={() => {
+              logout()
+              navigate("/login", { replace: true })
+            }}
+          >
+            <LogOutIcon />
+            Sign out
+          </Button>
+        </div>
       </aside>
 
       <main id="main-content" tabIndex={-1} className="min-w-0 flex-1 px-8 py-8 outline-none">

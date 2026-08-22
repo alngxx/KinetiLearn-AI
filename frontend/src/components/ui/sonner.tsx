@@ -1,13 +1,16 @@
 import { Toaster as Sonner, type ToasterProps } from "sonner"
 import { CircleCheckIcon, InfoIcon, TriangleAlertIcon, OctagonXIcon, Loader2Icon } from "lucide-react"
+import { useTheme } from "@/modules/theme/useTheme"
 
-// Pinned light on purpose. The app renders light-only today — nothing applies
-// the .dark class — so "system" would put dark toasts over a light page for
-// anyone on a dark OS. Revisit when real dark mode lands (Task 43).
+// Uses the app's own resolved theme rather than sonner's built-in "system" —
+// that would read the OS preference independently and drift from an explicit
+// light/dark pick made in the theme toggle.
 const Toaster = ({ ...props }: ToasterProps) => {
+  const { resolvedTheme } = useTheme()
+
   return (
     <Sonner
-      theme="light"
+      theme={resolvedTheme}
       className="toaster group"
       icons={{
         success: (

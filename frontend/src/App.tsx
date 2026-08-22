@@ -13,6 +13,7 @@ import { useAuth } from "@/modules/auth/useAuth"
 import { ConfigEntityPage } from "@/modules/config/ConfigEntityPage"
 import { DocumentDetailPage } from "@/modules/documents/DocumentDetailPage"
 import { DocumentsPage } from "@/modules/documents/DocumentsPage"
+import { ThemeProvider } from "@/modules/theme/ThemeContext"
 import { UsersPage } from "@/modules/users/UsersPage"
 
 function HomeRedirect() {
@@ -22,34 +23,36 @@ function HomeRedirect() {
 
 export default function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
-        <AuthProvider>
-          <Routes>
-            <Route path="/" element={<HomeRedirect />} />
-            <Route path="/login" element={<LoginPage />} />
+    <ThemeProvider>
+      <QueryClientProvider client={queryClient}>
+        <BrowserRouter>
+          <AuthProvider>
+            <Routes>
+              <Route path="/" element={<HomeRedirect />} />
+              <Route path="/login" element={<LoginPage />} />
 
-            <Route element={<ProtectedRoute />}>
-              <Route element={<RoleRoute role="admin" />}>
-                <Route path="/admin" element={<AdminLayout />}>
-                  <Route index element={<Navigate to="/admin/users" replace />} />
-                  <Route path="users" element={<UsersPage />} />
-                  <Route path="documents" element={<DocumentsPage />} />
-                  <Route path="documents/:documentId" element={<DocumentDetailPage />} />
-                  <Route path="config/:entityKey" element={<ConfigEntityPage />} />
+              <Route element={<ProtectedRoute />}>
+                <Route element={<RoleRoute role="admin" />}>
+                  <Route path="/admin" element={<AdminLayout />}>
+                    <Route index element={<Navigate to="/admin/users" replace />} />
+                    <Route path="users" element={<UsersPage />} />
+                    <Route path="documents" element={<DocumentsPage />} />
+                    <Route path="documents/:documentId" element={<DocumentDetailPage />} />
+                    <Route path="config/:entityKey" element={<ConfigEntityPage />} />
+                  </Route>
+                </Route>
+                {/* Learner screens land here in a later task. */}
+                <Route element={<RoleRoute role="learner" />}>
+                  <Route path="/learner" element={<LearnerLayout />} />
                 </Route>
               </Route>
-              {/* Learner screens land here in a later task. */}
-              <Route element={<RoleRoute role="learner" />}>
-                <Route path="/learner" element={<LearnerLayout />} />
-              </Route>
-            </Route>
 
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-          <Toaster />
-        </AuthProvider>
-      </BrowserRouter>
-    </QueryClientProvider>
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+            <Toaster />
+          </AuthProvider>
+        </BrowserRouter>
+      </QueryClientProvider>
+    </ThemeProvider>
   )
 }
