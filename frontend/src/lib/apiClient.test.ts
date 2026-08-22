@@ -131,6 +131,35 @@ describe("requests", () => {
     expect(seenAuth).toBeNull()
   })
 
+  // A FormData body must reach the server as multipart with the browser's own
+  // boundary. Stringifying it, or forcing a JSON content type, would send "{}"
+  // and every upload field would arrive missing.
+  it("sends FormData as multipart and leaves the content type to the browser", async () => {
+    stubLocation("/admin")
+    setToken(TOKEN)
+    let seenType: string | null = null
+    let seenBody = ""
+
+    server.use(
+      http.post(`${API}/api/v1/documents/upload`, async ({ request }) => {
+        seenType = request.headers.get("Content-Type")
+        seenBody = await request.text()
+        return HttpResponse.json({ document_id: "d1", version_number: 1 }, { status: 201 })
+      }),
+    )
+
+    // Text-only on purpose: jsdom's File cannot be streamed back out by msw, so
+    // reading a body that contains one hangs. Whether the parts are text or a
+    // file makes no difference to what this asserts.
+    const form = new FormData()
+    form.set("title", "Safety handbook")
+
+    await api.post("/api/v1/documents/upload", form)
+
+    expect(seenType).toMatch(/^multipart\/form-data; boundary=/)
+    expect(seenBody).toContain("Safety handbook")
+  })
+
   it("normalizes a 422 into field errors", async () => {
     stubLocation("/login")
 

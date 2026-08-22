@@ -55,15 +55,19 @@ export async function apiRequest<T>(
   body?: unknown,
   options: RequestOptions = {},
 ): Promise<T> {
+  // A FormData body is passed through untouched: the browser writes its own
+  // multipart Content-Type with the boundary, which we cannot produce here.
+  const isForm = body instanceof FormData
+
   let response: Response
   try {
     response = await fetch(`${API_BASE_URL}${path}`, {
       method,
       headers: {
-        ...(body === undefined ? {} : { "Content-Type": "application/json" }),
+        ...(body === undefined || isForm ? {} : { "Content-Type": "application/json" }),
         ...authHeaders(),
       },
-      body: body === undefined ? undefined : JSON.stringify(body),
+      body: body === undefined ? undefined : isForm ? body : JSON.stringify(body),
       signal: options.signal,
     })
   } catch (err) {

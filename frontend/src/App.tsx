@@ -11,6 +11,8 @@ import { RoleRoute } from "@/modules/auth/RoleRoute"
 import { homePathForRole } from "@/modules/auth/roles"
 import { useAuth } from "@/modules/auth/useAuth"
 import { ConfigEntityPage } from "@/modules/config/ConfigEntityPage"
+import { DocumentDetailPage } from "@/modules/documents/DocumentDetailPage"
+import { DocumentsPage } from "@/modules/documents/DocumentsPage"
 import { UsersPage } from "@/modules/users/UsersPage"
 
 function HomeRedirect() {
@@ -32,6 +34,8 @@ export default function App() {
                 <Route path="/admin" element={<AdminLayout />}>
                   <Route index element={<Navigate to="/admin/users" replace />} />
                   <Route path="users" element={<UsersPage />} />
+                  <Route path="documents" element={<DocumentsPage />} />
+                  <Route path="documents/:documentId" element={<DocumentDetailPage />} />
                   <Route path="config/:entityKey" element={<ConfigEntityPage />} />
                 </Route>
               </Route>
