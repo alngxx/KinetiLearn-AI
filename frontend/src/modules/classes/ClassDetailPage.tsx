@@ -1,4 +1,4 @@
-import { ChevronLeftIcon, UserPlusIcon } from "lucide-react"
+import { ChevronLeftIcon, SparklesIcon, UserPlusIcon } from "lucide-react"
 import { useState } from "react"
 import { Link, useParams } from "react-router-dom"
 import { PageHeader } from "@/components/PageHeader"
@@ -97,12 +97,20 @@ function DetailView({ classId }: { classId: string }) {
           </section>
 
           <section className="flex flex-col gap-3">
-            <div className="flex items-end justify-between gap-4">
+            <div className="flex flex-wrap items-end justify-between gap-4">
               <h2 className="label-micro">Exercises</h2>
-              <span className="text-sm text-muted-foreground">
-                <span className="numeric text-foreground">{exercises.length}</span>{" "}
-                {exercises.length === 1 ? "exercise" : "exercises"}
-              </span>
+              <div className="flex items-center gap-4">
+                <span className="text-sm text-muted-foreground">
+                  <span className="numeric text-foreground">{exercises.length}</span>{" "}
+                  {exercises.length === 1 ? "exercise" : "exercises"}
+                </span>
+                <Button variant="outline" asChild>
+                  <Link to={`/admin/classes/${classId}/exercises/new`}>
+                    <SparklesIcon />
+                    Generate exam
+                  </Link>
+                </Button>
+              </div>
             </div>
 
             <div className="overflow-hidden rounded-xl border border-border bg-card">
@@ -129,15 +137,20 @@ function DetailView({ classId }: { classId: string }) {
                       <TableCell colSpan={4} className="py-12 text-center">
                         <p className="text-sm font-medium text-foreground">No exercises yet</p>
                         <p className="mt-1 text-sm text-muted-foreground">
-                          Exercises are attached to a class when they are generated.
+                          Generate one from this class&rsquo;s documents to get started.
                         </p>
                       </TableCell>
                     </TableRow>
                   ) : (
                     exercises.map((exercise) => (
                       <TableRow key={exercise.id}>
-                        <TableCell className="min-w-0 max-w-md font-medium break-words">
-                          {exercise.title}
+                        <TableCell className="min-w-0 max-w-md break-words">
+                          <Link
+                            to={`/admin/classes/${classId}/exercises/${exercise.id}`}
+                            className="font-medium underline-offset-4 transition-colors outline-none hover:text-ring hover:underline focus-visible:rounded-sm focus-visible:ring-3 focus-visible:ring-ring/50"
+                          >
+                            {exercise.title}
+                          </Link>
                         </TableCell>
                         <TableCell>
                           <span className="numeric text-sm text-muted-foreground">
