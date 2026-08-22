@@ -45,7 +45,8 @@ export function validateFields(
 
 // On create an untouched optional field is left null so the column stays empty;
 // on edit it is sent as "" so clearing it actually clears it. Optional foreign
-// keys stay null in both cases — "" is not a valid id.
+// keys and dates stay null in both cases — "" is not a valid id, and a date
+// column rejects it too, which would 422 the whole save rather than the field.
 export function buildPayload(
   fields: FormField[],
   values: FormValues,
@@ -56,7 +57,8 @@ export function buildPayload(
   for (const field of fields) {
     const raw = (values[field.name] ?? "").trim()
     if (raw === "") {
-      payload[field.name] = mode === "create" || field.kind === "select" ? null : ""
+      const nullable = field.kind === "select" || field.kind === "date"
+      payload[field.name] = mode === "create" || nullable ? null : ""
       continue
     }
     payload[field.name] = field.kind === "number" ? Number(raw) : raw
