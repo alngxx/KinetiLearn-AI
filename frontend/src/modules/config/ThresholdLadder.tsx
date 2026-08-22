@@ -21,9 +21,16 @@ export function ThresholdLadder({
         {`Basic up to ${basicMax}, intermediate up to ${intermediateMax}, advanced above ${intermediateMax}.`}
       </span>
 
+      {/* Cool-to-warm progression: info blue at the foundational end, warming
+          through violet, landing on the identity brass at mastery — three
+          distinct hues so the bands read apart in both themes, not just as
+          shades of one color the way primary/ring do in dark mode. */}
       <div aria-hidden="true" className="flex h-1.5 overflow-hidden rounded-full bg-muted">
-        <div style={{ flexGrow: basicMax }} className="bg-primary/30" />
-        <div style={{ flexGrow: intermediateSpan }} className="bg-primary/60" />
+        <div style={{ flexGrow: basicMax }} className="bg-info" />
+        <div
+          style={{ flexGrow: intermediateSpan }}
+          className="bg-[oklch(0.55_0.12_305)] dark:bg-[oklch(0.7_0.13_305)]"
+        />
         <div
           style={{ flexGrow: advancedSpan }}
           className="bg-gradient-to-r from-ring to-ring/15"

@@ -2,10 +2,10 @@ import { Badge } from "@/components/ui/badge"
 
 export function StatusBadge({ active }: { active: boolean }) {
   return (
-    <Badge variant={active ? "outline" : "ghost"} className={active ? "" : "text-muted-foreground"}>
+    <Badge variant={active ? "success" : "destructive"}>
       <span
         aria-hidden="true"
-        className={`size-1.5 rounded-full ${active ? "bg-ring" : "bg-muted-foreground/50"}`}
+        className={`size-1.5 rounded-full ${active ? "bg-success" : "bg-destructive"}`}
       />
       {active ? "Active" : "Inactive"}
     </Badge>

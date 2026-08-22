@@ -2,8 +2,8 @@ import { Badge } from "@/components/ui/badge"
 import { isTerminal } from "@/modules/documents/queries"
 
 // The four states the pipeline writes. "Queued" and "Processing" both mean a
-// worker still has the row, so both pulse; the brass dot is the same "this is
-// live" signal the sidebar and the threshold ladder use.
+// worker still has the row, so both pulse with a muted dot; once it lands on
+// Ready that settles into a solid info-blue "this is usable now" signal.
 const LABELS: Record<string, string> = {
   pending: "Queued",
   processing: "Processing",
@@ -26,14 +26,14 @@ export function ProcessingBadge({ status }: { status: string | null | undefined 
     // having to re-read the table.
     <Badge
       role="status"
-      variant={failed ? "destructive" : "outline"}
+      variant={failed ? "destructive" : working ? "outline" : "info"}
       className={working ? "text-muted-foreground" : undefined}
     >
       <span
         aria-hidden="true"
         className={[
           "size-1.5 rounded-full",
-          failed ? "bg-destructive" : working ? "bg-muted-foreground" : "bg-ring",
+          failed ? "bg-destructive" : working ? "bg-muted-foreground" : "bg-info",
           working ? "motion-safe:animate-pulse" : "",
         ].join(" ")}
       />
