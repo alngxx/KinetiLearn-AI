@@ -15,6 +15,8 @@ import { ClassesPage } from "@/modules/classes/ClassesPage"
 import { ConfigEntityPage } from "@/modules/config/ConfigEntityPage"
 import { DocumentDetailPage } from "@/modules/documents/DocumentDetailPage"
 import { DocumentsPage } from "@/modules/documents/DocumentsPage"
+import { ExerciseDetailPage } from "@/modules/exams/ExerciseDetailPage"
+import { GenerateExamPage } from "@/modules/exams/GenerateExamPage"
 import { ThemeProvider } from "@/modules/theme/ThemeContext"
 import { UsersPage } from "@/modules/users/UsersPage"
 
@@ -40,6 +42,16 @@ export default function App() {
                     <Route path="users" element={<UsersPage />} />
                     <Route path="classes" element={<ClassesPage />} />
                     <Route path="classes/:classId" element={<ClassDetailPage />} />
+                    {/* An exercise belongs to a class and there is no global
+                        exam list to reach one from, so both live under it. */}
+                    <Route
+                      path="classes/:classId/exercises/new"
+                      element={<GenerateExamPage />}
+                    />
+                    <Route
+                      path="classes/:classId/exercises/:exerciseId"
+                      element={<ExerciseDetailPage />}
+                    />
                     <Route path="documents" element={<DocumentsPage />} />
                     <Route path="documents/:documentId" element={<DocumentDetailPage />} />
                     <Route path="config/:entityKey" element={<ConfigEntityPage />} />

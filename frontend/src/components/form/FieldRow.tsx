@@ -83,7 +83,7 @@ export function FieldRow({
         <Input
           id={field.name}
           name={field.name}
-          type={field.kind === "number" ? "number" : field.kind === "password" ? "password" : field.kind === "email" ? "email" : field.kind === "date" ? "date" : "text"}
+          type={field.kind === "number" ? "number" : field.kind === "password" ? "password" : field.kind === "email" ? "email" : field.kind === "date" ? "date" : field.kind === "datetime" ? "datetime-local" : "text"}
           inputMode={field.kind === "number" ? "numeric" : undefined}
           autoComplete={
             field.kind === "password" ? "new-password" : field.kind === "email" ? "email" : "off"
@@ -94,7 +94,7 @@ export function FieldRow({
           aria-required={required}
           aria-invalid={error !== undefined}
           aria-describedby={describedBy}
-          className={field.kind === "number" ? "numeric" : undefined}
+          className={field.kind === "number" || field.kind === "datetime" ? "numeric" : undefined}
           onChange={(event) => onChange(event.target.value)}
         />
       )}

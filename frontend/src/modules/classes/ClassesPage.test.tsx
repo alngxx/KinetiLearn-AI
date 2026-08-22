@@ -174,6 +174,20 @@ describe("ClassesPage", () => {
 
   // Clearing a date saves but changes nothing server-side, so the form says so
   // rather than reporting a success it did not deliver.
+  // Regression guard for the shared FieldRow kind map: a datetime-local kind was
+  // added for the finalize dialog, and these two must not have been dragged
+  // along with it.
+  it("still renders the run dates as plain date inputs", async () => {
+    renderClasses()
+    await screen.findByRole("link", { name: "Q1 onboarding" })
+
+    await userEvent.click(screen.getByRole("button", { name: /New class/ }))
+    const dialog = within(await screen.findByRole("dialog"))
+
+    expect(dialog.getByLabelText(/^Start date/)).toHaveAttribute("type", "date")
+    expect(dialog.getByLabelText(/^End date/)).toHaveAttribute("type", "date")
+  })
+
   it("warns that a set date cannot be cleared when editing", async () => {
     renderClasses()
     await screen.findByRole("link", { name: "Q1 onboarding" })
