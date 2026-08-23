@@ -30,7 +30,6 @@ const CLASS_FIELD: FormField = {
   kind: "select",
   required: true,
   optionsFrom: "classes",
-  helpText: "Who sits this exam. Only active classes can be chosen.",
 }
 
 // Rendered by QuestionCountField, not FieldRow — a preset dropdown with a custom
@@ -47,8 +46,7 @@ const PROMPT_FIELD: FormField = {
   name: "prompt",
   label: "Instructions",
   kind: "textarea",
-  placeholder: "e.g. Focus on the escalation steps and who signs off at each one…",
-  helpText: "What the questions should cover. Leave blank for even coverage of the source material.",
+  placeholder: "e.g. Generate 20 hard-level MCQs covering the key concepts of these materials. ",
 }
 
 const FIELDS: FormField[] = [TITLE_FIELD, CLASS_FIELD, COUNT_FIELD, PROMPT_FIELD]

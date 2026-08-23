@@ -61,7 +61,7 @@ export function QuestionCountField({
         >
           {PRESETS.map((n) => (
             <option key={n} value={n}>
-              {n} questions
+              {n}
             </option>
           ))}
           <option value={CUSTOM}>Custom…</option>
@@ -92,7 +92,6 @@ export function QuestionCountField({
       )}
 
       <p id={helpId} className="text-xs text-muted-foreground">
-        {MIN_QUESTIONS}–{MAX_QUESTIONS}. Every question is worth 1 point to start with.
       </p>
       {error !== undefined && (
         <p id={errorId} role="alert" className="text-xs text-destructive">

@@ -20,8 +20,6 @@ export function DocumentPicker({
       <legend className="text-sm font-medium">Source documents</legend>
 
       <p id="documents-help" className="text-xs text-muted-foreground">
-        Questions are written from these documents only. Up to {MAX_DOCUMENTS}; the more you
-        pick, the less of each one fits.
       </p>
 
       <div
