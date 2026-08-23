@@ -18,6 +18,10 @@ class ClassUpdate(BaseModel):
     end_date: date | None = None
 
 
+class DeleteResponse(BaseModel):
+    deleted: int
+
+
 class ClassResponse(BaseModel):
     model_config = ConfigDict(from_attributes = True)
 

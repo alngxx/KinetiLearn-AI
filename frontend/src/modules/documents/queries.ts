@@ -1,6 +1,7 @@
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query"
 import {
   attachSkill,
+  deleteDocument,
   detachSkill,
   getDocument,
   listDocuments,
@@ -8,6 +9,7 @@ import {
   promoteVersion,
   reprocessVersion,
   setDocumentActive,
+  updateDocument,
   uploadDocument,
   type DocumentDetail,
   type DocumentFilters,
@@ -110,6 +112,16 @@ export function useReprocessVersion() {
   return useDocumentMutation((input: { id: string; versionNumber: number }) =>
     reprocessVersion(input.id, input.versionNumber),
   )
+}
+
+export function useSaveDocument() {
+  return useDocumentMutation((input: { id: string; body: Record<string, unknown> }) =>
+    updateDocument(input.id, input.body),
+  )
+}
+
+export function useDeleteDocument() {
+  return useDocumentMutation((input: { id: string }) => deleteDocument(input.id))
 }
 
 export function useSetDocumentActive() {

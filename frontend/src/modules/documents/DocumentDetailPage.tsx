@@ -1,6 +1,6 @@
 import { ChevronLeftIcon, XIcon } from "lucide-react"
 import { useState } from "react"
-import { Link, useParams } from "react-router-dom"
+import { Link, useNavigate, useParams } from "react-router-dom"
 import { toast } from "sonner"
 import { ConfirmDialog } from "@/components/ConfirmDialog"
 import { PageHeader } from "@/components/PageHeader"
@@ -17,12 +17,15 @@ import {
 } from "@/components/ui/table"
 import { isApiError } from "@/lib/errors"
 import type { DocumentVersion } from "@/modules/documents/api"
+import { DocumentEditDialog } from "@/modules/documents/DocumentEditDialog"
 import { ProcessingBadge } from "@/modules/documents/ProcessingBadge"
 import {
+  useDeleteDocument,
   useDocument,
   useDocumentLookups,
   usePromoteVersion,
   useReprocessVersion,
+  useSaveDocument,
   useSetDocumentSkill,
 } from "@/modules/documents/queries"
 
@@ -42,15 +45,42 @@ export function DocumentDetailPage() {
 }
 
 function DetailView({ documentId }: { documentId: string }) {
+  const navigate = useNavigate()
   const [confirmingReprocess, setConfirmingReprocess] = useState<DocumentVersion | null>(null)
+  const [editOpen, setEditOpen] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
 
   const detail = useDocument(documentId)
   const lookups = useDocumentLookups()
   const promote = usePromoteVersion()
   const reprocess = useReprocessVersion()
+  const save = useSaveDocument()
+  const remove = useDeleteDocument()
   const setSkill = useSetDocumentSkill()
 
   const document = detail.data
+
+  async function handleSave(body: Record<string, unknown>) {
+    await save.mutateAsync({ id: documentId, body })
+    toast.success("Changes saved")
+  }
+
+  function handleDelete() {
+    remove.mutate(
+      { id: documentId },
+      {
+        onSuccess: () => {
+          toast.success(`${document?.title ?? "Document"} deleted`)
+          // The page it was showing no longer exists, so stay off it.
+          navigate("/admin/documents")
+        },
+        // A 409 names what still points at this document. That sentence is the
+        // whole answer, so it is shown as the server wrote it.
+        onError: (err) =>
+          toast.error(isApiError(err) ? err.message : "Could not delete the document."),
+      },
+    )
+  }
 
   function runReprocess(version: DocumentVersion) {
     reprocess.mutate(
@@ -120,6 +150,22 @@ function DetailView({ documentId }: { documentId: string }) {
           document?.description !== null && document?.description !== undefined
             ? document.description
             : "Every upload under this title is kept as a version. Promote the one the chatbot should read from."
+        }
+        actions={
+          document === undefined ? undefined : (
+            <>
+              <Button variant="outline" onClick={() => setEditOpen(true)}>
+                Edit
+              </Button>
+              <Button
+                variant="destructive"
+                disabled={remove.isPending}
+                onClick={() => setDeleteOpen(true)}
+              >
+                Delete
+              </Button>
+            </>
+          )
         }
       />
 
@@ -298,6 +344,35 @@ function DetailView({ documentId }: { documentId: string }) {
           </section>
         </>
       )}
+
+      {editOpen && document !== undefined && (
+        <DocumentEditDialog
+          row={{
+            title: document.title,
+            category_id: document.category_id,
+            description: document.description,
+          }}
+          options={{
+            categories: lookups.categories.map((row) => ({ value: row.id, label: row.name })),
+          }}
+          open={editOpen}
+          onOpenChange={setEditOpen}
+          onSave={handleSave}
+        />
+      )}
+
+      <ConfirmDialog
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        title={`Delete ${document?.title} permanently?`}
+        description="This removes the document, every version of it, and the stored files and search index behind them. It cannot be undone — re-uploading is the only way back. If an exam, a daily quiz config or a chat answer still refers to it, the delete is refused and nothing changes."
+        confirmLabel="Delete permanently"
+        confirmVariant="destructive"
+        onConfirm={() => {
+          setDeleteOpen(false)
+          handleDelete()
+        }}
+      />
 
       <ConfirmDialog
         open={confirmingReprocess !== null}

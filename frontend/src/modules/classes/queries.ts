@@ -3,6 +3,7 @@ import {
   bulkAddMembers,
   countEnrollMatches,
   createClass,
+  deleteClass,
   getClass,
   hasEnrollFilter,
   listClasses,
@@ -83,6 +84,10 @@ export function useSaveClass() {
   return useClassMutation((input: { id?: string; body: Record<string, unknown> }) =>
     input.id === undefined ? createClass(input.body) : updateClass(input.id, input.body),
   )
+}
+
+export function useDeleteClass() {
+  return useClassMutation((input: { id: string }) => deleteClass(input.id))
 }
 
 export function useSetClassActive() {

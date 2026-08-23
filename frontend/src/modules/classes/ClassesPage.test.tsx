@@ -3,6 +3,7 @@ import { fireEvent, render, screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { http, HttpResponse } from "msw"
 import { MemoryRouter, Route, Routes } from "react-router-dom"
+import { Toaster } from "sonner"
 import { beforeEach, describe, expect, it } from "vitest"
 import { ClassesPage } from "@/modules/classes/ClassesPage"
 import { server } from "@/test/server"
@@ -292,5 +293,104 @@ describe("ClassesPage", () => {
 
     expect(await screen.findByRole("link", { name: "Q1 onboarding" })).toBeInTheDocument()
     expect(screen.queryByText("Could not load classes")).toBeNull()
+  })
+})
+
+// A blocked delete says why only through a toast, so these mount one. sonner's
+// own Toaster is used rather than the app wrapper, which only adds theming.
+function renderWithToasts() {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  })
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={["/admin/classes"]}>
+        <Routes>
+          <Route path="/admin/classes" element={<ClassesPage />} />
+          <Route path="/admin/classes/:classId" element={<p>Detail for a class</p>} />
+        </Routes>
+      </MemoryRouter>
+      <Toaster />
+    </QueryClientProvider>,
+  )
+}
+
+describe("ClassesPage delete", () => {
+  let classes: Row[]
+  let requests: { method: string; url: string }[]
+  let deleteStatus: number
+  let deleteDetail: string
+
+  beforeEach(() => {
+    classes = [cls("cl1", "Q1 onboarding"), cls("cl2", "Safety refresher")]
+    requests = []
+    deleteStatus = 200
+    deleteDetail = ""
+
+    server.use(
+      http.get(`${API}/api/v1/classes`, () =>
+        HttpResponse.json(classes.filter((item) => item.is_active)),
+      ),
+      http.delete(`${API}/api/v1/classes/:id`, ({ request, params }) => {
+        requests.push({ method: "DELETE", url: request.url })
+        if (deleteStatus !== 200) {
+          return HttpResponse.json({ detail: deleteDetail }, { status: deleteStatus })
+        }
+        classes = classes.filter((item) => item.id !== params.id)
+        return HttpResponse.json({ deleted: 1 })
+      }),
+    )
+  })
+
+  it("does not delete until the permanent confirmation is accepted", async () => {
+    renderWithToasts()
+    await screen.findByRole("link", { name: "Q1 onboarding" })
+
+    await userEvent.click(within(rowFor("Q1 onboarding")).getByRole("button", { name: "Delete" }))
+
+    const confirm = within(await screen.findByRole("alertdialog"))
+    // Worded as permanent, so it cannot be mistaken for the deactivate confirm.
+    expect(confirm.getByText(/cannot be undone/)).toBeInTheDocument()
+    expect(requests).toHaveLength(0)
+
+    await userEvent.click(confirm.getByRole("button", { name: "Cancel" }))
+    expect(requests).toHaveLength(0)
+    expect(screen.getByRole("link", { name: "Q1 onboarding" })).toBeInTheDocument()
+  })
+
+  it("removes the class from the list once the delete is confirmed", async () => {
+    renderWithToasts()
+    await screen.findByRole("link", { name: "Q1 onboarding" })
+
+    await userEvent.click(within(rowFor("Q1 onboarding")).getByRole("button", { name: "Delete" }))
+    await userEvent.click(
+      within(await screen.findByRole("alertdialog")).getByRole("button", {
+        name: "Delete permanently",
+      }),
+    )
+
+    await expect.poll(() => screen.queryByRole("link", { name: "Q1 onboarding" })).toBeNull()
+    expect(requests.some((item) => item.url.endsWith("/classes/cl1"))).toBe(true)
+    expect(screen.getByRole("link", { name: "Safety refresher" })).toBeInTheDocument()
+  })
+
+  it("keeps the class and shows the server's reason when exercises block it", async () => {
+    deleteStatus = 409
+    deleteDetail = "Cannot delete a class that has exercises. Delete its exercises first."
+
+    renderWithToasts()
+    await screen.findByRole("link", { name: "Q1 onboarding" })
+
+    await userEvent.click(within(rowFor("Q1 onboarding")).getByRole("button", { name: "Delete" }))
+    await userEvent.click(
+      within(await screen.findByRole("alertdialog")).getByRole("button", {
+        name: "Delete permanently",
+      }),
+    )
+
+    // Verbatim: the sentence names what to clear first, which a generic
+    // "could not delete" would throw away.
+    expect(await screen.findByText(deleteDetail)).toBeInTheDocument()
+    expect(screen.getByRole("link", { name: "Q1 onboarding" })).toBeInTheDocument()
   })
 })

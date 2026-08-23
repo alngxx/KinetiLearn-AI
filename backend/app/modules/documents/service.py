@@ -1,23 +1,37 @@
+import asyncio
 import logging
 import uuid
 from uuid import UUID
 
 from fastapi import HTTPException, UploadFile
+from sqlalchemy import delete as sa_delete
 from sqlalchemy import func, select
+from sqlalchemy import update as sa_update
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.crud import get_by_id, get_or_404
+from app.core import vectorstore
+from app.core.crud import assert_no_dependents, get_by_id, get_or_404
 from app.core.storage import R2Storage, StorageError
+from app.modules.chat.models import ChatMessageCitation, ChatSession
 from app.modules.config.models import Category, Skill
-from app.modules.documents.models import Document, DocumentSkill, DocumentVersion
+from app.modules.documents.models import (
+    Document,
+    DocumentChunk,
+    DocumentSkill,
+    DocumentVersion,
+)
 from app.modules.documents.schemas import (
+    DocumentDeleteResponse,
     DocumentDetailResponse,
     DocumentResponse,
+    DocumentUpdate,
     DocumentUploadResponse,
     DocumentVersionDetail,
     DocumentVersionResponse,
 )
+from app.modules.exams.models import ExerciseDocument
+from app.modules.quiz.models import DailyQuizConfig
 
 logger = logging.getLogger(__name__)
 
@@ -303,6 +317,123 @@ class DocumentService:
             skill_ids = list(skill_result.scalars().all()),
             versions = versions,
             created_at = document.created_at,
+        )
+
+    async def update(
+        self, document_id: UUID, data: DocumentUpdate
+    ) -> DocumentDetailResponse:
+        document = await get_or_404(
+            self.db, Document, document_id, "Document not found"
+        )
+        update_data = data.model_dump(exclude_none = True)
+
+        # Same rule upload applies: the category has to exist. upload does not
+        # check is_active either, so this deliberately doesn't.
+        new_category_id = update_data.get("category_id")
+        if new_category_id is not None:
+            category = await get_by_id(self.db, Category, new_category_id)
+            if category is None:
+                raise HTTPException(status_code = 422, detail = "Category not found")
+
+        # upload versions into whichever document already holds a given
+        # title + category pair, so letting two documents share one would make
+        # that lookup pick arbitrarily.
+        title = update_data.get("title", document.title)
+        category_id = update_data.get("category_id", document.category_id)
+        if title != document.title or category_id != document.category_id:
+            result = await self.db.execute(
+                select(Document.id).where(
+                    Document.title == title,
+                    Document.category_id == category_id,
+                    Document.id != document_id,
+                )
+            )
+            if result.scalars().first() is not None:
+                raise HTTPException(
+                    status_code = 409,
+                    detail = "Another document already uses this title in this category",
+                )
+
+        for key, value in update_data.items():
+            setattr(document, key, value)
+        await self.db.commit()
+        return await self.get_detail(document_id)
+
+    async def delete(self, document_id: UUID) -> DocumentDeleteResponse:
+        await get_or_404(self.db, Document, document_id, "Document not found")
+
+        # exercise_documents cascades rather than restricting, so the DB would
+        # let this through and silently drop the exam's only link back to its
+        # source material. The other two are real RESTRICT FKs that would
+        # otherwise surface as a 500.
+        await assert_no_dependents(
+            self.db,
+            select(ExerciseDocument.exercise_id).where(
+                ExerciseDocument.document_id == document_id
+            ),
+            "Cannot delete a document used by an exam. Delete the exam first.",
+        )
+        await assert_no_dependents(
+            self.db,
+            select(DailyQuizConfig.id).where(
+                DailyQuizConfig.source_document_id == document_id
+            ),
+            "Cannot delete a document used by a daily quiz config. "
+            "Delete the config first.",
+        )
+        await assert_no_dependents(
+            self.db,
+            select(ChatMessageCitation.chat_message_id).join(
+                DocumentChunk,
+                DocumentChunk.id == ChatMessageCitation.document_chunk_id,
+            ).where(DocumentChunk.document_id == document_id),
+            "Cannot delete a document that has been cited in a chat answer.",
+        )
+
+        # Read before the delete — the cascade takes the version rows with it.
+        result = await self.db.execute(
+            select(DocumentVersion.file_url).where(
+                DocumentVersion.document_id == document_id
+            )
+        )
+        keys = list(result.scalars().all())
+
+        # chat_sessions.document_id is ON DELETE SET NULL, and a session with
+        # neither a document nor an exercise means the whole corpus — so a
+        # scoped session would silently widen instead of ending. Closed in the
+        # same transaction as the delete, on one commit, so a failure can never
+        # leave sessions closed while the document is still there.
+        await self.db.execute(
+            sa_update(ChatSession)
+            .where(ChatSession.document_id == document_id)
+            .values(is_active = False)
+        )
+        await self.db.execute(sa_delete(Document).where(Document.id == document_id))
+        await self.db.commit()
+
+        # Only once the DB row is gone, which is what makes the document stop
+        # existing. Both cleanups are best-effort: whatever they leave behind is
+        # unreachable rather than wrong, since every chat scope is built from
+        # document rows that no longer exist. A failure is reported, not raised.
+        warnings = []
+        try:
+            await asyncio.to_thread(vectorstore.delete_document, document_id)
+        except Exception:
+            logger.exception("Failed to delete vectors for document %s", document_id)
+            warnings.append("vector cleanup failed")
+
+        try:
+            storage = R2Storage()
+            for key in keys:
+                storage.delete(key)
+        except StorageError:
+            logger.exception("Failed to delete files for document %s", document_id)
+            warnings.append("file cleanup failed")
+
+        return DocumentDeleteResponse(
+            deleted = 1,
+            versions_deleted = len(keys),
+            cleanup_warning = "; ".join(warnings) or None,
         )
 
     async def promote_version(

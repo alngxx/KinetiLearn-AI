@@ -8,6 +8,7 @@ from app.modules.auth.models import User
 from app.modules.classes.models import Class, ClassMember
 from app.modules.config.models import Department, EmployeeLevel, SeniorityLevel
 from app.modules.exams.models import Exercise
+from tests.conftest import auth_header, seed_auth_user
 
 BASE = "/api/v1/classes"
 
@@ -293,3 +294,55 @@ async def test_bulk_add_class_not_found(client):
         json = {"department_id": str(uuid.uuid4())},
     )
     assert resp.status_code == 404
+
+
+async def test_delete_class_removes_members(client, db_session):
+    cls = await _seed_class(db_session)
+    user = await _seed_user(db_session)
+    db_session.add(ClassMember(class_id = cls.id, user_id = user.id))
+    await db_session.flush()
+
+    resp = await client.delete(f"{BASE}/{cls.id}")
+
+    assert resp.status_code == 200
+    assert resp.json() == {"deleted": 1}
+    assert await db_session.get(Class, cls.id) is None
+    # class_members is ON DELETE CASCADE — enrolment only means anything
+    # alongside the class.
+    assert await db_session.get(ClassMember, (cls.id, user.id)) is None
+
+
+async def test_delete_class_with_exercises_blocked(client, db_session):
+    cls = await _seed_class(db_session)
+    await _seed_exercise(db_session, cls.id)
+
+    resp = await client.delete(f"{BASE}/{cls.id}")
+
+    # 409, not the raw 500 the RESTRICT FK would otherwise produce.
+    assert resp.status_code == 409
+    assert resp.json()["detail"] == (
+        "Cannot delete a class that has exercises. Delete its exercises first."
+    )
+    assert await db_session.get(Class, cls.id) is not None
+
+
+async def test_delete_class_not_found(client, db_session):
+    resp = await client.delete(f"{BASE}/{uuid.uuid4()}")
+    assert resp.status_code == 404
+    assert resp.json()["detail"] == "Class not found."
+
+
+async def test_delete_class_requires_token(auth_client, db_session):
+    cls = await _seed_class(db_session)
+    resp = await auth_client.delete(f"{BASE}/{cls.id}")
+    assert resp.status_code == 401
+    assert await db_session.get(Class, cls.id) is not None
+
+
+async def test_delete_class_forbidden_for_learner(auth_client, db_session):
+    cls = await _seed_class(db_session)
+    learner = await seed_auth_user(db_session, role = "learner")
+    resp = await auth_client.delete(f"{BASE}/{cls.id}", headers = auth_header(learner))
+    assert resp.status_code == 403
+    assert resp.json() == {"detail": "Admin access required"}
+    assert await db_session.get(Class, cls.id) is not None

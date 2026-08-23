@@ -112,6 +112,15 @@ async def finalize_exercise(
     return await ExamService(db).finalize(exercise_id, payload)
 
 
+@router.patch(
+    "/{exercise_id}/unpublish",
+    response_model = ExerciseResponse,
+    dependencies = [Depends(require_admin)],
+)
+async def unpublish_exercise(exercise_id: UUID, db: AsyncSession = Depends(get_db)):
+    return await ExamService(db).unpublish(exercise_id)
+
+
 @router.delete(
     "",
     response_model = DeleteResponse,

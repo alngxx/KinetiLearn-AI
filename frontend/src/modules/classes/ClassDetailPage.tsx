@@ -1,6 +1,8 @@
 import { ChevronLeftIcon, SparklesIcon, UserPlusIcon } from "lucide-react"
 import { useState } from "react"
-import { Link, useParams } from "react-router-dom"
+import { Link, useNavigate, useParams } from "react-router-dom"
+import { toast } from "sonner"
+import { ConfirmDialog } from "@/components/ConfirmDialog"
 import { PageHeader } from "@/components/PageHeader"
 import { QueryErrorState } from "@/components/QueryErrorState"
 import { StatusBadge } from "@/components/StatusBadge"
@@ -14,9 +16,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { isApiError } from "@/lib/errors"
 import { BulkEnrollDialog } from "@/modules/classes/BulkEnrollDialog"
+import { ClassFormDialog } from "@/modules/classes/ClassFormDialog"
 import { formatMoment, formatRange } from "@/modules/classes/dates"
-import { useClass } from "@/modules/classes/queries"
+import { useClass, useDeleteClass, useSaveClass } from "@/modules/classes/queries"
 
 export function ClassDetailPage() {
   const { classId } = useParams()
@@ -25,12 +29,39 @@ export function ClassDetailPage() {
 }
 
 function DetailView({ classId }: { classId: string }) {
+  const navigate = useNavigate()
   const [enrolOpen, setEnrolOpen] = useState(false)
+  const [editOpen, setEditOpen] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
 
   const detail = useClass(classId)
+  const save = useSaveClass()
+  const remove = useDeleteClass()
   const row = detail.data
   const exercises = row?.exercises ?? []
   const memberCount = row?.member_count ?? 0
+
+  async function handleSave(id: string | undefined, body: Record<string, unknown>) {
+    await save.mutateAsync({ id, body })
+    toast.success("Changes saved")
+  }
+
+  function handleDelete() {
+    remove.mutate(
+      { id: classId },
+      {
+        onSuccess: () => {
+          toast.success(`${row?.name ?? "Class"} deleted`)
+          // The page it was showing no longer exists, so stay off it.
+          navigate("/admin/classes")
+        },
+        // A 409 means exercises still hang off this class. That sentence names
+        // what to clear first, so it is shown as the server wrote it.
+        onError: (err) =>
+          toast.error(isApiError(err) ? err.message : "Could not delete the class."),
+      },
+    )
+  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -50,6 +81,44 @@ function DetailView({ classId }: { classId: string }) {
             ? row.description
             : "Who is in this cohort, and which exercises have been assigned to it."
         }
+        actions={
+          row === undefined ? undefined : (
+            <>
+              <Button variant="outline" onClick={() => setEditOpen(true)}>
+                Edit
+              </Button>
+              <Button
+                variant="destructive"
+                disabled={remove.isPending}
+                onClick={() => setDeleteOpen(true)}
+              >
+                Delete
+              </Button>
+            </>
+          )
+        }
+      />
+
+      {editOpen && row !== undefined && (
+        <ClassFormDialog
+          row={row}
+          open={editOpen}
+          onOpenChange={setEditOpen}
+          onSave={handleSave}
+        />
+      )}
+
+      <ConfirmDialog
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        title={`Delete ${row?.name} permanently?`}
+        description="This removes the class and unenrols everyone in it. It cannot be undone. A class that still has exercises cannot be deleted — delete those first, and nothing changes until they are gone."
+        confirmLabel="Delete permanently"
+        confirmVariant="destructive"
+        onConfirm={() => {
+          setDeleteOpen(false)
+          handleDelete()
+        }}
       />
 
       {detail.isPending ? (

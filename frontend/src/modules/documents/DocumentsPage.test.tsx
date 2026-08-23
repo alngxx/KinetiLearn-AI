@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { render, screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { http, HttpResponse } from "msw"
+import { Toaster } from "sonner"
 import { MemoryRouter, Route, Routes } from "react-router-dom"
 import { beforeEach, describe, expect, it } from "vitest"
 import { DocumentsPage } from "@/modules/documents/DocumentsPage"
@@ -149,5 +150,155 @@ describe("DocumentsPage", () => {
 
     expect(await screen.findByRole("link", { name: "Safety handbook" })).toBeInTheDocument()
     expect(screen.queryByText("Could not load documents")).toBeNull()
+  })
+})
+
+// A blocked delete says why only through a toast, so these mount one. sonner's
+// own Toaster is used rather than the app wrapper, which only adds theming.
+function renderWithToasts() {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  })
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={["/admin/documents"]}>
+        <Routes>
+          <Route path="/admin/documents" element={<DocumentsPage />} />
+          <Route path="/admin/documents/:documentId" element={<p>Detail for a document</p>} />
+        </Routes>
+      </MemoryRouter>
+      <Toaster />
+    </QueryClientProvider>,
+  )
+}
+
+describe("DocumentsPage edit and delete", () => {
+  let documents: ReturnType<typeof doc>[]
+  let requests: { method: string; url: string; body: unknown }[]
+  let deleteStatus: number
+  let deleteDetail: string
+
+  function rowFor(title: string) {
+    return screen.getByRole("row", { name: new RegExp(title) })
+  }
+
+  beforeEach(() => {
+    documents = [doc("d1", "Safety handbook"), doc("d2", "Onboarding guide")]
+    requests = []
+    deleteStatus = 200
+    deleteDetail = ""
+
+    server.use(
+      http.get(`${API}/api/v1/config/categories`, () =>
+        HttpResponse.json([lookup("c1", "Operations"), lookup("c2", "Compliance")]),
+      ),
+      http.get(`${API}/api/v1/config/skills`, () => HttpResponse.json([])),
+      http.get(`${API}/api/v1/documents`, () => HttpResponse.json(documents)),
+      http.patch(`${API}/api/v1/documents/:id`, async ({ request, params }) => {
+        const body = (await request.json()) as Record<string, unknown>
+        requests.push({ method: "PATCH", url: request.url, body })
+        const target = documents.find((item) => item.document_id === params.id)!
+        // The server drops nulls (model_dump(exclude_none = True)), so the stub
+        // does too — otherwise the test would assert behaviour the API lacks.
+        for (const [key, value] of Object.entries(body)) {
+          if (value !== null) (target as Record<string, unknown>)[key] = value
+        }
+        return HttpResponse.json({ ...target, description: null, versions: [] })
+      }),
+      http.delete(`${API}/api/v1/documents/:id`, ({ request, params }) => {
+        requests.push({ method: "DELETE", url: request.url, body: null })
+        if (deleteStatus !== 200) {
+          return HttpResponse.json({ detail: deleteDetail }, { status: deleteStatus })
+        }
+        documents = documents.filter((item) => item.document_id !== params.id)
+        return HttpResponse.json({ deleted: 1, versions_deleted: 2, cleanup_warning: null })
+      }),
+    )
+  })
+
+  it("edits a document's title and category through the dialog", async () => {
+    renderWithToasts()
+    await screen.findByRole("link", { name: "Safety handbook" })
+
+    await userEvent.click(within(rowFor("Safety handbook")).getByRole("button", { name: "Edit" }))
+
+    const dialog = within(await screen.findByRole("dialog"))
+    const title = dialog.getByLabelText(/^Title/)
+    await userEvent.clear(title)
+    await userEvent.type(title, "Safety handbook 2026")
+    await userEvent.selectOptions(dialog.getByLabelText(/^Category/), "c2")
+    await userEvent.click(dialog.getByRole("button", { name: "Save changes" }))
+
+    expect(await screen.findByRole("link", { name: "Safety handbook 2026" })).toBeInTheDocument()
+    const patch = requests.find((item) => item.method === "PATCH")
+    expect(patch?.body).toMatchObject({
+      title: "Safety handbook 2026",
+      category_id: "c2",
+    })
+  })
+
+  it("does not delete until the permanent confirmation is accepted", async () => {
+    renderWithToasts()
+    await screen.findByRole("link", { name: "Safety handbook" })
+
+    await userEvent.click(within(rowFor("Safety handbook")).getByRole("button", { name: "Delete" }))
+
+    const confirm = within(await screen.findByRole("alertdialog"))
+    // Worded as permanent, so it cannot be mistaken for the deactivate confirm.
+    expect(confirm.getByText(/cannot be undone/)).toBeInTheDocument()
+    expect(requests.some((item) => item.method === "DELETE")).toBe(false)
+
+    await userEvent.click(confirm.getByRole("button", { name: "Cancel" }))
+    expect(requests.some((item) => item.method === "DELETE")).toBe(false)
+    expect(screen.getByRole("link", { name: "Safety handbook" })).toBeInTheDocument()
+  })
+
+  it("removes the document from the list once the delete is confirmed", async () => {
+    renderWithToasts()
+    await screen.findByRole("link", { name: "Safety handbook" })
+
+    await userEvent.click(within(rowFor("Safety handbook")).getByRole("button", { name: "Delete" }))
+    const confirm = within(await screen.findByRole("alertdialog"))
+    await userEvent.click(confirm.getByRole("button", { name: "Delete permanently" }))
+
+    await expect.poll(() => screen.queryByRole("link", { name: "Safety handbook" })).toBeNull()
+    expect(requests.some((item) => item.url.endsWith("/documents/d1"))).toBe(true)
+    // The one that was not deleted is untouched.
+    expect(screen.getByRole("link", { name: "Onboarding guide" })).toBeInTheDocument()
+  })
+
+  it("keeps the document and shows the server's reason when a delete is blocked", async () => {
+    deleteStatus = 409
+    deleteDetail = "Cannot delete a document used by an exam. Delete the exam first."
+
+    renderWithToasts()
+    await screen.findByRole("link", { name: "Safety handbook" })
+
+    await userEvent.click(within(rowFor("Safety handbook")).getByRole("button", { name: "Delete" }))
+    const confirm = within(await screen.findByRole("alertdialog"))
+    await userEvent.click(confirm.getByRole("button", { name: "Delete permanently" }))
+
+    // Verbatim, because the sentence names which exam blocks it — a generic
+    // "could not delete" would leave the admin with nothing to act on.
+    expect(await screen.findByText(deleteDetail)).toBeInTheDocument()
+    expect(screen.getByRole("link", { name: "Safety handbook" })).toBeInTheDocument()
+  })
+
+  it("passes a daily quiz and chat citation block through just as verbatim", async () => {
+    deleteStatus = 409
+    deleteDetail = "Cannot delete a document that has been cited in a chat answer."
+
+    renderWithToasts()
+    await screen.findByRole("link", { name: "Safety handbook" })
+
+    await userEvent.click(within(rowFor("Safety handbook")).getByRole("button", { name: "Delete" }))
+    await userEvent.click(
+      within(await screen.findByRole("alertdialog")).getByRole("button", {
+        name: "Delete permanently",
+      }),
+    )
+
+    expect(await screen.findByText(deleteDetail)).toBeInTheDocument()
+    expect(screen.getByRole("link", { name: "Safety handbook" })).toBeInTheDocument()
   })
 })

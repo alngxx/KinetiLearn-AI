@@ -19,21 +19,41 @@ import { isApiError } from "@/lib/errors"
 import type { ClassRow } from "@/modules/classes/api"
 import { ClassFormDialog } from "@/modules/classes/ClassFormDialog"
 import { formatRange } from "@/modules/classes/dates"
-import { useClasses, useSaveClass, useSetClassActive } from "@/modules/classes/queries"
+import {
+  useClasses,
+  useDeleteClass,
+  useSaveClass,
+  useSetClassActive,
+} from "@/modules/classes/queries"
 
 export function ClassesPage() {
   const [includeInactive, setIncludeInactive] = useState(false)
   const [editing, setEditing] = useState<ClassRow | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [confirming, setConfirming] = useState<ClassRow | null>(null)
+  const [deleting, setDeleting] = useState<ClassRow | null>(null)
 
   const list = useClasses(includeInactive)
   const save = useSaveClass()
   const setActive = useSetClassActive()
+  const remove = useDeleteClass()
 
   async function handleSave(id: string | undefined, body: Record<string, unknown>) {
     await save.mutateAsync({ id, body })
     toast.success(id === undefined ? "Class created" : "Changes saved")
+  }
+
+  function handleDelete(row: ClassRow) {
+    remove.mutate(
+      { id: row.id },
+      {
+        onSuccess: () => toast.success(`${row.name} deleted`),
+        // A 409 means exercises still hang off this class. That sentence names
+        // what to clear first, so it is shown as the server wrote it.
+        onError: (err) =>
+          toast.error(isApiError(err) ? err.message : "Could not delete the class."),
+      },
+    )
   }
 
   function handleSetActive(row: ClassRow, active: boolean) {
@@ -98,7 +118,7 @@ export function ClassesPage() {
               <TableHead className="w-28">
                 <span className="label-micro">Status</span>
               </TableHead>
-              <TableHead className="w-44 text-right">
+              <TableHead className="w-60 text-right">
                 <span className="label-micro">Actions</span>
               </TableHead>
             </TableRow>
@@ -178,6 +198,15 @@ export function ClassesPage() {
                       >
                         {row.is_active ? "Deactivate" : "Activate"}
                       </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        disabled={remove.isPending}
+                        className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                        onClick={() => setDeleting(row)}
+                      >
+                        Delete
+                      </Button>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -196,6 +225,21 @@ export function ClassesPage() {
           onSave={handleSave}
         />
       )}
+
+      <ConfirmDialog
+        open={deleting !== null}
+        onOpenChange={(open) => {
+          if (!open) setDeleting(null)
+        }}
+        title={`Delete ${deleting?.name} permanently?`}
+        description="This removes the class and unenrols everyone in it. It cannot be undone. A class that still has exercises cannot be deleted — delete those first, and nothing changes until they are gone."
+        confirmLabel="Delete permanently"
+        confirmVariant="destructive"
+        onConfirm={() => {
+          if (deleting !== null) handleDelete(deleting)
+          setDeleting(null)
+        }}
+      />
 
       <ConfirmDialog
         open={confirming !== null}
