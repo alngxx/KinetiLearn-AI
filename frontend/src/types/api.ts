@@ -855,7 +855,8 @@ export interface paths {
         delete: operations["delete_exercise_api_v1_exams__exercise_id__delete"];
         options?: never;
         head?: never;
-        patch?: never;
+        /** Update Exercise */
+        patch: operations["update_exercise_api_v1_exams__exercise_id__patch"];
         trace?: never;
     };
     "/api/v1/exams/{exercise_id}/take": {
@@ -1986,6 +1987,11 @@ export interface components {
             /** Chunks Total */
             chunks_total?: number | null;
         };
+        /** ExerciseUpdate */
+        ExerciseUpdate: {
+            /** Title */
+            title: string;
+        };
         /** ExplainRequest */
         ExplainRequest: {
             /**
@@ -2024,7 +2030,10 @@ export interface components {
             document_ids: string[];
             /** Num Questions */
             num_questions: number;
-            /** Prompt */
+            /**
+             * Prompt
+             * @default
+             */
             prompt: string;
         };
         /** HTTPValidationError */
@@ -4799,6 +4808,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DeleteResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_exercise_api_v1_exams__exercise_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                exercise_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExerciseUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExerciseResponse"];
                 };
             };
             /** @description Validation Error */

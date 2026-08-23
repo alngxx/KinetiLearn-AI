@@ -7,6 +7,7 @@ export type QuestionOption = components["schemas"]["QuestionOptionResponse"]
 export type QuestionUpdate = components["schemas"]["QuestionUpdate"]
 export type OptionUpdate = components["schemas"]["OptionUpdate"]
 export type FinalizeInput = components["schemas"]["FinalizeExerciseRequest"]
+export type ExerciseUpdateInput = components["schemas"]["ExerciseUpdate"]
 export type GenerateInput = components["schemas"]["GenerateExerciseRequest"]
 
 type DocumentRow = components["schemas"]["DocumentResponse"]
@@ -56,6 +57,12 @@ export function updateOption(questionId: string, optionId: string, body: OptionU
     `/api/v1/exams/questions/${questionId}/options/${optionId}`,
     body,
   )
+}
+
+// Title only, and the server refuses while the exercise is live — same rule the
+// question edits follow. Unpublishing back to a draft makes it editable again.
+export function updateExercise(id: string, body: ExerciseUpdateInput) {
+  return api.patch<Exercise>(`/api/v1/exams/${id}`, body)
 }
 
 export function finalizeExercise(id: string, body: FinalizeInput) {

@@ -1,4 +1,4 @@
-import { ChevronLeftIcon, SendIcon, Trash2Icon, Undo2Icon } from "lucide-react"
+import { ChevronLeftIcon, PencilIcon, SendIcon, Trash2Icon, Undo2Icon } from "lucide-react"
 import { useState } from "react"
 import { Link, useNavigate, useParams } from "react-router-dom"
 import { toast } from "sonner"
@@ -10,12 +10,14 @@ import { Button } from "@/components/ui/button"
 import { isApiError } from "@/lib/errors"
 import type { FinalizeInput } from "@/modules/exams/api"
 import { formatMoment } from "@/modules/exams/dates"
+import { ExerciseRenameDialog } from "@/modules/exams/ExerciseRenameDialog"
 import { FinalizeDialog } from "@/modules/exams/FinalizeDialog"
 import { QuestionCard } from "@/modules/exams/QuestionCard"
 import {
   useDeleteExercise,
   useExercise,
   useFinalizeExercise,
+  useUpdateExercise,
   useQuestionStepRunner,
   useUnpublishExercise,
 } from "@/modules/exams/queries"
@@ -35,11 +37,13 @@ export function ExerciseDetailPage() {
 function DetailView({ classId, exerciseId }: { classId: string; exerciseId: string }) {
   const navigate = useNavigate()
   const [finalizeOpen, setFinalizeOpen] = useState(false)
+  const [renameOpen, setRenameOpen] = useState(false)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
   const [confirmingUnpublish, setConfirmingUnpublish] = useState(false)
 
   const detail = useExercise(exerciseId)
   const finalize = useFinalizeExercise()
+  const rename = useUpdateExercise()
   const remove = useDeleteExercise()
   const unpublish = useUnpublishExercise()
   const runStep = useQuestionStepRunner(exerciseId)
@@ -60,6 +64,11 @@ function DetailView({ classId, exerciseId }: { classId: string; exerciseId: stri
   async function handleFinalize(body: FinalizeInput) {
     await finalize.mutateAsync({ id: exerciseId, body })
     toast.success(`${exercise?.title ?? "Exam"} is live`)
+  }
+
+  async function handleRename(nextTitle: string) {
+    await rename.mutateAsync({ id: exerciseId, body: { title: nextTitle } })
+    toast.success("Exam renamed")
   }
 
   function handleDelete() {
@@ -127,6 +136,12 @@ function DetailView({ classId, exerciseId }: { classId: string; exerciseId: stri
             </div>
           ) : (
             <>
+              {/* Rename is a draft action too: the server refuses a title change
+                  once the exam is live, same as it refuses the question edits. */}
+              <Button variant="outline" onClick={() => setRenameOpen(true)}>
+                <PencilIcon />
+                Rename
+              </Button>
               {/* Delete is offered on drafts only. A live exam that should never
                   have existed can be unpublished back to a draft first — before it
                   opens and before anyone has submitted — then deleted from there. */}
@@ -219,6 +234,15 @@ function DetailView({ classId, exerciseId }: { classId: string; exerciseId: stri
             )}
           </section>
         </>
+      )}
+
+      {renameOpen && exercise !== undefined && (
+        <ExerciseRenameDialog
+          title={exercise.title}
+          open={renameOpen}
+          onOpenChange={setRenameOpen}
+          onRename={handleRename}
+        />
       )}
 
       {finalizeOpen && exercise !== undefined && (

@@ -13,34 +13,45 @@ import {
   MIN_QUESTIONS,
 } from "@/modules/exams/api"
 import { DocumentPicker } from "@/modules/exams/DocumentPicker"
+import { QuestionCountField } from "@/modules/exams/QuestionCountField"
 import { useExamLookups, useGenerateExercise } from "@/modules/exams/queries"
 
-const FIELDS: FormField[] = [
-  { name: "title", label: "Title", kind: "text", required: true, maxLength: 255 },
-  {
-    name: "class_id",
-    label: "Class",
-    kind: "select",
-    required: true,
-    optionsFrom: "classes",
-    helpText: "Who sits this exam. Only active classes can be chosen.",
-  },
-  {
-    name: "num_questions",
-    label: "Questions",
-    kind: "number",
-    required: true,
-    helpText: `Between ${MIN_QUESTIONS} and ${MAX_QUESTIONS}. Every question is worth 1 point to start with.`,
-  },
-  {
-    name: "prompt",
-    label: "Instructions",
-    kind: "textarea",
-    required: true,
-    placeholder: "e.g. Focus on the escalation steps and who signs off at each one…",
-    helpText: "What the questions should cover and how hard they should be.",
-  },
-]
+const TITLE_FIELD: FormField = {
+  name: "title",
+  label: "Title",
+  kind: "text",
+  required: true,
+  maxLength: 255,
+}
+
+const CLASS_FIELD: FormField = {
+  name: "class_id",
+  label: "Class",
+  kind: "select",
+  required: true,
+  optionsFrom: "classes",
+  helpText: "Who sits this exam. Only active classes can be chosen.",
+}
+
+// Rendered by QuestionCountField, not FieldRow — a preset dropdown with a custom
+// escape hatch is more than one control. It stays in FIELDS so the shared
+// required/integer checks and the server's 422 mapping still cover it.
+const COUNT_FIELD: FormField = {
+  name: "num_questions",
+  label: "Questions",
+  kind: "number",
+  required: true,
+}
+
+const PROMPT_FIELD: FormField = {
+  name: "prompt",
+  label: "Instructions",
+  kind: "textarea",
+  placeholder: "e.g. Focus on the escalation steps and who signs off at each one…",
+  helpText: "What the questions should cover. Leave blank for even coverage of the source material.",
+}
+
+const FIELDS: FormField[] = [TITLE_FIELD, CLASS_FIELD, COUNT_FIELD, PROMPT_FIELD]
 
 // The server's own bound, checked here so a bad count is caught before a call
 // that costs money. validateFields already rules out non-integers and negatives.
@@ -159,16 +170,30 @@ function GenerateView({ classId }: { classId: string }) {
               handleSubmit()
             }}
           >
-            {FIELDS.map((field) => (
-              <FieldRow
-                key={field.name}
-                field={field}
-                value={form.values[field.name] ?? ""}
-                error={form.errors[field.name]}
-                options={field.optionsFrom === undefined ? undefined : options[field.optionsFrom]}
-                onChange={(value) => form.setValue(field.name, value)}
-              />
-            ))}
+            <FieldRow
+              field={TITLE_FIELD}
+              value={form.values.title ?? ""}
+              error={form.errors.title}
+              onChange={(value) => form.setValue("title", value)}
+            />
+            <FieldRow
+              field={CLASS_FIELD}
+              value={form.values.class_id ?? ""}
+              error={form.errors.class_id}
+              options={options.classes}
+              onChange={(value) => form.setValue("class_id", value)}
+            />
+            <QuestionCountField
+              value={form.values.num_questions ?? ""}
+              error={form.errors.num_questions}
+              onChange={(value) => form.setValue("num_questions", value)}
+            />
+            <FieldRow
+              field={PROMPT_FIELD}
+              value={form.values.prompt ?? ""}
+              error={form.errors.prompt}
+              onChange={(value) => form.setValue("prompt", value)}
+            />
 
             <DocumentPicker
               rows={lookups.documents}

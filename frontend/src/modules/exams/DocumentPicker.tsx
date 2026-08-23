@@ -17,12 +17,7 @@ export function DocumentPicker({
 
   return (
     <fieldset className="flex flex-col gap-1.5">
-      <legend className="text-sm font-medium">
-        Source documents
-        <span aria-hidden="true" className="text-muted-foreground">
-          *
-        </span>
-      </legend>
+      <legend className="text-sm font-medium">Source documents</legend>
 
       <p id="documents-help" className="text-xs text-muted-foreground">
         Questions are written from these documents only. Up to {MAX_DOCUMENTS}; the more you

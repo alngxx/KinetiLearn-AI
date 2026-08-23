@@ -20,6 +20,7 @@ from app.modules.exams.models import (
 )
 from app.modules.exams.schemas import (
     ExerciseResponse,
+    ExerciseUpdate,
     FinalizeExerciseRequest,
     LearnerExerciseDetail,
     OptionUpdate,
@@ -37,6 +38,12 @@ from app.modules.submissions.models import Submission
 MAX_CONTEXT_CHUNKS = 50
 OPTION_LABELS = "ABCDEFGHIJ"
 QUESTION_POINTS = 1
+
+# Used when the admin gives no instructions. The system prompt already pins the
+# format and the source material is the only allowed subject, so the admin
+# prompt only ever steers emphasis — with nothing to steer toward, ask for even
+# coverage rather than sending the model an empty "Admin instructions:" line.
+DEFAULT_PROMPT = "Cover the main points of the source material evenly."
 
 
 class ExamService:
@@ -110,8 +117,9 @@ class ExamService:
             sources.append((document_id, document.active_version_number))
 
         context = "\n\n".join(context_parts)
+        instructions = prompt.strip() or DEFAULT_PROMPT
         try:
-            generated = await generate_quiz(context, prompt, num_questions)
+            generated = await generate_quiz(context, instructions, num_questions)
         except LLMError:
             raise HTTPException(
                 status_code = 502, detail = "Failed to generate questions"
@@ -301,6 +309,23 @@ class ExamService:
         await self.db.commit()
         question = await self._load_question(question_id)
         return _question_response(question)
+
+    async def update_exercise(
+        self, exercise_id: UUID, data: ExerciseUpdate
+    ) -> ExerciseResponse:
+        exercise = await self._load_exercise(exercise_id)
+        if exercise is None:
+            raise HTTPException(status_code = 404, detail = "Exercise not found")
+        # Same rule the question edits follow: once learners can see it, its
+        # wording stops being the admin's to change.
+        if exercise.is_active:
+            raise HTTPException(
+                status_code = 409, detail = "Cannot edit a finalized exercise"
+            )
+
+        exercise.title = data.title
+        await self.db.commit()
+        return _to_response(exercise, None, None)
 
     async def finalize(
         self, exercise_id: UUID, data: FinalizeExerciseRequest

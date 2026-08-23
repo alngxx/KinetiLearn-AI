@@ -229,17 +229,81 @@ describe("GenerateExamPage", () => {
     expect(posts).toHaveLength(0)
   })
 
-  it("rejects a question count the server would reject", async () => {
+  it("picks a question count from the preset list", async () => {
     renderGenerate()
     await fillForm()
-    const count = screen.getByLabelText(/^Questions/)
-    await userEvent.clear(count)
-    await userEvent.type(count, "80")
+    await userEvent.selectOptions(screen.getByLabelText("Questions"), "25")
+    await userEvent.click(screen.getByRole("button", { name: /Generate exam/ }))
+
+    await waitFor(() => expect(posts).toHaveLength(1))
+    expect((posts[0] as Record<string, unknown>).num_questions).toBe(25)
+    // A preset needs no free-text box.
+    expect(screen.queryByLabelText("Number of questions")).toBeNull()
+  })
+
+  it("reveals a number input for a count outside the presets", async () => {
+    renderGenerate()
+    await fillForm()
+    await userEvent.selectOptions(screen.getByLabelText("Questions"), "custom")
+
+    const custom = screen.getByLabelText("Number of questions")
+    await userEvent.clear(custom)
+    await userEvent.type(custom, "7")
+    await userEvent.click(screen.getByRole("button", { name: /Generate exam/ }))
+
+    await waitFor(() => expect(posts).toHaveLength(1))
+    expect((posts[0] as Record<string, unknown>).num_questions).toBe(7)
+  })
+
+  it("rejects a custom count the server would reject", async () => {
+    renderGenerate()
+    await fillForm()
+    await userEvent.selectOptions(screen.getByLabelText("Questions"), "custom")
+
+    const custom = screen.getByLabelText("Number of questions")
+    await userEvent.clear(custom)
+    await userEvent.type(custom, "80")
     await userEvent.click(screen.getByRole("button", { name: /Generate exam/ }))
 
     expect(
       await screen.findByText("Enter a whole number between 1 and 50."),
     ).toBeInTheDocument()
     expect(posts).toHaveLength(0)
+  })
+
+  // The class is required and pre-filled from the route, so there must be no way
+  // back to an empty selection.
+  it("offers no empty option on the pre-filled class picker", async () => {
+    renderGenerate()
+    await screen.findByLabelText("Escalation policy")
+
+    const picker = screen.getByLabelText("Class")
+    expect(picker).toHaveValue("cl1")
+    expect(
+      Array.from(picker.querySelectorAll("option")).map((o) => o.value),
+    ).toEqual(["cl1"])
+    expect(screen.queryByRole("option", { name: "Choose one" })).toBeNull()
+  })
+
+  it("treats instructions as optional and generates with an empty prompt", async () => {
+    renderGenerate()
+    await screen.findByLabelText("Escalation policy")
+    await userEvent.type(screen.getByLabelText("Title"), "Week 1 check")
+    await userEvent.click(screen.getByLabelText("Escalation policy"))
+    // Instructions left untouched.
+    await userEvent.click(screen.getByRole("button", { name: /Generate exam/ }))
+
+    await waitFor(() => expect(posts).toHaveLength(1))
+    expect((posts[0] as Record<string, unknown>).prompt).toBe("")
+  })
+
+  it("marks instructions optional and leaves the required fields unmarked", async () => {
+    renderGenerate()
+    await screen.findByLabelText("Escalation policy")
+
+    expect(screen.getByLabelText("Instructions (optional)")).toBeInTheDocument()
+    expect(screen.getByLabelText("Title")).toBeInTheDocument()
+    expect(screen.getByLabelText("Class")).toBeInTheDocument()
+    expect(screen.queryByText("*")).toBeNull()
   })
 })

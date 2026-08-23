@@ -147,6 +147,18 @@ describe("ExerciseDetailPage", () => {
         writes.push({ url: request.url, body: null })
         return HttpResponse.json({ deleted: 1 })
       }),
+      http.patch(`${API}/api/v1/exams/ex1`, async ({ request }) => {
+        const body = (await request.json()) as Record<string, unknown>
+        writes.push({ url: request.url, body })
+        if ((exercise as Record<string, unknown>).is_active === true) {
+          return HttpResponse.json(
+            { detail: "Cannot edit a finalized exercise" },
+            { status: 409 },
+          )
+        }
+        exercise = { ...exercise, ...body }
+        return HttpResponse.json({ ...exercise, questions })
+      }),
       http.patch(`${API}/api/v1/exams/ex1/unpublish`, ({ request }) => {
         writes.push({ url: request.url, body: null })
         if (unpublishStatus !== 200) {
@@ -307,6 +319,46 @@ describe("ExerciseDetailPage", () => {
     expect(body.duration_minutes).toBe(60)
     // Sent as a real instant, not the zoneless value the input carries.
     expect(new Date(body.start_time as string).toISOString()).toBe(body.start_time)
+  })
+
+  it("renames a draft and shows the new title", async () => {
+    renderDetail()
+    await userEvent.click(await screen.findByRole("button", { name: /Rename/ }))
+    const dialog = within(await screen.findByRole("dialog"))
+
+    const input = dialog.getByLabelText("Title")
+    expect(input).toHaveValue("Week 1 check")
+    await userEvent.clear(input)
+    await userEvent.type(input, "Week 1 assessment")
+    await userEvent.click(dialog.getByRole("button", { name: "Save" }))
+
+    await waitFor(() => expect(writes).toHaveLength(1))
+    expect(writes[0].body).toEqual({ title: "Week 1 assessment" })
+    expect(
+      await screen.findByRole("heading", { name: "Week 1 assessment" }),
+    ).toBeInTheDocument()
+  })
+
+  it("blocks an empty title without calling the API", async () => {
+    renderDetail()
+    await userEvent.click(await screen.findByRole("button", { name: /Rename/ }))
+    const dialog = within(await screen.findByRole("dialog"))
+
+    await userEvent.clear(dialog.getByLabelText("Title"))
+    await userEvent.click(dialog.getByRole("button", { name: "Save" }))
+
+    expect(await dialog.findByText("Title is required.")).toBeInTheDocument()
+    expect(writes).toHaveLength(0)
+  })
+
+  // Renaming follows the same rule as the question edits: a live exam's wording
+  // is not the admin's to change any more.
+  it("does not offer rename once the exam is live", async () => {
+    exercise = { ...exercise, is_active: true }
+
+    renderDetail()
+    await screen.findByRole("heading", { name: "Week 1 check" })
+    expect(screen.queryByRole("button", { name: /Rename/ })).toBeNull()
   })
 
   it("says how much of the source material was actually read", async () => {

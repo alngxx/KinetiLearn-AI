@@ -8,6 +8,7 @@ from app.modules.auth.models import User
 from app.modules.exams.schemas import (
     DeleteResponse,
     ExerciseResponse,
+    ExerciseUpdate,
     FinalizeExerciseRequest,
     GenerateExerciseRequest,
     LearnerExerciseDetail,
@@ -47,6 +48,19 @@ async def generate_exercise(
 )
 async def get_exercise(exercise_id: UUID, db: AsyncSession = Depends(get_db)):
     return await ExamService(db).get_exercise(exercise_id)
+
+
+@router.patch(
+    "/{exercise_id}",
+    response_model = ExerciseResponse,
+    dependencies = [Depends(require_admin)],
+)
+async def update_exercise(
+    exercise_id: UUID,
+    payload: ExerciseUpdate,
+    db: AsyncSession = Depends(get_db),
+):
+    return await ExamService(db).update_exercise(exercise_id, payload)
 
 
 # Learner-facing: the response schemas carry no is_correct and no explanation, so

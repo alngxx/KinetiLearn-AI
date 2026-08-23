@@ -7,9 +7,11 @@ import {
   listClasses,
   listDocuments,
   unpublishExercise,
+  updateExercise,
   updateOption,
   updateQuestion,
   type Exercise,
+  type ExerciseUpdateInput,
   type FinalizeInput,
   type GenerateInput,
   type Question,
@@ -58,6 +60,12 @@ function useExerciseMutation<TInput, TResult>(mutationFn: (input: TInput) => Pro
 
 export function useGenerateExercise() {
   return useExerciseMutation((input: GenerateInput) => generateExercise(input))
+}
+
+export function useUpdateExercise() {
+  return useExerciseMutation((input: { id: string; body: ExerciseUpdateInput }) =>
+    updateExercise(input.id, input.body),
+  )
 }
 
 export function useFinalizeExercise() {

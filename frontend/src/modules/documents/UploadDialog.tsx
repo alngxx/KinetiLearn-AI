@@ -107,9 +107,6 @@ export function UploadDialog({
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="file" className="text-sm font-medium">
               File
-              <span aria-hidden="true" className="text-muted-foreground">
-                *
-              </span>
             </Label>
             <input
               id="file"

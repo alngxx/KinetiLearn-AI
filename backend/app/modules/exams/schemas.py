@@ -11,7 +11,10 @@ class GenerateExerciseRequest(BaseModel):
     class_id: UUID
     document_ids: list[UUID] = Field(..., min_length = 1, max_length = 10)
     num_questions: int = Field(..., ge = 1, le = 50)
-    prompt: str = Field(..., min_length = 1)
+    # Optional steering. Blank or omitted means "no particular angle" and the
+    # service substitutes a neutral instruction — the system prompt and the
+    # source material already fully specify the task without it.
+    prompt: str = ""
 
 
 class QuestionOptionResponse(BaseModel):
@@ -65,6 +68,12 @@ class QuestionUpdate(BaseModel):
 class OptionUpdate(BaseModel):
     option_text: str | None = None
     is_correct: bool | None = None
+
+
+# Request for PATCH /exams/{exercise_id}. Title only: everything else about a
+# draft is either generated or set by finalize.
+class ExerciseUpdate(BaseModel):
+    title: str = Field(..., min_length = 1, max_length = 255)
 
 
 # Request for PUT /exams/{exercise_id}/finalize. Sets the real schedule and

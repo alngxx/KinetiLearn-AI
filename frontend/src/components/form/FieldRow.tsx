@@ -35,12 +35,15 @@ export function FieldRow({
 
   return (
     <div className="flex flex-col gap-1.5">
+      {/* Required is the default across the app, so only the exceptions are
+          marked. Not aria-hidden: unlike the old asterisk there is no ARIA
+          attribute carrying this, so it has to be readable. */}
       <Label htmlFor={field.name} className="text-sm font-medium">
         {field.label}
-        {required && (
-          <span aria-hidden="true" className="text-muted-foreground">
-            *
-          </span>
+        {!required && (
+          // Leading space is deliberate: the label is a flex row, so without it
+          // the accessible name concatenates to "Field(optional)".
+          <span className="text-xs font-normal text-muted-foreground">{" (optional)"}</span>
         )}
       </Label>
 
@@ -67,7 +70,14 @@ export function FieldRow({
             className={cn(selectClasses)}
             onChange={(event) => onChange(event.target.value)}
           >
-            <option value="">{field.required === true ? "Choose one" : "None"}</option>
+            {/* An optional select keeps "None" as a real choice. A required one
+                offers the placeholder only while nothing valid is picked — and
+                still offers it when the current value matches no option, so a
+                stale id shows as unset instead of silently displaying (and
+                submitting) whichever option happens to be first. */}
+            {(!required || !(options ?? []).some((option) => option.value === value)) && (
+              <option value="">{required ? "Choose one" : "None"}</option>
+            )}
             {(options ?? []).map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}
