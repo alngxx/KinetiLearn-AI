@@ -2,11 +2,11 @@ from datetime import date
 from uuid import UUID
 
 from fastapi import HTTPException
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.core.crud import get_or_404
+from app.core.crud import assert_no_dependents, get_or_404
 from app.modules.auth.models import User
 from app.modules.classes.models import Class, ClassMember
 from app.modules.classes.schemas import (
@@ -17,6 +17,7 @@ from app.modules.classes.schemas import (
     ClassExerciseSummary,
     ClassResponse,
     ClassUpdate,
+    DeleteResponse,
     LearnerExerciseBase,
     LearnerExerciseSummary,
     MyClassBase,
@@ -245,6 +246,22 @@ class ClassService:
         await self.db.commit()
         await self.db.refresh(row)
         return ClassResponse.model_validate(row)
+
+    async def delete(self, class_id: UUID) -> DeleteResponse:
+        await get_or_404(self.db, Class, class_id, "Class not found.")
+
+        # exercises.class_id is RESTRICT, so without this the delete comes back
+        # as a raw 500 instead of {"detail": ...}. class_members cascades and
+        # needs no guard — the enrolment only means anything with the class.
+        await assert_no_dependents(
+            self.db,
+            select(Exercise.id).where(Exercise.class_id == class_id),
+            "Cannot delete a class that has exercises. Delete its exercises first.",
+        )
+
+        await self.db.execute(delete(Class).where(Class.id == class_id))
+        await self.db.commit()
+        return DeleteResponse(deleted = 1)
 
     async def activate(self, class_id: UUID) -> ClassResponse:
         return await self._set_active(class_id, True)

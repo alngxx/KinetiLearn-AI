@@ -6,8 +6,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.dependencies import get_db, require_admin
 from app.modules.auth.models import User
 from app.modules.documents.schemas import (
+    DocumentDeleteResponse,
     DocumentDetailResponse,
     DocumentResponse,
+    DocumentUpdate,
     DocumentUploadResponse,
     DocumentVersionResponse,
 )
@@ -60,6 +62,28 @@ async def upload_document(
         file = file,
         uploader_id = current_user.id,
     )
+
+
+@router.patch(
+    "/{document_id}",
+    response_model = DocumentDetailResponse,
+    dependencies = [Depends(require_admin)],
+)
+async def update_document(
+    document_id: UUID,
+    data: DocumentUpdate,
+    db: AsyncSession = Depends(get_db),
+):
+    return await DocumentService(db).update(document_id, data)
+
+
+@router.delete(
+    "/{document_id}",
+    response_model = DocumentDeleteResponse,
+    dependencies = [Depends(require_admin)],
+)
+async def delete_document(document_id: UUID, db: AsyncSession = Depends(get_db)):
+    return await DocumentService(db).delete(document_id)
 
 
 @router.patch(

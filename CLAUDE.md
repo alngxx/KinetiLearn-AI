@@ -97,7 +97,7 @@ to double-check it again afterward.
 
 ## 5. Reporting Back
 
-**Match report length to what changed. Lead with outcome.**
+**Match report length to what changed, skip narrating routine steps**
 
 - First line answers "what happened" — did it work, what changed. Detail after.
 - Skip narrating routine steps ("now I'll check the imports..."). Report findings,

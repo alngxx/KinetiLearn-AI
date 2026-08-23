@@ -62,6 +62,13 @@ export function finalizeExercise(id: string, body: FinalizeInput) {
   return api.put<Exercise>(`/api/v1/exams/${id}/finalize`, body)
 }
 
+// Refused (409) once the exercise has submissions or has already opened to
+// learners — a submission row only exists after a final submit, so an open
+// exam with none yet could still have someone mid-attempt.
+export function unpublishExercise(id: string) {
+  return api.patch<Exercise>(`/api/v1/exams/${id}/unpublish`)
+}
+
 // Deliberately no delete-all wrapper. DELETE /exams?confirm=true exists on the
 // server and wipes every exercise in the database; an admin console has no
 // business offering it, so it has no client here to call it from.

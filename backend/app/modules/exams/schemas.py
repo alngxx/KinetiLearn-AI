@@ -42,7 +42,8 @@ class ExerciseResponse(BaseModel):
     description: str | None
     class_id: UUID
     is_active: bool
-    # Placeholders until finalize runs — is_active is what says which it is.
+    # Placeholders until the first finalize; the previous schedule after an
+    # unpublish. is_active is what says which state it's in.
     start_time: datetime
     end_time: datetime
     duration_minutes: int

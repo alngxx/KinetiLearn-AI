@@ -7,7 +7,7 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.core.crud import get_or_404
+from app.core.crud import assert_no_dependents, get_or_404
 from app.core.llm import LLMError, generate_quiz
 from app.modules.classes.models import Class
 from app.modules.classes.service import assert_class_member
@@ -27,6 +27,7 @@ from app.modules.exams.schemas import (
     QuestionResponse,
     QuestionUpdate,
 )
+from app.modules.submissions.models import Submission
 
 # Chunks are cut at CHUNK_TARGET_TOKENS = 500 (worker/processing.py), so this is a
 # worst-case ceiling of ~25k prompt tokens. That has to leave room for the generated
@@ -347,10 +348,47 @@ class ExamService:
 
         return _to_response(exercise, None, None)
 
+    async def unpublish(self, exercise_id: UUID) -> ExerciseResponse:
+        exercise = await self._load_exercise(exercise_id)
+        if exercise is None:
+            raise HTTPException(status_code = 404, detail = "Exercise not found")
+        if not exercise.is_active:
+            raise HTTPException(status_code = 409, detail = "Exercise is already a draft")
+
+        # A submission row is only written at final submit (SubmissionService.submit),
+        # so zero of them does not mean nobody is part-way through — get_for_learner
+        # is a pure read with no row of its own. Before start_time it refuses outright
+        # (same comparison as line 229 below), which is the only point at which nobody
+        # can possibly have the exam open.
+        await assert_no_dependents(
+            self.db,
+            select(Submission.id).where(Submission.exercise_id == exercise_id),
+            "Cannot unpublish an exercise that has submissions.",
+        )
+        if datetime.now(timezone.utc) >= exercise.start_time:
+            raise HTTPException(
+                status_code = 409,
+                detail = "Cannot unpublish an exercise that has already opened to learners.",
+            )
+
+        # Schedule is left exactly as finalize set it, so a re-finalize is a
+        # re-confirm rather than starting from scratch.
+        exercise.is_active = False
+        await self.db.commit()
+
+        return _to_response(exercise, None, None)
+
     async def delete_exercise(self, exercise_id: UUID) -> dict:
         exercise = await self.db.get(Exercise, exercise_id)
         if exercise is None:
             raise HTTPException(status_code = 404, detail = "Exercise not found")
+        # submissions.exercise_id is RESTRICT, so without this the delete comes
+        # back as a raw 500 instead of {"detail": ...}.
+        await assert_no_dependents(
+            self.db,
+            select(Submission.id).where(Submission.exercise_id == exercise_id),
+            "Cannot delete an exercise that has submissions.",
+        )
         # Questions and options are removed by the FK ON DELETE CASCADE.
         await self.db.delete(exercise)
         await self.db.commit()
@@ -362,6 +400,13 @@ class ExamService:
                 status_code = 400,
                 detail = "Pass confirm=true to delete all exercises",
             )
+        # Same RESTRICT FK as delete_exercise — any submission at all blocks the
+        # bulk delete, since it would otherwise abort halfway as a 500.
+        await assert_no_dependents(
+            self.db,
+            select(Submission.id),
+            "Cannot delete exercises that have submissions.",
+        )
         result = await self.db.execute(delete(Exercise))
         await self.db.commit()
         return {"deleted": result.rowcount}

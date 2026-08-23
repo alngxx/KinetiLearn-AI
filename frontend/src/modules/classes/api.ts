@@ -6,6 +6,7 @@ export type ClassDetail = components["schemas"]["ClassDetailResponse"]
 export type ClassExercise = components["schemas"]["ClassExerciseSummary"]
 export type EnrollFilters = components["schemas"]["BulkAddMembersRequest"]
 export type EnrollResult = components["schemas"]["BulkAddMembersResponse"]
+export type ClassDeleteResult = components["schemas"]["DeleteResponse"]
 
 type UserRow = components["schemas"]["UserResponse"]
 
@@ -41,6 +42,13 @@ export function createClass(body: Record<string, unknown>) {
 // PUT, but every field is optional, so it behaves as a partial update.
 export function updateClass(id: string, body: Record<string, unknown>) {
   return api.put<ClassRow>(`/api/v1/classes/${id}`, body)
+}
+
+// Permanent. The server refuses with a 409 while the class still has
+// exercises; that message is written for the admin and is shown as-is.
+// Members go with the class (ON DELETE CASCADE).
+export function deleteClass(id: string) {
+  return api.delete<ClassDeleteResult>(`/api/v1/classes/${id}`)
 }
 
 export function setClassActive(id: string, active: boolean) {

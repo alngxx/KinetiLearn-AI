@@ -74,8 +74,9 @@ export function FinalizeDialog({
 }) {
   const form = useEntityForm({
     fields: FIELDS,
-    // Generation leaves a placeholder schedule behind; it is the starting point
-    // here rather than an empty form the admin has to fill from nothing.
+    // Generation leaves a placeholder schedule behind on first finalize; after an
+    // unpublish it is the previous real schedule instead. Either way it is the
+    // starting point here rather than an empty form the admin has to fill from nothing.
     initial: {
       start_time: toDateTimeLocal(exercise.start_time),
       end_time: toDateTimeLocal(exercise.end_time),
@@ -116,7 +117,8 @@ export function FinalizeDialog({
           <DialogTitle>Finalize {exercise.title}</DialogTitle>
           <DialogDescription>
             Set the schedule and publish. Learners in the class can sit it from the moment it
-            opens, and it cannot be turned back into a draft.
+            opens. It can be unpublished back to a draft, but only before it opens and before
+            anyone has submitted.
           </DialogDescription>
         </DialogHeader>
 

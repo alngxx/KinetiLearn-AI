@@ -3,6 +3,7 @@ import { render, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { http, HttpResponse } from "msw"
 import { MemoryRouter, Route, Routes } from "react-router-dom"
+import { Toaster } from "sonner"
 import { beforeEach, describe, expect, it } from "vitest"
 import { ExerciseDetailPage } from "@/modules/exams/ExerciseDetailPage"
 import { server } from "@/test/server"
@@ -54,15 +55,42 @@ function renderDetail() {
   )
 }
 
+// A blocked unpublish says why only through a toast, so this variant mounts
+// one. sonner's own Toaster is used rather than the app wrapper, which only
+// adds theming.
+function renderDetailWithToasts() {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  })
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={["/admin/classes/cl1/exercises/ex1"]}>
+        <Routes>
+          <Route
+            path="/admin/classes/:classId/exercises/:exerciseId"
+            element={<ExerciseDetailPage />}
+          />
+          <Route path="/admin/classes/:classId" element={<p>Class page</p>} />
+        </Routes>
+      </MemoryRouter>
+      <Toaster />
+    </QueryClientProvider>,
+  )
+}
+
 describe("ExerciseDetailPage", () => {
   let exercise: Record<string, unknown>
   let questions: Question[]
   let writes: { url: string; body: unknown }[]
   let failOption: string | null
+  let unpublishStatus: number
+  let unpublishDetail: string
 
   beforeEach(() => {
     failOption = null
     writes = []
+    unpublishStatus = 200
+    unpublishDetail = ""
     questions = [question("q1", "Who signs off a level 2?", 0), question("q2", "When?", 1)]
     exercise = {
       id: "ex1",
@@ -118,6 +146,14 @@ describe("ExerciseDetailPage", () => {
       http.delete(`${API}/api/v1/exams/ex1`, ({ request }) => {
         writes.push({ url: request.url, body: null })
         return HttpResponse.json({ deleted: 1 })
+      }),
+      http.patch(`${API}/api/v1/exams/ex1/unpublish`, ({ request }) => {
+        writes.push({ url: request.url, body: null })
+        if (unpublishStatus !== 200) {
+          return HttpResponse.json({ detail: unpublishDetail }, { status: unpublishStatus })
+        }
+        exercise = { ...exercise, is_active: false }
+        return HttpResponse.json({ ...exercise, questions })
       }),
     )
   })
@@ -205,8 +241,9 @@ describe("ExerciseDetailPage", () => {
     expect(screen.queryByText("Partly saved")).toBeNull()
   })
 
-  // The safety boundary of this screen. A published exam can have submissions,
-  // which the database refuses to orphan, and there is no un-publish.
+  // The safety boundary of this screen: delete stays draft-only even though
+  // unpublish now exists, since a published exam can have submissions the
+  // database refuses to orphan.
   it("offers delete on a draft", async () => {
     renderDetail()
     expect(await screen.findByRole("button", { name: /Delete draft/ })).toBeInTheDocument()
@@ -278,5 +315,60 @@ describe("ExerciseDetailPage", () => {
       "12 of 40 source sections were read",
     )
     expect(screen.getByText(/The rest did not fit/)).toBeInTheDocument()
+  })
+
+  it("does not offer unpublish on a draft", async () => {
+    renderDetail()
+    await screen.findByRole("heading", { name: "Week 1 check" })
+    expect(screen.queryByRole("button", { name: /Unpublish/ })).toBeNull()
+  })
+
+  it("unpublishes a live exam that has not opened yet, after confirming", async () => {
+    exercise = { ...exercise, is_active: true, start_time: "2030-01-01T00:00:00.000Z" }
+
+    renderDetail()
+    const unpublishButton = await screen.findByRole("button", { name: /Unpublish/ })
+    expect(unpublishButton).toBeEnabled()
+
+    await userEvent.click(unpublishButton)
+    const dialog = within(await screen.findByRole("alertdialog"))
+    // Worded as a real state change, distinct from the delete confirm's wording.
+    expect(dialog.getByText(/back to Draft/)).toBeInTheDocument()
+    await userEvent.click(dialog.getByRole("button", { name: "Unpublish" }))
+
+    await waitFor(() => expect(screen.getByText("Draft")).toBeInTheDocument())
+    expect(writes.some((write) => write.url.endsWith("/exams/ex1/unpublish"))).toBe(true)
+    // Finalize and delete-draft return once it is a draft again.
+    expect(screen.getByRole("button", { name: /Finalize/ })).toBeInTheDocument()
+  })
+
+  it("disables unpublish once the exam has already opened, and explains why", async () => {
+    exercise = { ...exercise, is_active: true, start_time: "2020-01-01T00:00:00.000Z" }
+
+    renderDetail()
+    const unpublishButton = await screen.findByRole("button", { name: /Unpublish/ })
+
+    expect(unpublishButton).toBeDisabled()
+    expect(
+      screen.getByText(/Only an exam that has not opened yet can be unpublished/),
+    ).toBeInTheDocument()
+    expect(writes.some((write) => write.url.endsWith("/unpublish"))).toBe(false)
+  })
+
+  it("keeps the exam live and shows the server's reason when unpublish is blocked", async () => {
+    exercise = { ...exercise, is_active: true, start_time: "2030-01-01T00:00:00.000Z" }
+    unpublishStatus = 409
+    unpublishDetail = "Cannot unpublish an exercise that has submissions."
+
+    renderDetailWithToasts()
+    await userEvent.click(await screen.findByRole("button", { name: /Unpublish/ }))
+    await userEvent.click(
+      within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Unpublish" }),
+    )
+
+    // Verbatim: the sentence names the actual reason, which a generic
+    // "could not unpublish" would throw away.
+    expect(await screen.findByText(unpublishDetail)).toBeInTheDocument()
+    expect(screen.getByText("Live")).toBeInTheDocument()
   })
 })

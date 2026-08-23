@@ -12,6 +12,7 @@ from app.modules.classes.schemas import (
     ClassDetailResponse,
     ClassResponse,
     ClassUpdate,
+    DeleteResponse,
     LearnerExerciseSummary,
     MyClassResponse,
 )
@@ -71,6 +72,11 @@ async def update_class(
     class_id: UUID, data: ClassUpdate, db: AsyncSession = Depends(get_db)
 ):
     return await ClassService(db).update(class_id, data)
+
+
+@router.delete("/{class_id}", response_model = DeleteResponse)
+async def delete_class(class_id: UUID, db: AsyncSession = Depends(get_db)):
+    return await ClassService(db).delete(class_id)
 
 
 @router.patch("/{class_id}/activate", response_model = ClassResponse)

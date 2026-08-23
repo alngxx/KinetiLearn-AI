@@ -111,3 +111,11 @@ def delete_version(document_id: UUID, version_number: int) -> None:
             ]
         }
     )
+
+
+def delete_document(document_id: UUID) -> None:
+    # Every version at once — the metadata filter ignores version_number, so a
+    # hard delete does not need to enumerate the versions first.
+    get_collection().delete(
+        where = {"document_id": {"$eq": str(document_id)}}
+    )

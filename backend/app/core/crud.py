@@ -22,6 +22,17 @@ async def get_or_404(db: AsyncSession, model: type, id: UUID, detail: str = "Not
     return row
 
 
+async def assert_no_dependents(db: AsyncSession, stmt, detail: str) -> None:
+    """
+    Raise 409 if anything still references the row about to be deleted.
+    Checked before the delete is attempted, so a blocked delete returns
+    {"detail": ...} instead of a raw IntegrityError from a RESTRICT FK.
+    """
+    result = await db.execute(stmt.limit(1))
+    if result.first() is not None:
+        raise HTTPException(status_code = 409, detail = detail)
+
+
 async def get_all(
     db: AsyncSession,
     model: type,

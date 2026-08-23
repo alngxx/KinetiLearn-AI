@@ -1,3 +1,5 @@
+import uuid
+
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import text
@@ -7,7 +9,9 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from app.core.config import settings
 from app.core.database import Base
 from app.core.dependencies import get_db, require_admin
+from app.core.security import create_access_token, get_password_hash
 from app.main import app
+from app.modules.auth.models import User
 
 TEST_DB_NAME = "KinetiLearn_test"
 test_url = make_url(settings.DATABASE_URL).set(database = TEST_DB_NAME)
@@ -74,3 +78,37 @@ async def client(db_session):
         yield ac
 
     app.dependency_overrides.clear()
+
+
+# Auth-check fixture: only get_db is overridden, so require_admin and
+# get_current_user run for real and 401/403 can be asserted. The `client`
+# fixture above stubs require_admin out, which is what every other test wants.
+@pytest_asyncio.fixture
+async def auth_client(db_session):
+    async def override_get_db():
+        yield db_session
+
+    app.dependency_overrides[get_db] = override_get_db
+
+    transport = ASGITransport(app = app)
+    async with AsyncClient(transport = transport, base_url = "http://test") as ac:
+        yield ac
+
+    app.dependency_overrides.clear()
+
+
+async def seed_auth_user(db, role = "admin"):
+    user = User(
+        id = uuid.uuid4(),
+        email = f"{role}-{uuid.uuid4()}@kineti.com",
+        password_hash = get_password_hash("secret123"),
+        full_name = "Test User",
+        role = role,
+    )
+    db.add(user)
+    await db.flush()
+    return user
+
+
+def auth_header(user):
+    return {"Authorization": f"Bearer {create_access_token({'sub': str(user.id), 'role': user.role})}"}

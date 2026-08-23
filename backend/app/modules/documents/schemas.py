@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 # Response for POST /documents/upload. Combines fields from the Document
@@ -17,6 +17,23 @@ class DocumentUploadResponse(BaseModel):
     file_size_bytes: int
     processing_status: str
     created_at: datetime
+
+
+# Partial metadata edit. Fields left out are untouched; as everywhere else in the
+# project, exclude_none means description/category_id cannot be cleared to NULL.
+class DocumentUpdate(BaseModel):
+    title: str | None = Field(default = None, min_length = 1, max_length = 255)
+    description: str | None = None
+    category_id: UUID | None = None
+
+
+# Hard delete result. cleanup_warning is set when the DB row is gone but the
+# Chroma or R2 cleanup that follows it failed, so the leftover state is reported
+# rather than silently ignored.
+class DocumentDeleteResponse(BaseModel):
+    deleted: int
+    versions_deleted: int
+    cleanup_warning: str | None = None
 
 
 # Document-level view returned by activate/deactivate, promote, skill tagging,

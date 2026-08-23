@@ -1,4 +1,4 @@
-import { ChevronLeftIcon, SendIcon, Trash2Icon } from "lucide-react"
+import { ChevronLeftIcon, SendIcon, Trash2Icon, Undo2Icon } from "lucide-react"
 import { useState } from "react"
 import { Link, useNavigate, useParams } from "react-router-dom"
 import { toast } from "sonner"
@@ -17,6 +17,7 @@ import {
   useExercise,
   useFinalizeExercise,
   useQuestionStepRunner,
+  useUnpublishExercise,
 } from "@/modules/exams/queries"
 
 export function ExerciseDetailPage() {
@@ -35,15 +36,22 @@ function DetailView({ classId, exerciseId }: { classId: string; exerciseId: stri
   const navigate = useNavigate()
   const [finalizeOpen, setFinalizeOpen] = useState(false)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
+  const [confirmingUnpublish, setConfirmingUnpublish] = useState(false)
 
   const detail = useExercise(exerciseId)
   const finalize = useFinalizeExercise()
   const remove = useDeleteExercise()
+  const unpublish = useUnpublishExercise()
   const runStep = useQuestionStepRunner(exerciseId)
 
   const exercise = detail.data
   const questions = exercise?.questions ?? []
   const live = exercise?.is_active ?? false
+  // The server refuses the same way (exams/service.py unpublish): once the
+  // exam has opened, a learner could be mid-attempt with no submission row to
+  // show for it yet, so unpublishing is only safe before that instant.
+  const hasOpened =
+    exercise !== undefined && new Date(exercise.start_time).getTime() <= Date.now()
   // finalize recomputes total_points from the questions as they stand, so this
   // is the ceiling the pass mark is really measured against — not the stored
   // column, which is stale the moment a question's points are edited.
@@ -68,6 +76,19 @@ function DetailView({ classId, exerciseId }: { classId: string; exerciseId: stri
     )
   }
 
+  function handleUnpublish() {
+    unpublish.mutate(
+      { id: exerciseId },
+      {
+        onSuccess: () => toast.success(`${exercise?.title ?? "Exam"} is back in draft`),
+        // A 409 names the reason — submissions exist, or it already opened —
+        // so it is shown as the server wrote it rather than a generic failure.
+        onError: (err) =>
+          toast.error(isApiError(err) ? err.message : "Could not unpublish the exam."),
+      },
+    )
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <Link
@@ -87,11 +108,28 @@ function DetailView({ classId, exerciseId }: { classId: string; exerciseId: stri
             : "Check the questions and the answer key, then set a schedule and publish."
         }
         actions={
-          exercise === undefined || live ? undefined : (
+          exercise === undefined ? undefined : live ? (
+            <div className="flex flex-col items-end gap-1">
+              <Button
+                variant="outline"
+                disabled={unpublish.isPending || hasOpened}
+                onClick={() => setConfirmingUnpublish(true)}
+              >
+                <Undo2Icon />
+                Unpublish
+              </Button>
+              {hasOpened && (
+                <span className="max-w-64 text-right text-xs text-muted-foreground">
+                  Only an exam that has not opened yet can be unpublished. This one opened{" "}
+                  {formatMoment(exercise.start_time)}.
+                </span>
+              )}
+            </div>
+          ) : (
             <>
-              {/* Delete is offered on drafts only. A published exam can have
-                  submissions, which the database refuses to orphan, and there is
-                  no un-publish to fall back on. */}
+              {/* Delete is offered on drafts only. A live exam that should never
+                  have existed can be unpublished back to a draft first — before it
+                  opens and before anyone has submitted — then deleted from there. */}
               <Button
                 variant="destructive"
                 disabled={remove.isPending}
@@ -202,6 +240,19 @@ function DetailView({ classId, exerciseId }: { classId: string; exerciseId: stri
         onConfirm={() => {
           setConfirmingDelete(false)
           handleDelete()
+        }}
+      />
+
+      <ConfirmDialog
+        open={confirmingUnpublish}
+        onOpenChange={setConfirmingUnpublish}
+        title={`Unpublish ${exercise?.title ?? "this exam"}?`}
+        description="It goes back to Draft: learners can no longer see or sit it, and its questions become editable again. The schedule is kept exactly as you set it, so republishing is a re-confirm. Only possible because nobody has started it yet."
+        confirmLabel="Unpublish"
+        confirmVariant="destructive"
+        onConfirm={() => {
+          setConfirmingUnpublish(false)
+          handleUnpublish()
         }}
       />
     </div>

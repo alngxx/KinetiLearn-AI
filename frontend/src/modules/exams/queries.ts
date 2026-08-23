@@ -6,6 +6,7 @@ import {
   getExercise,
   listClasses,
   listDocuments,
+  unpublishExercise,
   updateOption,
   updateQuestion,
   type Exercise,
@@ -67,6 +68,10 @@ export function useFinalizeExercise() {
 
 export function useDeleteExercise() {
   return useExerciseMutation((input: { id: string }) => deleteExercise(input.id))
+}
+
+export function useUnpublishExercise() {
+  return useExerciseMutation((input: { id: string }) => unpublishExercise(input.id))
 }
 
 // Runs one step of a question save and writes the returned question straight

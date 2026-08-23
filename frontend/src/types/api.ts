@@ -590,10 +590,12 @@ export interface paths {
         get: operations["get_document_api_v1_documents__document_id__get"];
         put?: never;
         post?: never;
-        delete?: never;
+        /** Delete Document */
+        delete: operations["delete_document_api_v1_documents__document_id__delete"];
         options?: never;
         head?: never;
-        patch?: never;
+        /** Update Document */
+        patch: operations["update_document_api_v1_documents__document_id__patch"];
         trace?: never;
     };
     "/api/v1/documents/upload": {
@@ -763,7 +765,8 @@ export interface paths {
         /** Update Class */
         put: operations["update_class_api_v1_classes__class_id__put"];
         post?: never;
-        delete?: never;
+        /** Delete Class */
+        delete: operations["delete_class_api_v1_classes__class_id__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -938,6 +941,23 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/v1/exams/{exercise_id}/unpublish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Unpublish Exercise */
+        patch: operations["unpublish_exercise_api_v1_exams__exercise_id__unpublish_patch"];
         trace?: never;
     };
     "/api/v1/exams": {
@@ -1756,6 +1776,15 @@ export interface components {
             /** Description */
             description?: string | null;
         };
+        /** DocumentDeleteResponse */
+        DocumentDeleteResponse: {
+            /** Deleted */
+            deleted: number;
+            /** Versions Deleted */
+            versions_deleted: number;
+            /** Cleanup Warning */
+            cleanup_warning?: string | null;
+        };
         /** DocumentDetailResponse */
         DocumentDetailResponse: {
             /**
@@ -1807,6 +1836,15 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+        };
+        /** DocumentUpdate */
+        DocumentUpdate: {
+            /** Title */
+            title?: string | null;
+            /** Description */
+            description?: string | null;
+            /** Category Id */
+            category_id?: string | null;
         };
         /** DocumentUploadResponse */
         DocumentUploadResponse: {
@@ -4081,6 +4119,72 @@ export interface operations {
             };
         };
     };
+    delete_document_api_v1_documents__document_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                document_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentDeleteResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_document_api_v1_documents__document_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                document_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DocumentUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentDetailResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     upload_document_api_v1_documents_upload_post: {
         parameters: {
             query?: never;
@@ -4485,6 +4589,37 @@ export interface operations {
             };
         };
     };
+    delete_class_api_v1_classes__class_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                class_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeleteResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     activate_class_api_v1_classes__class_id__activate_patch: {
         parameters: {
             query?: never;
@@ -4824,6 +4959,37 @@ export interface operations {
                 "application/json": components["schemas"]["FinalizeExerciseRequest"];
             };
         };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExerciseResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    unpublish_exercise_api_v1_exams__exercise_id__unpublish_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                exercise_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {

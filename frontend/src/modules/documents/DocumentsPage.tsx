@@ -19,10 +19,13 @@ import {
 } from "@/components/ui/table"
 import { isApiError } from "@/lib/errors"
 import type { DocumentRow, LookupRow, UploadInput } from "@/modules/documents/api"
+import { DocumentEditDialog } from "@/modules/documents/DocumentEditDialog"
 import { ProcessingBadge } from "@/modules/documents/ProcessingBadge"
 import {
+  useDeleteDocument,
   useDocumentLookups,
   useDocuments,
+  useSaveDocument,
   useSetDocumentActive,
   useUploadDocument,
 } from "@/modules/documents/queries"
@@ -39,6 +42,8 @@ export function DocumentsPage() {
   const [includeInactive, setIncludeInactive] = useState(false)
   const [uploadOpen, setUploadOpen] = useState(false)
   const [confirming, setConfirming] = useState<DocumentRow | null>(null)
+  const [editing, setEditing] = useState<DocumentRow | null>(null)
+  const [deleting, setDeleting] = useState<DocumentRow | null>(null)
 
   const filters = {
     ...(categoryId === "" ? {} : { category_id: categoryId }),
@@ -49,6 +54,8 @@ export function DocumentsPage() {
   const list = useDocuments(filters)
   const upload = useUploadDocument()
   const setActive = useSetDocumentActive()
+  const save = useSaveDocument()
+  const remove = useDeleteDocument()
 
   const options: Record<string, Option[]> = {
     categories: lookups.categories.map((row) => ({ value: row.id, label: row.name })),
@@ -61,6 +68,25 @@ export function DocumentsPage() {
     // already-live document would not show its progress here. The detail view
     // polls every version, so that is where the upload lands.
     navigate(`/admin/documents/${result.document_id}`)
+  }
+
+  async function handleSave(id: string, body: Record<string, unknown>) {
+    await save.mutateAsync({ id, body })
+    toast.success("Changes saved")
+  }
+
+  function handleDelete(row: DocumentRow) {
+    remove.mutate(
+      { id: row.document_id },
+      {
+        onSuccess: () => toast.success(`${row.title} deleted`),
+        // A 409 names what still points at this document — an exam, a daily
+        // quiz config, or a chat answer that cited it. That sentence is the
+        // whole answer, so it is shown as the server wrote it.
+        onError: (err) =>
+          toast.error(isApiError(err) ? err.message : "Could not delete the document."),
+      },
+    )
   }
 
   function handleSetActive(row: DocumentRow, active: boolean) {
@@ -145,7 +171,7 @@ export function DocumentsPage() {
               <TableHead className="w-28">
                 <span className="label-micro">Status</span>
               </TableHead>
-              <TableHead className="w-32 text-right">
+              <TableHead className="w-56 text-right">
                 <span className="label-micro">Actions</span>
               </TableHead>
             </TableRow>
@@ -228,16 +254,30 @@ export function DocumentsPage() {
                       <StatusBadge active={row.is_active} />
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        disabled={setActive.isPending}
-                        onClick={() =>
-                          row.is_active ? setConfirming(row) : handleSetActive(row, true)
-                        }
-                      >
-                        {row.is_active ? "Deactivate" : "Activate"}
-                      </Button>
+                      <div className="flex justify-end gap-1">
+                        <Button variant="ghost" size="sm" onClick={() => setEditing(row)}>
+                          Edit
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          disabled={setActive.isPending}
+                          onClick={() =>
+                            row.is_active ? setConfirming(row) : handleSetActive(row, true)
+                          }
+                        >
+                          {row.is_active ? "Deactivate" : "Activate"}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          disabled={remove.isPending}
+                          className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                          onClick={() => setDeleting(row)}
+                        >
+                          Delete
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 )
@@ -255,6 +295,34 @@ export function DocumentsPage() {
           onUpload={handleUpload}
         />
       )}
+
+      {editing !== null && (
+        <DocumentEditDialog
+          key={editing.document_id}
+          row={{ title: editing.title, category_id: editing.category_id }}
+          options={options}
+          open={true}
+          onOpenChange={(open) => {
+            if (!open) setEditing(null)
+          }}
+          onSave={(body) => handleSave(editing.document_id, body)}
+        />
+      )}
+
+      <ConfirmDialog
+        open={deleting !== null}
+        onOpenChange={(open) => {
+          if (!open) setDeleting(null)
+        }}
+        title={`Delete ${deleting?.title} permanently?`}
+        description="This removes the document, every version of it, and the stored files and search index behind them. It cannot be undone — re-uploading is the only way back. If an exam, a daily quiz config or a chat answer still refers to it, the delete is refused and nothing changes."
+        confirmLabel="Delete permanently"
+        confirmVariant="destructive"
+        onConfirm={() => {
+          if (deleting !== null) handleDelete(deleting)
+          setDeleting(null)
+        }}
+      />
 
       <ConfirmDialog
         open={confirming !== null}
