@@ -8,7 +8,16 @@ export type Option = {
 export type FormField = {
   name: string
   label: string
-  kind: "text" | "textarea" | "number" | "select" | "password" | "email" | "date" | "datetime"
+  kind:
+    | "text"
+    | "textarea"
+    | "number"
+    | "select"
+    | "password"
+    | "email"
+    | "date"
+    | "datetime"
+    | "time"
   required?: boolean
   // Names a list the page supplies; the page owns where that list comes from.
   optionsFrom?: string

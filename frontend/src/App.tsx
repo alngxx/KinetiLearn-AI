@@ -13,10 +13,14 @@ import { useAuth } from "@/modules/auth/useAuth"
 import { ClassDetailPage } from "@/modules/classes/ClassDetailPage"
 import { ClassesPage } from "@/modules/classes/ClassesPage"
 import { ConfigEntityPage } from "@/modules/config/ConfigEntityPage"
+import { DailyQuizConfigsPage } from "@/modules/daily-quiz-configs/DailyQuizConfigsPage"
 import { DocumentDetailPage } from "@/modules/documents/DocumentDetailPage"
 import { DocumentsPage } from "@/modules/documents/DocumentsPage"
 import { ExerciseDetailPage } from "@/modules/exams/ExerciseDetailPage"
 import { GenerateExamPage } from "@/modules/exams/GenerateExamPage"
+import { UserSkillsPage } from "@/modules/scoring/UserSkillsPage"
+import { SubmissionDetailPage } from "@/modules/submissions/SubmissionDetailPage"
+import { SubmissionsPage } from "@/modules/submissions/SubmissionsPage"
 import { ThemeProvider } from "@/modules/theme/ThemeContext"
 import { UsersPage } from "@/modules/users/UsersPage"
 
@@ -55,6 +59,10 @@ export default function App() {
                     <Route path="documents" element={<DocumentsPage />} />
                     <Route path="documents/:documentId" element={<DocumentDetailPage />} />
                     <Route path="config/:entityKey" element={<ConfigEntityPage />} />
+                    <Route path="daily-quizzes" element={<DailyQuizConfigsPage />} />
+                    <Route path="submissions" element={<SubmissionsPage />} />
+                    <Route path="submissions/:submissionId" element={<SubmissionDetailPage />} />
+                    <Route path="users/:userId/skills" element={<UserSkillsPage />} />
                   </Route>
                 </Route>
                 {/* Learner screens land here in a later task. */}

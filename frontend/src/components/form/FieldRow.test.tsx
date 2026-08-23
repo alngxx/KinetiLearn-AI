@@ -32,6 +32,7 @@ describe("FieldRow input types", () => {
     ["email", "email"],
     ["date", "date"],
     ["datetime", "datetime-local"],
+    ["time", "time"],
   ] as const)("renders %s as an input of type %s", (kind, expected) => {
     expect(renderField({ kind })).toHaveAttribute("type", expected)
   })
