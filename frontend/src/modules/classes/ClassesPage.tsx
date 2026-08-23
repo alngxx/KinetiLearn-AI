@@ -75,7 +75,7 @@ export function ClassesPage() {
       <PageHeader
         eyebrow="People"
         title="Classes"
-        description="Cohorts that exercises are assigned to. Create one, then enrol people by department, seniority or employee level."
+        description="Enrol people by department, seniority or employee level"
         actions={
           <Button
             onClick={() => {

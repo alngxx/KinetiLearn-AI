@@ -2,7 +2,6 @@ import { ChevronDownIcon } from "lucide-react"
 import { useState } from "react"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { MAX_QUESTIONS, MIN_QUESTIONS } from "@/modules/exams/api"
 
 // The counts an admin actually reaches for. Anything else goes through Custom,
 // which is still bounded by the server's own 1..50.
