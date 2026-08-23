@@ -211,7 +211,7 @@ class ExamService:
         result = await self.db.execute(
             select(Question)
             .where(Question.id == question_id)
-            .options(selectinload(Question.options))
+            .options(selectinload(Question.options), selectinload(Question.exercise))
         )
         question = result.scalar_one_or_none()
         if question is None:
@@ -277,6 +277,12 @@ class ExamService:
         self, question_id: UUID, data: QuestionUpdate
     ) -> QuestionResponse:
         question = await self._load_question(question_id)
+        # Same rule update_exercise follows: once learners can see it, its
+        # content stops being the admin's to change.
+        if question.exercise.is_active:
+            raise HTTPException(
+                status_code = 409, detail = "Cannot edit a finalized exercise"
+            )
         for field, value in data.model_dump(exclude_unset = True).items():
             setattr(question, field, value)
         await self.db.commit()
@@ -287,6 +293,10 @@ class ExamService:
         self, question_id: UUID, option_id: UUID, data: OptionUpdate
     ) -> QuestionResponse:
         question = await self._load_question(question_id)
+        if question.exercise.is_active:
+            raise HTTPException(
+                status_code = 409, detail = "Cannot edit a finalized exercise"
+            )
         option = next((o for o in question.options if o.id == option_id), None)
         if option is None:
             raise HTTPException(status_code = 404, detail = "Option not found")
