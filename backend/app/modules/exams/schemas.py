@@ -17,6 +17,28 @@ class GenerateExerciseRequest(BaseModel):
     prompt: str = ""
 
 
+# Returned by POST /exams/generate (202) and GET /exams/jobs/{job_id}. Generation
+# runs in the worker, so the admin polls this until status is terminal. Progress
+# moves one LLM batch at a time (QUIZ_BATCH_SIZE in core/llm.py), so a small exam
+# is a single step from 0 to done.
+class GenerationJobResponse(BaseModel):
+    model_config = ConfigDict(from_attributes = True)
+
+    id: UUID
+    # Carried so a wait resumed from a fresh page load knows which class the
+    # finished draft belongs to — the route's class can be stale after a retarget.
+    class_id: UUID
+    status: str
+    questions_done: int
+    num_questions: int
+    # Set only once status is "succeeded" — the exercise is written in one commit
+    # at the end, so a job that has not succeeded has produced nothing.
+    exercise_id: UUID | None
+    error: str | None
+    created_at: datetime
+    finished_at: datetime | None
+
+
 class QuestionOptionResponse(BaseModel):
     model_config = ConfigDict(from_attributes = True)
 

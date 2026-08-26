@@ -1,4 +1,4 @@
-from typing import AsyncIterator
+from typing import AsyncIterator, Callable
 
 from openai import AsyncOpenAI, OpenAIError
 from pydantic import BaseModel
@@ -55,8 +55,17 @@ QUIZ_BATCH_SIZE = 10
 
 
 async def generate_quiz(
-    context: str, admin_prompt: str, num_questions: int
+    context: str,
+    admin_prompt: str,
+    num_questions: int,
+    on_progress: Callable[[int], None] | None = None,
 ) -> list[GeneratedQuestion]:
+    """Generate num_questions unique questions, one LLM batch at a time.
+
+    on_progress is called after each batch with the running total, for callers that
+    want to report progress. Note the granularity: a request at or below
+    QUIZ_BATCH_SIZE is a single batch, so it only ever reports the finished count.
+    """
     collected: list[GeneratedQuestion] = []
     seen: set[str] = set()
     # Cap attempts so a misbehaving model can't loop forever; the +4 headroom
@@ -74,6 +83,10 @@ async def generate_quiz(
             if key not in seen:
                 seen.add(key)
                 collected.append(q)
+        if on_progress is not None:
+            # Capped for the same reason the return is sliced: a model that
+            # over-returns must not report 12 of 10.
+            on_progress(min(len(collected), num_questions))
     return collected[:num_questions]
 
 

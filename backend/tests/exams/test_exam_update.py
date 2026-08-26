@@ -1,83 +1,14 @@
 import uuid
 from datetime import datetime, timedelta, timezone
-from unittest.mock import AsyncMock, patch
 
-from app.core.dependencies import require_admin
-from app.core.llm import GeneratedQuestion
-from app.main import app
-from app.modules.classes.models import Class
-from app.modules.documents.models import Document, DocumentChunk, DocumentVersion
 from tests.conftest import auth_header, seed_auth_user
-
-BASE = "/api/v1/exams"
-
-
-def _use_stub_admin():
-    app.dependency_overrides[require_admin] = lambda: type("U", (), {"id": None})()
+from tests.exams.helpers import BASE, seed_draft
 
 
-async def _seed_class(db):
-    c = Class(name = f"Class {uuid.uuid4()}")
-    db.add(c)
-    await db.flush()
-    return c
-
-
-async def _seed_document(db, *, num_chunks = 3):
-    doc = Document(title = f"Doc {uuid.uuid4()}", active_version_number = 1)
-    db.add(doc)
-    await db.flush()
-    db.add(DocumentVersion(
-        document_id = doc.id,
-        version_number = 1,
-        file_url = "documents/x/v1.pdf",
-        file_name = "f.pdf",
-        file_size_bytes = 10,
-        mime_type = "application/pdf",
-        processing_status = "ready",
-    ))
-    await db.flush()
-    for i in range(num_chunks):
-        db.add(DocumentChunk(
-            document_id = doc.id,
-            version_number = 1,
-            chunk_index = i,
-            content = f"chunk {i} content",
-        ))
-    await db.flush()
-    return doc
-
-
-def _fake_questions(n):
-    return [
-        GeneratedQuestion(
-            question_text = f"Question {i}?",
-            explanation = "Because the source says so.",
-            options = [f"Option {j}" for j in range(4)],
-            correct_index = 1,
-        )
-        for i in range(n)
-    ]
-
-
-async def _make_draft(client, db, *, prompt = "Cover the basics"):
-    _use_stub_admin()
-    cls = await _seed_class(db)
-    doc = await _seed_document(db)
-    body = {
-        "title": "Original title",
-        "class_id": str(cls.id),
-        "document_ids": [str(doc.id)],
-        "num_questions": 3,
-    }
-    if prompt is not None:
-        body["prompt"] = prompt
-    with patch(
-        "app.modules.exams.service.generate_quiz",
-        new = AsyncMock(return_value = _fake_questions(3)),
-    ) as mock:
-        resp = await client.post(f"{BASE}/generate", json = body)
-    return resp, mock
+# Generation now runs in the worker and POST /exams/generate returns a job, not an
+# exercise. These tests only ever needed a draft to edit, so seed one directly.
+async def _make_draft(client, db):
+    return await seed_draft(db, client, num_questions = 3, title = "Original title")
 
 
 async def _finalize(client, exercise_id):
@@ -108,8 +39,8 @@ async def _finalize_not_yet_open(client, exercise_id):
 
 
 async def test_rename_draft(client, db_session):
-    resp, _ = await _make_draft(client, db_session)
-    exercise_id = resp.json()["id"]
+    draft = await _make_draft(client, db_session)
+    exercise_id = draft["id"]
 
     patched = await client.patch(f"{BASE}/{exercise_id}", json = {"title": "Renamed"})
     assert patched.status_code == 200
@@ -121,8 +52,7 @@ async def test_rename_draft(client, db_session):
 
 
 async def test_rename_leaves_the_questions_alone(client, db_session):
-    resp, _ = await _make_draft(client, db_session)
-    body = resp.json()
+    body = await _make_draft(client, db_session)
     exercise_id = body["id"]
 
     patched = await client.patch(f"{BASE}/{exercise_id}", json = {"title": "Renamed"})
@@ -130,8 +60,8 @@ async def test_rename_leaves_the_questions_alone(client, db_session):
 
 
 async def test_rename_rejected_once_finalized(client, db_session):
-    resp, _ = await _make_draft(client, db_session)
-    exercise_id = resp.json()["id"]
+    draft = await _make_draft(client, db_session)
+    exercise_id = draft["id"]
     assert (await _finalize(client, exercise_id)).status_code == 200
 
     patched = await client.patch(f"{BASE}/{exercise_id}", json = {"title": "Too late"})
@@ -150,8 +80,8 @@ async def test_rename_unknown_exercise_404s(client, db_session):
 
 
 async def test_rename_rejects_a_blank_title(client, db_session):
-    resp, _ = await _make_draft(client, db_session)
-    exercise_id = resp.json()["id"]
+    draft = await _make_draft(client, db_session)
+    exercise_id = draft["id"]
 
     patched = await client.patch(f"{BASE}/{exercise_id}", json = {"title": ""})
     assert patched.status_code == 422
@@ -178,8 +108,8 @@ async def test_rename_rejects_a_learner(auth_client, db_session):
 
 
 async def test_question_edit_still_works_on_a_draft(client, db_session):
-    resp, _ = await _make_draft(client, db_session)
-    question_id = resp.json()["questions"][0]["id"]
+    draft = await _make_draft(client, db_session)
+    question_id = draft["questions"][0]["id"]
 
     patched = await client.patch(
         f"{BASE}/questions/{question_id}", json = {"points": 4}
@@ -189,8 +119,8 @@ async def test_question_edit_still_works_on_a_draft(client, db_session):
 
 
 async def test_option_edit_still_works_on_a_draft(client, db_session):
-    resp, _ = await _make_draft(client, db_session)
-    question = resp.json()["questions"][0]
+    draft = await _make_draft(client, db_session)
+    question = draft["questions"][0]
     option_id = question["options"][0]["id"]
 
     patched = await client.patch(
@@ -203,8 +133,7 @@ async def test_option_edit_still_works_on_a_draft(client, db_session):
 
 
 async def test_question_edit_rejected_once_finalized(client, db_session):
-    resp, _ = await _make_draft(client, db_session)
-    body = resp.json()
+    body = await _make_draft(client, db_session)
     exercise_id = body["id"]
     question = body["questions"][0]
     assert (await _finalize(client, exercise_id)).status_code == 200
@@ -224,8 +153,7 @@ async def test_question_edit_rejected_once_finalized(client, db_session):
 
 
 async def test_option_edit_rejected_once_finalized(client, db_session):
-    resp, _ = await _make_draft(client, db_session)
-    body = resp.json()
+    body = await _make_draft(client, db_session)
     exercise_id = body["id"]
     question = body["questions"][0]
     option = question["options"][0]
@@ -250,8 +178,7 @@ async def test_option_edit_rejected_once_finalized(client, db_session):
 
 
 async def test_question_edit_works_again_after_unpublish(client, db_session):
-    resp, _ = await _make_draft(client, db_session)
-    body = resp.json()
+    body = await _make_draft(client, db_session)
     exercise_id = body["id"]
     question_id = body["questions"][0]["id"]
     assert (await _finalize_not_yet_open(client, exercise_id)).status_code == 200
@@ -267,8 +194,7 @@ async def test_question_edit_works_again_after_unpublish(client, db_session):
 
 
 async def test_option_edit_works_again_after_unpublish(client, db_session):
-    resp, _ = await _make_draft(client, db_session)
-    body = resp.json()
+    body = await _make_draft(client, db_session)
     exercise_id = body["id"]
     question = body["questions"][0]
     option_id = question["options"][0]["id"]
@@ -284,34 +210,3 @@ async def test_option_edit_works_again_after_unpublish(client, db_session):
     assert patched.status_code == 200
     edited = next(o for o in patched.json()["options"] if o["id"] == option_id)
     assert edited["option_text"] == "Edited after unpublish"
-
-
-# --- optional prompt -----------------------------------------------------
-
-
-async def test_generate_accepts_an_empty_prompt(client, db_session):
-    resp, mock = await _make_draft(client, db_session, prompt = "")
-    assert resp.status_code == 201
-    assert len(resp.json()["questions"]) == 3
-
-    # An empty instruction is replaced, never passed through as "" — the model
-    # would otherwise get a dangling "Admin instructions:" line.
-    assert mock.await_args.args[1] == "Cover the main points of the source material evenly."
-
-
-async def test_generate_accepts_an_omitted_prompt(client, db_session):
-    resp, mock = await _make_draft(client, db_session, prompt = None)
-    assert resp.status_code == 201
-    assert mock.await_args.args[1] == "Cover the main points of the source material evenly."
-
-
-async def test_generate_accepts_a_whitespace_only_prompt(client, db_session):
-    resp, mock = await _make_draft(client, db_session, prompt = "   ")
-    assert resp.status_code == 201
-    assert mock.await_args.args[1] == "Cover the main points of the source material evenly."
-
-
-async def test_a_real_prompt_is_passed_through_untouched(client, db_session):
-    resp, mock = await _make_draft(client, db_session, prompt = "Focus on escalation")
-    assert resp.status_code == 201
-    assert mock.await_args.args[1] == "Focus on escalation"

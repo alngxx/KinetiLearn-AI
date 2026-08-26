@@ -11,6 +11,7 @@ from app.modules.exams.schemas import (
     ExerciseUpdate,
     FinalizeExerciseRequest,
     GenerateExerciseRequest,
+    GenerationJobResponse,
     LearnerExerciseDetail,
     OptionUpdate,
     QuestionResponse,
@@ -21,17 +22,19 @@ from app.modules.exams.service import ExamService
 router = APIRouter()
 
 
+# 202, not 201: generation runs in the worker, so this returns a job to poll
+# rather than the finished exercise.
 @router.post(
     "/generate",
-    response_model = ExerciseResponse,
-    status_code = status.HTTP_201_CREATED,
+    response_model = GenerationJobResponse,
+    status_code = status.HTTP_202_ACCEPTED,
 )
 async def generate_exercise(
     payload: GenerateExerciseRequest,
     current_user: User = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    return await ExamService(db).generate(
+    return await ExamService(db).start_generation(
         title = payload.title,
         class_id = payload.class_id,
         document_ids = payload.document_ids,
@@ -39,6 +42,17 @@ async def generate_exercise(
         prompt = payload.prompt,
         creator_id = current_user.id,
     )
+
+
+# Must be declared before /{exercise_id}, which would otherwise match "jobs" and
+# reject it as a malformed UUID.
+@router.get(
+    "/jobs/{job_id}",
+    response_model = GenerationJobResponse,
+    dependencies = [Depends(require_admin)],
+)
+async def get_generation_job(job_id: UUID, db: AsyncSession = Depends(get_db)):
+    return await ExamService(db).get_job(job_id)
 
 
 @router.get(

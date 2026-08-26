@@ -63,6 +63,11 @@ class DailyQuizConfigResponse(BaseModel):
     created_by: UUID | None
     is_active: bool
     created_at: datetime
+    # Outcome of the most recent Beat attempt. All three are NULL until the config
+    # has been picked up for the first time.
+    last_run_at: datetime | None
+    last_run_status: str | None
+    last_run_error: str | None
 
 
 # is_correct is left out on purpose — this is what a learner sees before

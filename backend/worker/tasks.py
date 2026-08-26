@@ -1,15 +1,18 @@
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
 from celery import Celery
-from sqlalchemy import delete
+from sqlalchemy import delete, func, or_, select, update
 from sqlalchemy.exc import IntegrityError
 
 from app.core import vectorstore
 from app.core.config import settings
 from app.core.storage import R2Storage
 from app.modules.documents.models import Document, DocumentChunk, DocumentVersion
+from app.modules.exams.models import ExerciseGenerationJob
+from app.modules.exams.service import run_generation_job
+from app.modules.quiz.models import DailyQuizConfig
 from app.modules.quiz.service import (
     count_matching_learners,
     find_due_configs,
@@ -28,10 +31,36 @@ celery_app = Celery("worker", broker = settings.REDIS_URL, backend = settings.RE
 # without waking the worker 1440 times a day.
 DAILY_QUIZ_CHECK_SECONDS = 300
 
+# Stale generation jobs. Celery acks a task on delivery (task_acks_late is False),
+# so a worker that dies between the ack and the commit takes the message with it
+# and nothing will ever pick the job up again. Without this sweep such a job sits
+# in "queued" or "running" forever and the admin's progress panel polls a bar that
+# will never move. The fix has to live in the database, not the browser: a
+# client-side timeout would only change what one open tab renders, leaving the row
+# itself lying about the state of the world for every other reader — the class
+# page, a second admin, a later poll of GET /exams/jobs/{id}.
+STALE_JOB_CHECK_SECONDS = 300
+
+# Measured from created_at. A live worker acks within milliseconds, so anything
+# still unclaimed after this has no worker behind it (or a queue so backed up that
+# failing fast and letting the admin retry beats an unbounded wait).
+QUEUED_TIMEOUT_MINUTES = 15
+
+# Measured from progress_at, which is re-stamped every batch — so this is "no
+# batch has completed in half an hour", not "the job is taking a while". Sized
+# against the worst realistic single batch: up to ~25k prompt tokens
+# (MAX_CONTEXT_CHUNKS x CHUNK_TARGET_TOKENS) plus a growing avoid-list, and the
+# OpenAI SDK's own 600s read timeout with 2 retries behind it.
+RUNNING_STALL_MINUTES = 30
+
 celery_app.conf.beat_schedule = {
     "generate-due-daily-quizzes": {
         "task": "worker.tasks.generate_due_daily_quizzes",
         "schedule": DAILY_QUIZ_CHECK_SECONDS,
+    },
+    "sweep-stale-generation-jobs": {
+        "task": "worker.tasks.sweep_stale_generation_jobs",
+        "schedule": STALE_JOB_CHECK_SECONDS,
     },
 }
 
@@ -120,6 +149,26 @@ def process_document(document_id: UUID, version_number: int):
         session.close()
 
 
+def _stamp_run(session, config_id: UUID, status: str, error: str | None = None):
+    """Record this attempt's outcome on the config.
+
+    Issued as a Core UPDATE by id rather than through the ORM object: the failure
+    branches call this after a rollback, which expires every instance in the
+    session. Committed on its own so the stamp survives whatever went wrong with
+    the quiz itself — it is the only place an admin can see that a run failed.
+    """
+    session.execute(
+        update(DailyQuizConfig)
+        .where(DailyQuizConfig.id == config_id)
+        .values(
+            last_run_at = datetime.now(timezone.utc),
+            last_run_status = status,
+            last_run_error = error,
+        )
+    )
+    session.commit()
+
+
 @celery_app.task
 def generate_due_daily_quizzes():
     """Beat entry point: generate today's quiz for every config that is due.
@@ -133,17 +182,22 @@ def generate_due_daily_quizzes():
     summary = {"generated": [], "skipped": [], "failed": []}
     try:
         for due in find_due_configs(session, datetime.now(timezone.utc)):
-            config_id = str(due.config.id)
+            # Captured before the try: a rollback below expires the ORM instance,
+            # and the stamp needs this id afterwards.
+            config_uuid = due.config.id
+            config_id = str(config_uuid)
             try:
                 # No audience means nobody could ever open this quiz, so don't
                 # spend an LLM call on it. Writing no row leaves the config due,
                 # so it retries each tick until the local day rolls over.
                 if count_matching_learners(session, due.config) == 0:
                     summary["skipped"].append(config_id)
+                    _stamp_run(session, config_uuid, "skipped", "No matching learners")
                     continue
 
                 generate_daily_quiz(session, due)
                 summary["generated"].append(config_id)
+                _stamp_run(session, config_uuid, "success")
             except IntegrityError:
                 # Two overlapping ticks both passed the existence check and raced
                 # to insert. The unique constraint on (config_id, quiz_date) picked
@@ -155,6 +209,9 @@ def generate_due_daily_quizzes():
                     config_id, due.quiz_date,
                 )
                 summary["skipped"].append(config_id)
+                _stamp_run(
+                    session, config_uuid, "skipped", "Already generated by another run"
+                )
             except Exception as e:
                 session.rollback()
                 logger.exception(
@@ -162,6 +219,95 @@ def generate_due_daily_quizzes():
                     config_id, due.quiz_date, e,
                 )
                 summary["failed"].append(config_id)
+                _stamp_run(session, config_uuid, "failed", str(e))
+    finally:
+        session.close()
+    return summary
+
+
+@celery_app.task
+def generate_exercise(job_id: UUID):
+    """Generate the exercise for one queued job. Enqueued by ExamService.
+
+    The job row carries everything the run needs, so nothing is passed here but its
+    id — and the run is guarded against redelivery inside run_generation_job.
+    """
+    # Celery serializes the UUID to a string over JSON, so coerce it back.
+    if isinstance(job_id, str):
+        job_id = UUID(job_id)
+
+    session = SyncSessionLocal()
+    try:
+        run_generation_job(session, job_id)
+    finally:
+        session.close()
+
+
+@celery_app.task
+def sweep_stale_generation_jobs():
+    """Fail exam generation jobs that no worker is going to finish.
+
+    Two different faults, told apart so the admin knows which one they have:
+    a job nobody ever claimed means no worker is running, while a job that
+    started and then went quiet means a worker took it and died mid-batch.
+    Returns a summary for the Celery result backend, same as the daily quiz task.
+    """
+    now = datetime.now(timezone.utc)
+    queued_cutoff = now - timedelta(minutes = QUEUED_TIMEOUT_MINUTES)
+    running_cutoff = now - timedelta(minutes = RUNNING_STALL_MINUTES)
+
+    session = SyncSessionLocal()
+    summary = {"queued": [], "stalled": []}
+    try:
+        stale = session.execute(
+            select(ExerciseGenerationJob).where(
+                or_(
+                    (ExerciseGenerationJob.status == "queued")
+                    & (ExerciseGenerationJob.created_at < queued_cutoff),
+                    # COALESCE so a running job written before progress_at existed,
+                    # or one killed before its first batch, is still reachable.
+                    (ExerciseGenerationJob.status == "running")
+                    & (
+                        func.coalesce(
+                            ExerciseGenerationJob.progress_at,
+                            ExerciseGenerationJob.created_at,
+                        )
+                        < running_cutoff
+                    ),
+                )
+            )
+        ).scalars().all()
+
+        for job in stale:
+            # Captured before the overwrite below, or the log line reports the
+            # status this sweep just wrote rather than the fault it found.
+            was = job.status
+            if was == "queued":
+                message = (
+                    f"No worker picked this up within {QUEUED_TIMEOUT_MINUTES} "
+                    "minutes, so it was stopped. Check the generation worker is "
+                    "running, then try again."
+                )
+                summary["queued"].append(str(job.id))
+            else:
+                message = (
+                    f"Generation stopped responding after {job.questions_done} of "
+                    f"{job.num_questions} questions and was cancelled. Nothing was "
+                    "saved — try again."
+                )
+                summary["stalled"].append(str(job.id))
+
+            job.status = "failed"
+            job.error = message
+            job.finished_at = now
+            logger.warning(
+                "Failing stale generation job %s (was %s, %s/%s done).",
+                job.id, was, job.questions_done, job.num_questions,
+            )
+
+        # succeeded and failed jobs are never in `stale`, so a finished run is
+        # never rewritten by this sweep.
+        session.commit()
     finally:
         session.close()
     return summary

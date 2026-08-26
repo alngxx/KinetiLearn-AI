@@ -77,6 +77,11 @@ class DailyQuizConfig(Base):
         nullable=False,
         server_default=func.now(),
     )
+    # Stamped by the Beat task on every attempt. Nobody watches that run, so this
+    # is the only place a failure is visible to an admin.
+    last_run_at = Column(TIMESTAMP(timezone=True), nullable=True)
+    last_run_status = Column(String(20), nullable=True)
+    last_run_error = Column(Text, nullable=True)
 
     quizzes = relationship("DailyQuiz", back_populates="config")
 
@@ -92,6 +97,11 @@ class DailyQuizConfig(Base):
         CheckConstraint(
             "question_count > 0",
             name="ck_daily_quiz_configs_question_count_positive",
+        ),
+        CheckConstraint(
+            "last_run_status IS NULL "
+            "OR last_run_status IN ('success', 'skipped', 'failed')",
+            name="ck_daily_quiz_configs_last_run_status_valid",
         ),
         Index("ix_daily_quiz_configs_is_active", "is_active"),
         Index("ix_daily_quiz_configs_target_department_id", "target_department_id"),

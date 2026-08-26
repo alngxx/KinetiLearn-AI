@@ -1,11 +1,13 @@
+import asyncio
+import logging
 import random
 from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
 from fastapi import HTTPException
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import Session, selectinload
 
 from app.core.crud import assert_no_dependents, get_or_404
 from app.core.llm import LLMError, generate_quiz
@@ -15,11 +17,13 @@ from app.modules.documents.models import Document, DocumentChunk, DocumentVersio
 from app.modules.exams.models import (
     Exercise,
     ExerciseDocument,
+    ExerciseGenerationJob,
     Question,
     QuestionOption,
 )
 from app.modules.exams.schemas import (
     ExerciseResponse,
+    GenerationJobResponse,
     ExerciseUpdate,
     FinalizeExerciseRequest,
     LearnerExerciseDetail,
@@ -29,6 +33,8 @@ from app.modules.exams.schemas import (
     QuestionUpdate,
 )
 from app.modules.submissions.models import Submission
+
+logger = logging.getLogger(__name__)
 
 # Chunks are cut at CHUNK_TARGET_TOKENS = 500 (worker/processing.py), so this is a
 # worst-case ceiling of ~25k prompt tokens. That has to leave room for the generated
@@ -50,7 +56,7 @@ class ExamService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def generate(
+    async def start_generation(
         self,
         *,
         title: str,
@@ -59,142 +65,95 @@ class ExamService:
         num_questions: int,
         prompt: str,
         creator_id: UUID | None,
-    ) -> ExerciseResponse:
+    ) -> GenerationJobResponse:
+        """Validate the request, record a job, and hand it to the worker.
+
+        The LLM call and the persist moved to run_generation_job below — an admin no
+        longer waits on a blocking request. The eligibility checks stay here so bad
+        input still fails immediately, with the same messages it always did.
+        """
         await get_or_404(self.db, Class, class_id, "Class not found")
 
-        # Dedupe while preserving order, then share the chunk budget across the
-        # documents so the combined context still fits the model's window.
+        # Dedupe while preserving order. The chunk budget is shared across the
+        # documents at run time; here we only check each one is usable.
         unique_ids = list(dict.fromkeys(document_ids))
-        per_doc_cap = max(1, MAX_CONTEXT_CHUNKS // len(unique_ids))
-
-        context_parts = []
-        chunks_used = 0
-        chunks_total = 0
-        sources = []
         for document_id in unique_ids:
-            document = await get_or_404(
-                self.db, Document, document_id, "Document not found"
-            )
-            # Must use the document's ACTIVE version, and only if it finished processing.
-            if document.active_version_number is None:
-                raise HTTPException(
-                    status_code = 400, detail = "Document has no active version"
-                )
-            version = await self.db.get(
-                DocumentVersion, (document_id, document.active_version_number)
-            )
-            if version is None or version.processing_status != "ready":
-                raise HTTPException(
-                    status_code = 400, detail = "Document active version is not ready"
-                )
+            await self._assert_document_usable(document_id)
 
-            total = await self.db.scalar(
-                select(func.count())
-                .select_from(DocumentChunk)
-                .where(
-                    DocumentChunk.document_id == document_id,
-                    DocumentChunk.version_number == document.active_version_number,
-                )
-            )
-            result = await self.db.execute(
-                select(DocumentChunk)
-                .where(
-                    DocumentChunk.document_id == document_id,
-                    DocumentChunk.version_number == document.active_version_number,
-                )
-                .order_by(DocumentChunk.chunk_index)
-                .limit(per_doc_cap)
-            )
-            chunks = result.scalars().all()
-            if not chunks:
-                raise HTTPException(
-                    status_code = 400, detail = "Document active version has no content"
-                )
-
-            context_parts.append("\n\n".join(c.content for c in chunks))
-            chunks_used += len(chunks)
-            chunks_total += total
-            sources.append((document_id, document.active_version_number))
-
-        context = "\n\n".join(context_parts)
-        instructions = prompt.strip() or DEFAULT_PROMPT
-        try:
-            generated = await generate_quiz(context, instructions, num_questions)
-        except LLMError:
-            raise HTTPException(
-                status_code = 502, detail = "Failed to generate questions"
-            )
-
-        self._validate_batch(generated, num_questions)
-
-        # With a single source we can attribute every question to it; with several
-        # sources a per-question attribution isn't knowable from one LLM call.
-        src_doc, src_ver = sources[0] if len(sources) == 1 else (None, None)
-
-        # Build the whole graph in memory and commit once — a partial exercise
-        # would silently mislead downstream consumers (same rule as Task 20).
-        exercise = Exercise(
-            title = title,
+        # Stored as strings: the column is JSONB, and Celery would serialise them
+        # this way regardless.
+        job = ExerciseGenerationJob(
             class_id = class_id,
-            start_time = datetime.now(timezone.utc),
-            end_time = datetime.now(timezone.utc) + timedelta(days = 1),
-            duration_minutes = 60,
-            pass_score = 0,
-            total_points = len(generated) * QUESTION_POINTS,
-            is_active = False,
+            title = title,
+            prompt = prompt,
+            num_questions = num_questions,
+            document_ids = [str(document_id) for document_id in unique_ids],
             created_by = creator_id,
         )
-        for order_index, gq in enumerate(generated):
-            question = Question(
-                source_document_id = src_doc,
-                source_version_number = src_ver,
-                question_text = gq.question_text,
-                explanation = gq.explanation,
-                points = QUESTION_POINTS,
-                order_index = order_index,
-            )
-            # Shuffle the options so the correct answer isn't biased toward the
-            # first position — the model tends to return correct_index = 0.
-            order = list(range(len(gq.options)))
-            random.shuffle(order)
-            correct_pos = order.index(gq.correct_index)
-            for i, src in enumerate(order):
-                question.options.append(QuestionOption(
-                    option_label = OPTION_LABELS[i],
-                    option_text = gq.options[src],
-                    is_correct = (i == correct_pos),
-                ))
-            exercise.questions.append(question)
-
-        # Recorded whether there is one source or ten — with several, this is the
-        # only surviving link back to the material the questions came from.
-        for document_id, version_number in sources:
-            exercise.source_documents.append(ExerciseDocument(
-                document_id = document_id,
-                version_number = version_number,
-            ))
-
-        self.db.add(exercise)
+        self.db.add(job)
         await self.db.commit()
+        await self.db.refresh(job)
 
-        exercise = await self._load_exercise(exercise.id)
-        return _to_response(exercise, chunks_used, chunks_total)
+        # Only after the job row is committed, so a broker outage can be recorded
+        # against a row that already exists.
+        await self._enqueue_generation(job)
+        return GenerationJobResponse.model_validate(job)
 
-    def _validate_batch(self, generated, num_questions: int) -> None:
-        if len(generated) != num_questions:
+    async def _assert_document_usable(self, document_id: UUID) -> None:
+        # Must use the document's ACTIVE version, and only if it finished processing.
+        document = await get_or_404(
+            self.db, Document, document_id, "Document not found"
+        )
+        if document.active_version_number is None:
             raise HTTPException(
-                status_code = 502,
-                detail = "Generator returned the wrong number of questions",
+                status_code = 400, detail = "Document has no active version"
             )
-        for gq in generated:
-            if len(gq.options) < 2 or len(gq.options) > len(OPTION_LABELS):
-                raise HTTPException(
-                    status_code = 502, detail = "Generator returned an invalid question"
-                )
-            if not (0 <= gq.correct_index < len(gq.options)):
-                raise HTTPException(
-                    status_code = 502, detail = "Generator returned an invalid question"
-                )
+        version = await self.db.get(
+            DocumentVersion, (document_id, document.active_version_number)
+        )
+        if version is None or version.processing_status != "ready":
+            raise HTTPException(
+                status_code = 400, detail = "Document active version is not ready"
+            )
+        # Counted rather than loaded: the request path only needs to know there is
+        # content, and the worker is what actually reads it.
+        chunk_count = await self.db.scalar(
+            select(func.count())
+            .select_from(DocumentChunk)
+            .where(
+                DocumentChunk.document_id == document_id,
+                DocumentChunk.version_number == document.active_version_number,
+            )
+        )
+        if not chunk_count:
+            raise HTTPException(
+                status_code = 400, detail = "Document active version has no content"
+            )
+
+    async def _enqueue_generation(self, job: ExerciseGenerationJob) -> None:
+        # Local import so the web app doesn't pull Celery at startup and to avoid
+        # an import cycle with the worker package.
+        from worker.tasks import generate_exercise
+
+        try:
+            generate_exercise.delay(str(job.id))
+        except Exception:
+            # Unlike a document version, which stays "pending" and can be retried
+            # through reprocess_version, nothing would ever pick this job up again.
+            # Fail it now rather than leave the admin watching a queue that will
+            # never move.
+            logger.exception("Failed to enqueue generation for job %s", job.id)
+            job.status = "failed"
+            job.error = "Could not queue generation. Try again."
+            job.finished_at = datetime.now(timezone.utc)
+            await self.db.commit()
+            await self.db.refresh(job)
+
+    async def get_job(self, job_id: UUID) -> GenerationJobResponse:
+        job = await self.db.get(ExerciseGenerationJob, job_id)
+        if job is None:
+            raise HTTPException(status_code = 404, detail = "Generation job not found")
+        return GenerationJobResponse.model_validate(job)
 
     async def _load_exercise(self, exercise_id: UUID) -> Exercise | None:
         result = await self.db.execute(
@@ -480,3 +439,228 @@ def _to_response(
         chunks_used = chunks_used,
         chunks_total = chunks_total,
     )
+
+
+# ---------------------------------------------------------------------------
+# Exam generation in the worker.
+#
+# Everything below runs in the Celery worker on a SYNC session, unlike the async
+# service above. Same split the daily quiz module makes in quiz/service.py: the
+# two halves share no state and must not call each other.
+# ---------------------------------------------------------------------------
+
+_loop = None
+
+
+def _run_async(coro):
+    # One event loop for the life of the worker process. asyncio.run() would close
+    # the loop after each call, which strands the cached AsyncOpenAI client's
+    # connection pool on a dead loop and breaks every job after the first.
+    # Created lazily so it belongs to the forked child, not the parent process.
+    global _loop
+    if _loop is None:
+        _loop = asyncio.new_event_loop()
+    return _loop.run_until_complete(coro)
+
+
+def _build_context(
+    session: Session, document_ids: list[UUID]
+) -> tuple[str, list[tuple[UUID, int]]]:
+    """Re-read every source at run time and build the prompt context.
+
+    Deliberately re-checks what start_generation already validated. A document can
+    be deleted, or its active version reprocessed, in the window between enqueue and
+    here — and nothing guards a job's document_ids, which are a JSONB payload rather
+    than foreign keys. Raises ValueError so the caller turns it into a readable job
+    error instead of an AttributeError on a None row.
+    """
+    per_doc_cap = max(1, MAX_CONTEXT_CHUNKS // len(document_ids))
+    context_parts = []
+    sources = []
+    for document_id in document_ids:
+        document = session.get(Document, document_id)
+        if document is None:
+            raise ValueError(f"Source document is unavailable ({document_id})")
+        if document.active_version_number is None:
+            raise ValueError(
+                f"Source document has no active version ({document.title})"
+            )
+
+        version = session.get(
+            DocumentVersion, (document_id, document.active_version_number)
+        )
+        if version is None or version.processing_status != "ready":
+            raise ValueError(
+                f"Source document active version is not ready ({document.title})"
+            )
+
+        chunks = session.execute(
+            select(DocumentChunk)
+            .where(
+                DocumentChunk.document_id == document_id,
+                DocumentChunk.version_number == document.active_version_number,
+            )
+            .order_by(DocumentChunk.chunk_index)
+            .limit(per_doc_cap)
+        ).scalars().all()
+        if not chunks:
+            raise ValueError(
+                f"Source document active version has no content ({document.title})"
+            )
+
+        context_parts.append("\n\n".join(c.content for c in chunks))
+        sources.append((document_id, document.active_version_number))
+
+    return "\n\n".join(context_parts), sources
+
+
+def _validate_generated(generated, num_questions: int) -> None:
+    # Same checks the request path used to make, but raised as ValueError — there is
+    # no HTTP context in the worker to turn an HTTPException into a response.
+    if len(generated) != num_questions:
+        raise ValueError("Generator returned the wrong number of questions")
+    for gq in generated:
+        if len(gq.options) < 2 or len(gq.options) > len(OPTION_LABELS):
+            raise ValueError("Generator returned an invalid question")
+        if not (0 <= gq.correct_index < len(gq.options)):
+            raise ValueError("Generator returned an invalid question")
+
+
+def _build_exercise(
+    job: ExerciseGenerationJob, generated, sources: list[tuple[UUID, int]]
+) -> Exercise:
+    # With a single source we can attribute every question to it; with several
+    # sources a per-question attribution isn't knowable from one LLM call.
+    src_doc, src_ver = sources[0] if len(sources) == 1 else (None, None)
+
+    exercise = Exercise(
+        title = job.title,
+        class_id = job.class_id,
+        start_time = datetime.now(timezone.utc),
+        end_time = datetime.now(timezone.utc) + timedelta(days = 1),
+        duration_minutes = 60,
+        pass_score = 0,
+        total_points = len(generated) * QUESTION_POINTS,
+        is_active = False,
+        created_by = job.created_by,
+    )
+    for order_index, gq in enumerate(generated):
+        question = Question(
+            source_document_id = src_doc,
+            source_version_number = src_ver,
+            question_text = gq.question_text,
+            explanation = gq.explanation,
+            points = QUESTION_POINTS,
+            order_index = order_index,
+        )
+        # Shuffle the options so the correct answer isn't biased toward the
+        # first position — the model tends to return correct_index = 0.
+        order = list(range(len(gq.options)))
+        random.shuffle(order)
+        correct_pos = order.index(gq.correct_index)
+        for i, src in enumerate(order):
+            question.options.append(QuestionOption(
+                option_label = OPTION_LABELS[i],
+                option_text = gq.options[src],
+                is_correct = (i == correct_pos),
+            ))
+        exercise.questions.append(question)
+
+    # Recorded whether there is one source or ten — with several, this is the
+    # only surviving link back to the material the questions came from.
+    for document_id, version_number in sources:
+        exercise.source_documents.append(ExerciseDocument(
+            document_id = document_id,
+            version_number = version_number,
+        ))
+    return exercise
+
+
+def run_generation_job(session: Session, job_id: UUID) -> None:
+    """Generate one exercise for a queued job. Entry point for the Celery task."""
+    job = session.get(ExerciseGenerationJob, job_id)
+    if job is None:
+        return
+
+    # Re-entry guard: a redelivered Celery message must not generate a second
+    # exercise for a job that has already run, or is running right now.
+    if job.status != "queued":
+        logger.warning(
+            "Skipping generation job %s: status is already %s", job_id, job.status
+        )
+        return
+
+    job.status = "running"
+    job.progress_at = datetime.now(timezone.utc)
+    session.commit()
+
+    try:
+        document_ids = [UUID(str(d)) for d in job.document_ids]
+        context, sources = _build_context(session, document_ids)
+        instructions = job.prompt.strip() or DEFAULT_PROMPT
+
+        def report(done: int) -> None:
+            # Committed on its own so the waiting page can see progress before the
+            # exercise itself lands. Nothing else is written yet, so there is no
+            # partial exercise for this commit to expose.
+            job.questions_done = done
+            # Stamped every batch even when the count did not move (a batch of
+            # pure duplicates): this measures that the worker is alive, which is
+            # what the stale-job sweep needs to know.
+            job.progress_at = datetime.now(timezone.utc)
+            session.commit()
+
+        generated = _run_async(
+            generate_quiz(
+                context, instructions, job.num_questions, on_progress = report
+            )
+        )
+        _validate_generated(generated, job.num_questions)
+
+        exercise = _build_exercise(job, generated, sources)
+        session.add(exercise)
+        session.flush()
+
+        # Conditional on the job still being "running": the stale-job sweep may
+        # have given up on this run and told the admin it failed. Committing an
+        # exercise after that would contradict the "nothing was saved" the failure
+        # panel promises, and leave a stray draft on the class page. Matching zero
+        # rows rolls the exercise back with it, since both ride this transaction.
+        claimed = session.execute(
+            update(ExerciseGenerationJob)
+            .where(
+                ExerciseGenerationJob.id == job_id,
+                ExerciseGenerationJob.status == "running",
+            )
+            .values(
+                status = "succeeded",
+                exercise_id = exercise.id,
+                questions_done = job.num_questions,
+                finished_at = datetime.now(timezone.utc),
+            )
+        )
+        if claimed.rowcount == 0:
+            session.rollback()
+            logger.warning(
+                "Discarding generation job %s: it is no longer running, so the "
+                "stale-job sweep already failed it.", job_id
+            )
+            return
+        # One commit lands the whole exercise graph and the job's success together:
+        # a succeeded job pointing at no exercise would mislead every reader, and a
+        # half-written exercise is the thing this design exists to prevent.
+        session.commit()
+    except Exception as e:
+        # Nothing was committed inside the try except progress, so the rollback
+        # discards the entire exercise graph — a failed job leaves no rows behind.
+        session.rollback()
+        logger.exception("Generation job %s failed: %s", job_id, e)
+        # The raw OpenAI message can be long and leaky, so an LLM failure keeps the
+        # wording the synchronous endpoint used to return.
+        message = "Failed to generate questions" if isinstance(e, LLMError) else str(e)
+        current = session.get(ExerciseGenerationJob, job_id)
+        if current is not None:
+            current.status = "failed"
+            current.error = message
+            current.finished_at = datetime.now(timezone.utc)
+            session.commit()

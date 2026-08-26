@@ -1,404 +1,298 @@
 import uuid
-from unittest.mock import AsyncMock, patch
+from unittest.mock import patch
 
-from openai import OpenAIError
 from sqlalchemy import func, select
 
-from app.core.dependencies import require_admin
-from app.core.llm import GeneratedQuestion
-from app.main import app
-from app.modules.classes.models import Class
-from app.modules.documents.models import Document, DocumentChunk, DocumentVersion
-from app.modules.exams.models import (
-    Exercise,
-    ExerciseDocument,
-    Question,
-    QuestionOption,
+from app.modules.exams.models import Exercise, ExerciseGenerationJob
+from tests.exams.helpers import (
+    BASE,
+    seed_class,
+    seed_document,
+    seed_draft,
+    seed_draft_rows,
+    use_stub_admin,
 )
 
-BASE = "/api/v1/exams"
+# Generation runs in the Celery worker, so this file covers the request path only:
+# what is validated before a job is written, what the 202 returns, and what the job
+# row records. The run itself is tested in test_exam_generation_worker.py.
 
 
-def _use_stub_admin():
-    # The shared fixture stubs require_admin as a dict, but generate reads
-    # current_user.id — override with a minimal user (created_by is nullable).
-    app.dependency_overrides[require_admin] = lambda: type("U", (), {"id": None})()
+def _mock_enqueue():
+    return patch("worker.tasks.generate_exercise")
 
 
-async def _seed_class(db):
-    c = Class(name = f"Class {uuid.uuid4()}")
-    db.add(c)
-    await db.flush()
-    return c
+async def _post(client, cls, docs, *, num_questions = 3, prompt = "Cover the basics"):
+    return await client.post(f"{BASE}/generate", json = {
+        "title": "Quiz A",
+        "class_id": str(cls.id),
+        "document_ids": [str(d.id) for d in docs],
+        "num_questions": num_questions,
+        "prompt": prompt,
+    })
 
 
-async def _seed_document(db, *, num_chunks = 3, active_version = 1, status = "ready"):
-    doc = Document(title = f"Doc {uuid.uuid4()}", active_version_number = active_version)
-    db.add(doc)
-    await db.flush()
-    if active_version is not None:
-        db.add(DocumentVersion(
-            document_id = doc.id,
-            version_number = active_version,
-            file_url = "documents/x/v1.pdf",
-            file_name = "f.pdf",
-            file_size_bytes = 10,
-            mime_type = "application/pdf",
-            processing_status = status,
-        ))
-        await db.flush()
-        for i in range(num_chunks):
-            db.add(DocumentChunk(
-                document_id = doc.id,
-                version_number = active_version,
-                chunk_index = i,
-                content = f"chunk {i} content",
-            ))
-        await db.flush()
-    return doc
+# --- accepted requests ---------------------------------------------------
 
 
-def _fake_questions(n, options = 4, correct_index = 1):
-    return [
-        GeneratedQuestion(
-            question_text = f"Question {i}?",
-            explanation = "Because the source says so.",
-            options = [f"Option {j}" for j in range(options)],
-            correct_index = correct_index,
-        )
-        for i in range(n)
-    ]
+async def test_generate_accepts_and_returns_a_queued_job(client, db_session):
+    use_stub_admin()
+    cls = await seed_class(db_session)
+    doc = await seed_document(db_session)
+
+    with _mock_enqueue() as task:
+        resp = await _post(client, cls, [doc], num_questions = 5)
+
+    # 202, not 201: nothing has been generated yet.
+    assert resp.status_code == 202
+    body = resp.json()
+    assert body["status"] == "queued"
+    assert body["questions_done"] == 0
+    assert body["num_questions"] == 5
+    assert body["exercise_id"] is None
+    assert body["error"] is None
+    assert body["finished_at"] is None
+
+    # Handed to the worker exactly once, by id.
+    task.delay.assert_called_once_with(body["id"])
+
+    job = await db_session.get(ExerciseGenerationJob, uuid.UUID(body["id"]))
+    assert job.title == "Quiz A"
+    assert job.document_ids == [str(doc.id)]
+    assert job.class_id == cls.id
+
+    # The request path must not create an exercise — that is the worker's job,
+    # in one commit, only on success.
+    count = await db_session.scalar(select(func.count()).select_from(Exercise))
+    assert count == 0
 
 
-def _mock_generate(questions):
-    return patch(
-        "app.modules.exams.service.generate_quiz",
-        new = AsyncMock(return_value = questions),
-    )
+async def test_generate_dedupes_document_ids_preserving_order(client, db_session):
+    use_stub_admin()
+    cls = await seed_class(db_session)
+    doc1 = await seed_document(db_session)
+    doc2 = await seed_document(db_session)
+
+    with _mock_enqueue():
+        resp = await client.post(f"{BASE}/generate", json = {
+            "title": "Quiz A",
+            "class_id": str(cls.id),
+            "document_ids": [str(doc1.id), str(doc2.id), str(doc1.id)],
+            "num_questions": 2,
+            "prompt": "x",
+        })
+
+    assert resp.status_code == 202
+    job = await db_session.get(ExerciseGenerationJob, uuid.UUID(resp.json()["id"]))
+    assert job.document_ids == [str(doc1.id), str(doc2.id)]
 
 
-async def _generate(client, db, *, num_questions = 3):
-    _use_stub_admin()
-    cls = await _seed_class(db)
-    doc = await _seed_document(db)
-    with _mock_generate(_fake_questions(num_questions)):
+# The prompt is stored verbatim; substituting the neutral default is the worker's
+# job (covered in test_exam_generation_worker.py), not the request path's.
+async def test_generate_stores_the_prompt_verbatim(client, db_session):
+    use_stub_admin()
+    cls = await seed_class(db_session)
+    doc = await seed_document(db_session)
+
+    for prompt in ("", "   ", "Focus on escalation"):
+        with _mock_enqueue():
+            resp = await _post(client, cls, [doc], prompt = prompt)
+        assert resp.status_code == 202
+        job = await db_session.get(ExerciseGenerationJob, uuid.UUID(resp.json()["id"]))
+        assert job.prompt == prompt
+
+
+async def test_generate_accepts_an_omitted_prompt(client, db_session):
+    use_stub_admin()
+    cls = await seed_class(db_session)
+    doc = await seed_document(db_session)
+
+    with _mock_enqueue():
         resp = await client.post(f"{BASE}/generate", json = {
             "title": "Quiz A",
             "class_id": str(cls.id),
             "document_ids": [str(doc.id)],
-            "num_questions": num_questions,
-            "prompt": "Cover the basics",
+            "num_questions": 3,
         })
-    return doc, resp
+
+    assert resp.status_code == 202
+    job = await db_session.get(ExerciseGenerationJob, uuid.UUID(resp.json()["id"]))
+    assert job.prompt == ""
 
 
-async def test_generate_happy_path(client, db_session):
-    doc, resp = await _generate(client, db_session, num_questions = 3)
-    assert resp.status_code == 201
-    body = resp.json()
-
-    assert body["is_active"] is False
-    assert body["total_points"] == 3
-    assert len(body["questions"]) == 3
-    assert body["chunks_used"] == 3
-    assert body["chunks_total"] == 3
-
-    for q in body["questions"]:
-        assert len(q["options"]) == 4
-        assert sum(1 for o in q["options"] if o["is_correct"]) == 1
-
-    # Provenance must be populated — nothing else would catch a null source.
-    rows = (await db_session.execute(
-        select(Question).where(Question.source_document_id == doc.id)
-    )).scalars().all()
-    assert len(rows) == 3
-    assert all(r.source_version_number == 1 for r in rows)
+# --- rejected before anything is written ---------------------------------
 
 
-async def test_generate_shuffles_correct_option(client, db_session):
-    import random
+async def test_generate_unknown_class_rejected(client, db_session):
+    use_stub_admin()
+    doc = await seed_document(db_session)
 
-    _use_stub_admin()
-    cls = await _seed_class(db_session)
-    doc = await _seed_document(db_session)
-    # Every question's correct_index is 0 — without shuffling every correct
-    # option would be label "A". Seed the RNG so the assertion is deterministic.
-    n = 20
-    random.seed(0)
-    with _mock_generate(_fake_questions(n, correct_index = 0)):
+    with _mock_enqueue() as task:
         resp = await client.post(f"{BASE}/generate", json = {
             "title": "Q",
-            "class_id": str(cls.id),
+            "class_id": str(uuid.uuid4()),
             "document_ids": [str(doc.id)],
-            "num_questions": n,
+            "num_questions": 3,
             "prompt": "x",
         })
-    assert resp.status_code == 201
-    body = resp.json()
 
-    correct_labels = []
-    for q in body["questions"]:
-        correct = [o for o in q["options"] if o["is_correct"]]
-        assert len(correct) == 1
-        # Shuffle must preserve WHICH option is correct — its text is unchanged.
-        assert correct[0]["option_text"] == "Option 0"
-        correct_labels.append(correct[0]["option_label"])
-
-    # The correct answer is spread across positions, not pinned to "A".
-    assert len(set(correct_labels)) > 1
+    assert resp.status_code == 404
+    assert resp.json() == {"detail": "Class not found"}
+    task.delay.assert_not_called()
+    assert await db_session.scalar(
+        select(func.count()).select_from(ExerciseGenerationJob)
+    ) == 0
 
 
 async def test_generate_no_active_version_rejected(client, db_session):
-    _use_stub_admin()
-    cls = await _seed_class(db_session)
-    doc = await _seed_document(db_session, active_version = None)
-    with _mock_generate(_fake_questions(3)):
-        resp = await client.post(f"{BASE}/generate", json = {
-            "title": "Q",
-            "class_id": str(cls.id),
-            "document_ids": [str(doc.id)],
-            "num_questions": 3,
-            "prompt": "x",
-        })
+    use_stub_admin()
+    cls = await seed_class(db_session)
+    doc = await seed_document(db_session, active_version = None)
+
+    with _mock_enqueue() as task:
+        resp = await _post(client, cls, [doc])
+
     assert resp.status_code == 400
-    count = await db_session.scalar(select(func.count()).select_from(Exercise))
-    assert count == 0
+    assert resp.json() == {"detail": "Document has no active version"}
+    task.delay.assert_not_called()
+    assert await db_session.scalar(
+        select(func.count()).select_from(ExerciseGenerationJob)
+    ) == 0
 
 
 async def test_generate_version_not_ready_rejected(client, db_session):
-    _use_stub_admin()
-    cls = await _seed_class(db_session)
-    doc = await _seed_document(db_session, status = "pending")
-    with _mock_generate(_fake_questions(3)):
-        resp = await client.post(f"{BASE}/generate", json = {
-            "title": "Q",
-            "class_id": str(cls.id),
-            "document_ids": [str(doc.id)],
-            "num_questions": 3,
-            "prompt": "x",
-        })
+    use_stub_admin()
+    cls = await seed_class(db_session)
+    doc = await seed_document(db_session, status = "pending")
+
+    with _mock_enqueue() as task:
+        resp = await _post(client, cls, [doc])
+
     assert resp.status_code == 400
-    count = await db_session.scalar(select(func.count()).select_from(Exercise))
-    assert count == 0
+    assert resp.json() == {"detail": "Document active version is not ready"}
+    task.delay.assert_not_called()
 
 
-async def test_generate_wrong_count_saves_nothing(client, db_session):
-    _use_stub_admin()
-    cls = await _seed_class(db_session)
-    doc = await _seed_document(db_session)
-    # Asked for 3 but the generator returns 2 — reject the whole batch.
-    with _mock_generate(_fake_questions(2)):
-        resp = await client.post(f"{BASE}/generate", json = {
-            "title": "Q",
-            "class_id": str(cls.id),
-            "document_ids": [str(doc.id)],
-            "num_questions": 3,
-            "prompt": "x",
-        })
-    assert resp.status_code == 502
-    count = await db_session.scalar(select(func.count()).select_from(Exercise))
-    assert count == 0
+async def test_generate_no_content_rejected(client, db_session):
+    use_stub_admin()
+    cls = await seed_class(db_session)
+    doc = await seed_document(db_session, num_chunks = 0)
 
+    with _mock_enqueue() as task:
+        resp = await _post(client, cls, [doc])
 
-async def test_generate_bad_correct_index_saves_nothing(client, db_session):
-    _use_stub_admin()
-    cls = await _seed_class(db_session)
-    doc = await _seed_document(db_session)
-    with _mock_generate(_fake_questions(2, correct_index = 9)):
-        resp = await client.post(f"{BASE}/generate", json = {
-            "title": "Q",
-            "class_id": str(cls.id),
-            "document_ids": [str(doc.id)],
-            "num_questions": 2,
-            "prompt": "x",
-        })
-    assert resp.status_code == 502
-    count = await db_session.scalar(select(func.count()).select_from(Exercise))
-    assert count == 0
-
-
-async def test_generate_reports_partial_chunk_coverage(client, db_session):
-    _use_stub_admin()
-    cls = await _seed_class(db_session)
-    doc = await _seed_document(db_session, num_chunks = 5)
-    with patch("app.modules.exams.service.MAX_CONTEXT_CHUNKS", 2), \
-         _mock_generate(_fake_questions(2)):
-        resp = await client.post(f"{BASE}/generate", json = {
-            "title": "Q",
-            "class_id": str(cls.id),
-            "document_ids": [str(doc.id)],
-            "num_questions": 2,
-            "prompt": "x",
-        })
-    assert resp.status_code == 201
-    body = resp.json()
-    assert body["chunks_total"] == 5
-    assert body["chunks_used"] == 2
-
-
-async def test_generate_openai_failure_returns_502_not_500(client, db_session):
-    # The real generate_quiz runs here, only the OpenAI client is stubbed: an SDK
-    # error has to leave llm.py as an LLMError, otherwise the service's
-    # `except LLMError` never fires and a rate limit escapes as an unhandled 500.
-    _use_stub_admin()
-    cls = await _seed_class(db_session)
-    doc = await _seed_document(db_session)
-    with patch("app.core.llm._get_client") as get_client:
-        get_client.return_value.chat.completions.parse = AsyncMock(
-            side_effect = OpenAIError("tokens per min (TPM): Limit 30000")
-        )
-        resp = await client.post(f"{BASE}/generate", json = {
-            "title": "Q",
-            "class_id": str(cls.id),
-            "document_ids": [str(doc.id)],
-            "num_questions": 2,
-            "prompt": "x",
-        })
-
-    assert resp.status_code == 502
-    assert resp.json() == {"detail": "Failed to generate questions"}
-    # A failed generation must not leave a half-built exercise behind.
-    count = await db_session.scalar(select(func.count()).select_from(Exercise))
-    assert count == 0
-
-
-async def test_generate_multi_document_combines_sources(client, db_session):
-    _use_stub_admin()
-    cls = await _seed_class(db_session)
-    doc1 = await _seed_document(db_session, num_chunks = 3)
-    doc2 = await _seed_document(db_session, num_chunks = 3)
-    with _mock_generate(_fake_questions(2)):
-        resp = await client.post(f"{BASE}/generate", json = {
-            "title": "Q",
-            "class_id": str(cls.id),
-            "document_ids": [str(doc1.id), str(doc2.id)],
-            "num_questions": 2,
-            "prompt": "x",
-        })
-    assert resp.status_code == 201
-    body = resp.json()
-    assert body["chunks_used"] == 6
-    assert body["chunks_total"] == 6
-
-    # Multiple sources -> per-question provenance is left null.
-    rows = (await db_session.execute(
-        select(Question).where(Question.exercise_id == uuid.UUID(body["id"]))
-    )).scalars().all()
-    assert len(rows) == 2
-    assert all(r.source_document_id is None for r in rows)
-
-    # ...so exercise_documents is the only surviving link back to the sources.
-    sources = (await db_session.execute(
-        select(ExerciseDocument).where(
-            ExerciseDocument.exercise_id == uuid.UUID(body["id"])
-        )
-    )).scalars().all()
-    assert {(s.document_id, s.version_number) for s in sources} == {
-        (doc1.id, 1), (doc2.id, 1)
-    }
-
-
-async def test_generate_single_document_also_records_source(client, db_session):
-    _use_stub_admin()
-    cls = await _seed_class(db_session)
-    doc = await _seed_document(db_session)
-    with _mock_generate(_fake_questions(2)):
-        resp = await client.post(f"{BASE}/generate", json = {
-            "title": "Q",
-            "class_id": str(cls.id),
-            "document_ids": [str(doc.id)],
-            "num_questions": 2,
-            "prompt": "x",
-        })
-    assert resp.status_code == 201
-
-    sources = (await db_session.execute(
-        select(ExerciseDocument).where(
-            ExerciseDocument.exercise_id == uuid.UUID(resp.json()["id"])
-        )
-    )).scalars().all()
-    assert len(sources) == 1
-    assert sources[0].document_id == doc.id
-    assert sources[0].version_number == 1
-
-
-async def test_get_exercise_reports_coverage_for_multi_document(client, db_session):
-    # Coverage used to read the first question's provenance, which is null here,
-    # so a multi-document exam reported nothing at all.
-    _use_stub_admin()
-    cls = await _seed_class(db_session)
-    doc1 = await _seed_document(db_session, num_chunks = 5)
-    doc2 = await _seed_document(db_session, num_chunks = 5)
-    with patch("app.modules.exams.service.MAX_CONTEXT_CHUNKS", 4), \
-         _mock_generate(_fake_questions(2)):
-        created = await client.post(f"{BASE}/generate", json = {
-            "title": "Q",
-            "class_id": str(cls.id),
-            "document_ids": [str(doc1.id), str(doc2.id)],
-            "num_questions": 2,
-            "prompt": "x",
-        })
-    assert created.status_code == 201
-
-    with patch("app.modules.exams.service.MAX_CONTEXT_CHUNKS", 4):
-        resp = await client.get(f"{BASE}/{created.json()['id']}")
-    assert resp.status_code == 200
-    # Same numbers generation returned: 2 chunks per doc used, 10 exist.
-    assert resp.json()["chunks_used"] == 4
-    assert resp.json()["chunks_total"] == 10
+    assert resp.status_code == 400
+    assert resp.json() == {"detail": "Document active version has no content"}
+    task.delay.assert_not_called()
 
 
 async def test_generate_multi_document_one_not_ready_rejected(client, db_session):
-    _use_stub_admin()
-    cls = await _seed_class(db_session)
-    doc1 = await _seed_document(db_session)
-    doc2 = await _seed_document(db_session, status = "pending")
-    with _mock_generate(_fake_questions(2)):
-        resp = await client.post(f"{BASE}/generate", json = {
-            "title": "Q",
-            "class_id": str(cls.id),
-            "document_ids": [str(doc1.id), str(doc2.id)],
-            "num_questions": 2,
-            "prompt": "x",
-        })
+    use_stub_admin()
+    cls = await seed_class(db_session)
+    doc1 = await seed_document(db_session)
+    doc2 = await seed_document(db_session, status = "pending")
+
+    with _mock_enqueue() as task:
+        resp = await _post(client, cls, [doc1, doc2], num_questions = 2)
+
     assert resp.status_code == 400
-    count = await db_session.scalar(select(func.count()).select_from(Exercise))
-    assert count == 0
+    task.delay.assert_not_called()
+    assert await db_session.scalar(
+        select(func.count()).select_from(ExerciseGenerationJob)
+    ) == 0
 
 
-async def test_generate_combined_chunk_cap(client, db_session):
-    _use_stub_admin()
-    cls = await _seed_class(db_session)
-    doc1 = await _seed_document(db_session, num_chunks = 5)
-    doc2 = await _seed_document(db_session, num_chunks = 5)
-    # Budget of 4 across 2 docs -> 2 chunks per doc used, 10 exist in total.
-    with patch("app.modules.exams.service.MAX_CONTEXT_CHUNKS", 4), \
-         _mock_generate(_fake_questions(2)):
-        resp = await client.post(f"{BASE}/generate", json = {
-            "title": "Q",
-            "class_id": str(cls.id),
-            "document_ids": [str(doc1.id), str(doc2.id)],
-            "num_questions": 2,
-            "prompt": "x",
-        })
-    assert resp.status_code == 201
+# --- broker down ---------------------------------------------------------
+
+
+async def test_enqueue_failure_fails_the_job_immediately(client, db_session):
+    # A document version left "pending" can be retried through reprocess_version;
+    # a job has no such path, so leaving it queued would strand the admin watching
+    # a queue that will never move.
+    use_stub_admin()
+    cls = await seed_class(db_session)
+    doc = await seed_document(db_session)
+
+    with patch("worker.tasks.generate_exercise") as task:
+        task.delay.side_effect = OSError("broker is down")
+        resp = await _post(client, cls, [doc])
+
+    assert resp.status_code == 202
     body = resp.json()
-    assert body["chunks_used"] == 4
-    assert body["chunks_total"] == 10
+    assert body["status"] == "failed"
+    assert body["error"] == "Could not queue generation. Try again."
+    assert body["finished_at"] is not None
+    assert body["exercise_id"] is None
+
+
+# --- GET /exams/jobs/{job_id} --------------------------------------------
+
+
+async def test_get_job_reports_progress(client, db_session):
+    use_stub_admin()
+    cls = await seed_class(db_session)
+    doc = await seed_document(db_session)
+
+    with _mock_enqueue():
+        created = await _post(client, cls, [doc], num_questions = 10)
+    job_id = created.json()["id"]
+
+    # Stand in for the worker having finished two batches.
+    job = await db_session.get(ExerciseGenerationJob, uuid.UUID(job_id))
+    job.status = "running"
+    job.questions_done = 2
+    await db_session.commit()
+
+    resp = await client.get(f"{BASE}/jobs/{job_id}")
+    assert resp.status_code == 200
+    assert resp.json()["status"] == "running"
+    assert resp.json()["questions_done"] == 2
+    assert resp.json()["num_questions"] == 10
+
+
+async def test_get_job_unknown_id_404(client, db_session):
+    use_stub_admin()
+    resp = await client.get(f"{BASE}/jobs/{uuid.uuid4()}")
+    assert resp.status_code == 404
+    assert resp.json() == {"detail": "Generation job not found"}
+
+
+# The jobs route is declared before /{exercise_id}, which would otherwise match
+# "jobs" and reject it as a malformed UUID.
+async def test_jobs_route_is_not_shadowed_by_the_exercise_route(client, db_session):
+    use_stub_admin()
+    resp = await client.get(f"{BASE}/jobs/{uuid.uuid4()}")
+    assert resp.status_code == 404
+    assert resp.json() == {"detail": "Generation job not found"}
+
+
+# --- reads on a generated draft ------------------------------------------
+
+
+async def test_get_exercise_reports_chunk_coverage(client, db_session):
+    use_stub_admin()
+    doc = await seed_document(db_session, num_chunks = 5)
+    exercise, _, _ = await seed_draft_rows(db_session, num_questions = 2, doc = doc)
+
+    with patch("app.modules.exams.service.MAX_CONTEXT_CHUNKS", 2):
+        resp = await client.get(f"{BASE}/{exercise.id}")
+
+    assert resp.status_code == 200
+    assert resp.json()["chunks_total"] == 5
+    assert resp.json()["chunks_used"] == 2
 
 
 async def test_get_exercise(client, db_session):
-    _, resp = await _generate(client, db_session, num_questions = 2)
-    exercise_id = resp.json()["id"]
-    got = await client.get(f"{BASE}/{exercise_id}")
+    draft = await seed_draft(db_session, client, num_questions = 2)
+    got = await client.get(f"{BASE}/{draft['id']}")
     assert got.status_code == 200
     assert len(got.json()["questions"]) == 2
     assert got.json()["chunks_total"] == 3
 
 
 async def test_update_question(client, db_session):
-    _, resp = await _generate(client, db_session, num_questions = 1)
-    question_id = resp.json()["questions"][0]["id"]
+    draft = await seed_draft(db_session, client, num_questions = 1)
+    question_id = draft["questions"][0]["id"]
     patched = await client.patch(
         f"{BASE}/questions/{question_id}", json = {"question_text": "Edited?"}
     )
@@ -407,8 +301,8 @@ async def test_update_question(client, db_session):
 
 
 async def test_update_option_repoints_correct(client, db_session):
-    _, resp = await _generate(client, db_session, num_questions = 1)
-    question = resp.json()["questions"][0]
+    draft = await seed_draft(db_session, client, num_questions = 1)
+    question = draft["questions"][0]
     wrong = next(o for o in question["options"] if not o["is_correct"])
     patched = await client.patch(
         f"{BASE}/questions/{question['id']}/options/{wrong['id']}",
@@ -421,8 +315,10 @@ async def test_update_option_repoints_correct(client, db_session):
 
 
 async def test_update_option_cannot_leave_zero_correct(client, db_session):
-    _, resp = await _generate(client, db_session, num_questions = 1)
-    question = resp.json()["questions"][0]
+    from app.modules.exams.models import QuestionOption
+
+    draft = await seed_draft(db_session, client, num_questions = 1)
+    question = draft["questions"][0]
     correct = next(o for o in question["options"] if o["is_correct"])
     patched = await client.patch(
         f"{BASE}/questions/{question['id']}/options/{correct['id']}",

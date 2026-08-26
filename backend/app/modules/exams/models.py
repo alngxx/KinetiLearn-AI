@@ -13,7 +13,7 @@ from sqlalchemy import (
     func,
     text,
 )
-from sqlalchemy.dialects.postgresql import TIMESTAMP, UUID
+from sqlalchemy.dialects.postgresql import JSONB, TIMESTAMP, UUID
 from sqlalchemy.orm import relationship
 
 from app.core.database import Base
@@ -187,4 +187,61 @@ class QuestionOption(Base):
             name="uq_question_options_question_label",
         ),
         Index("ix_question_options_question_id", "question_id"),
+    )
+
+
+# One admin request to generate an exam. Generation runs in the Celery worker, so
+# this row is what the waiting page polls; the Exercise itself is still written in
+# a single commit at the end, which is why exercise_id is NULL until 'succeeded'.
+class ExerciseGenerationJob(Base):
+    __tablename__ = "exercise_generation_jobs"
+
+    id = Column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        server_default=text("gen_random_uuid()"),
+    )
+    class_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("classes.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    title = Column(String(255), nullable=False)
+    prompt = Column(Text, nullable=False)
+    num_questions = Column(SmallInteger, nullable=False)
+    # The requested sources, as a list of id strings. Deliberately not a join table
+    # with an FK: a CASCADE would silently shrink this list and the job would
+    # generate from fewer documents than the admin asked for. The worker re-reads
+    # each id and fails the job loudly instead.
+    document_ids = Column(JSONB, nullable=False)
+    status = Column(String(20), nullable=False, server_default=text("'queued'"))
+    questions_done = Column(SmallInteger, nullable=False, server_default=text("0"))
+    exercise_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("exercises.id", ondelete="CASCADE"),
+        nullable=True,
+    )
+    error = Column(Text, nullable=True)
+    # Liveness heartbeat: set when the run starts and re-stamped after every LLM
+    # batch. The stale-job sweep measures a running job against this, not
+    # created_at, so a slow-but-healthy run is never mistaken for a stalled one.
+    progress_at = Column(TIMESTAMP(timezone=True), nullable=True)
+    created_by = Column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    created_at = Column(
+        TIMESTAMP(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+    finished_at = Column(TIMESTAMP(timezone=True), nullable=True)
+
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('queued', 'running', 'succeeded', 'failed')",
+            name="ck_exercise_generation_jobs_status_valid",
+        ),
+        Index("ix_exercise_generation_jobs_class_id", "class_id"),
     )

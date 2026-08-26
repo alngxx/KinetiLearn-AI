@@ -417,3 +417,141 @@ async def test_run_async_reuses_a_single_open_loop():
 
     assert first is second
     assert not first.is_closed()
+
+
+# --------------------------------------------------------------------------
+# last_run_* — the only visibility an admin has into a run nobody watches.
+# --------------------------------------------------------------------------
+
+async def test_last_run_records_a_success(test_engine):
+    Session = _sessionmaker()
+    s = Session()
+    doc_id = _seed_document(s)
+    config = _seed_config(s, doc_id, question_count = 2)
+    learner = _seed_learner(s)
+    s.commit()
+
+    # Nothing has run yet, so the config starts blank.
+    assert config.last_run_at is None
+    assert config.last_run_status is None
+
+    try:
+        with patch.object(tasks, "SyncSessionLocal", Session), \
+             patch.object(
+                 service, "generate_quiz", AsyncMock(return_value = _fake_questions(2))
+             ), \
+             patch.object(tasks, "datetime", _FrozenDatetime(_at(2024, 5, 1, 9, 0))):
+            await asyncio.to_thread(tasks.generate_due_daily_quizzes)
+
+        s2 = Session()
+        row = s2.get(DailyQuizConfig, config.id)
+        assert row.last_run_status == "success"
+        assert row.last_run_at == _at(2024, 5, 1, 9, 0)
+        assert row.last_run_error is None
+        s2.close()
+    finally:
+        s.close()
+        _cleanup(Session, [config.id], [doc_id], [learner.id])
+
+
+async def test_last_run_records_a_failure_and_survives_the_rollback(test_engine):
+    # The stamp is written after session.rollback() in the failure branch. If it
+    # rode the same transaction as the quiz, the rollback would discard it and the
+    # failure would stay invisible — which is the whole point of these columns.
+    Session = _sessionmaker()
+    s = Session()
+    doc_id = _seed_document(s)
+    config = _seed_config(s, doc_id)
+    learner = _seed_learner(s)
+    s.commit()
+
+    async def boom(*args, **kwargs):
+        raise LLMError("model exploded")
+
+    try:
+        with patch.object(tasks, "SyncSessionLocal", Session), \
+             patch.object(service, "generate_quiz", boom), \
+             patch.object(tasks, "datetime", _FrozenDatetime(_at(2024, 5, 1, 9, 0))):
+            summary = await asyncio.to_thread(tasks.generate_due_daily_quizzes)
+
+        assert summary["failed"] == [str(config.id)]
+
+        s2 = Session()
+        row = s2.get(DailyQuizConfig, config.id)
+        assert row.last_run_status == "failed"
+        assert row.last_run_at == _at(2024, 5, 1, 9, 0)
+        assert "model exploded" in row.last_run_error
+        # The quiz itself really was rolled back.
+        assert s2.query(DailyQuiz).filter_by(config_id = config.id).count() == 0
+        s2.close()
+    finally:
+        s.close()
+        _cleanup(Session, [config.id], [doc_id], [learner.id])
+
+
+async def test_last_run_records_an_empty_audience_as_skipped(test_engine):
+    Session = _sessionmaker()
+    s = Session()
+    doc_id = _seed_document(s)
+    config = _seed_config(s, doc_id)
+    s.commit()
+
+    try:
+        with patch.object(tasks, "SyncSessionLocal", Session), \
+             patch.object(
+                 service, "generate_quiz", AsyncMock(return_value = _fake_questions(2))
+             ), \
+             patch.object(tasks, "datetime", _FrozenDatetime(_at(2024, 5, 1, 9, 0))):
+            summary = await asyncio.to_thread(tasks.generate_due_daily_quizzes)
+
+        assert summary["skipped"] == [str(config.id)]
+
+        s2 = Session()
+        row = s2.get(DailyQuizConfig, config.id)
+        assert row.last_run_status == "skipped"
+        assert row.last_run_error == "No matching learners"
+        # Skipping must not look like completion — the config is still due, so a
+        # learner added later the same day still gets a quiz.
+        assert s2.query(DailyQuiz).filter_by(config_id = config.id).count() == 0
+        s2.close()
+    finally:
+        s.close()
+        _cleanup(Session, [config.id], [doc_id])
+
+
+async def test_last_run_is_overwritten_by_the_next_attempt(test_engine):
+    # A config that failed yesterday and succeeded today must not still read as
+    # failed — the columns are "last run", not a history.
+    Session = _sessionmaker()
+    s = Session()
+    doc_id = _seed_document(s)
+    config = _seed_config(s, doc_id, question_count = 2)
+    learner = _seed_learner(s)
+    s.commit()
+
+    async def boom(*args, **kwargs):
+        raise LLMError("model exploded")
+
+    try:
+        with patch.object(tasks, "SyncSessionLocal", Session), \
+             patch.object(service, "generate_quiz", boom), \
+             patch.object(tasks, "datetime", _FrozenDatetime(_at(2024, 5, 1, 9, 0))):
+            await asyncio.to_thread(tasks.generate_due_daily_quizzes)
+
+        with patch.object(tasks, "SyncSessionLocal", Session), \
+             patch.object(
+                 service, "generate_quiz", AsyncMock(return_value = _fake_questions(2))
+             ), \
+             patch.object(tasks, "datetime", _FrozenDatetime(_at(2024, 5, 2, 9, 0))):
+            await asyncio.to_thread(tasks.generate_due_daily_quizzes)
+
+        s2 = Session()
+        row = s2.get(DailyQuizConfig, config.id)
+        assert row.last_run_status == "success"
+        assert row.last_run_at == _at(2024, 5, 2, 9, 0)
+        # The stale failure text is cleared, not left hanging under a success.
+        assert row.last_run_error is None
+        s2.close()
+    finally:
+        s.close()
+        _cleanup(Session, [config.id], [doc_id], [learner.id])

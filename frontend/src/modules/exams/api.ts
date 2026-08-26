@@ -9,6 +9,7 @@ export type OptionUpdate = components["schemas"]["OptionUpdate"]
 export type FinalizeInput = components["schemas"]["FinalizeExerciseRequest"]
 export type ExerciseUpdateInput = components["schemas"]["ExerciseUpdate"]
 export type GenerateInput = components["schemas"]["GenerateExerciseRequest"]
+export type GenerationJob = components["schemas"]["GenerationJobResponse"]
 
 type DocumentRow = components["schemas"]["DocumentResponse"]
 type ClassRow = components["schemas"]["ClassResponse"]
@@ -43,8 +44,15 @@ export function getExercise(id: string) {
   return api.get<Exercise>(`/api/v1/exams/${id}`)
 }
 
+// 202, not 201: generation runs in the worker, so this returns a job to poll
+// rather than the finished exercise. The exercise only exists once the job
+// reaches "succeeded", which is what carries exercise_id.
 export function generateExercise(body: GenerateInput) {
-  return api.post<Exercise>("/api/v1/exams/generate", body)
+  return api.post<GenerationJob>("/api/v1/exams/generate", body)
+}
+
+export function getGenerationJob(jobId: string) {
+  return api.get<GenerationJob>(`/api/v1/exams/jobs/${jobId}`)
 }
 
 // Both question writes return the whole question back, not just what changed.

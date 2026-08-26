@@ -1,9 +1,11 @@
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query"
+import { useCallback } from "react"
 import {
   deleteExercise,
   finalizeExercise,
   generateExercise,
   getExercise,
+  getGenerationJob,
   listClasses,
   listDocuments,
   unpublishExercise,
@@ -14,13 +16,42 @@ import {
   type ExerciseUpdateInput,
   type FinalizeInput,
   type GenerateInput,
+  type GenerationJob,
   type Question,
   type SaveStep,
 } from "@/modules/exams/api"
 
-// Deliberately no refetchInterval anywhere in this module. Generation is
-// synchronous — POST /exams/generate returns the finished questions — so unlike
-// documents there is no worker to wait on and nothing to poll.
+export const JOB_POLL_INTERVAL_MS = 2000
+
+// A generation job settles on exactly one of these; anything else means the
+// worker still has it.
+const TERMINAL_STATUSES = ["succeeded", "failed"]
+
+// undefined covers the job not being loaded yet, which must not read as settled —
+// that would drop the timer before the first response arrives.
+export function isTerminal(status: string | null | undefined): boolean {
+  return status !== null && status !== undefined && TERMINAL_STATUSES.includes(status)
+}
+
+// Returns false rather than a number once the job has settled, which is what
+// makes React Query drop the timer instead of polling a finished job forever.
+// Same shape as the documents module's version; each module owns its own
+// queries here rather than reaching into another feature's.
+export function pollIntervalFor(status: string | null | undefined): number | false {
+  return isTerminal(status) ? false : JOB_POLL_INTERVAL_MS
+}
+
+// Generation runs in the Celery worker, so the waiting page polls the job until
+// it lands on succeeded or failed. Disabled when there is no job to watch.
+export function useGenerationJob(jobId: string | null) {
+  return useQuery({
+    queryKey: ["exam-generation-job", jobId],
+    queryFn: () => getGenerationJob(jobId as string),
+    enabled: jobId !== null,
+    refetchInterval: (query) => pollIntervalFor(query.state.data?.status),
+  })
+}
+
 export function useExercise(id: string) {
   return useQuery({
     queryKey: ["exercise", id],
@@ -58,8 +89,29 @@ function useExerciseMutation<TInput, TResult>(mutationFn: (input: TInput) => Pro
   })
 }
 
+// Not a useExerciseMutation: accepting a job changes no exercise and no class, so
+// there is nothing to invalidate yet. useExerciseCreated below does that once the
+// job actually lands.
 export function useGenerateExercise() {
-  return useExerciseMutation((input: GenerateInput) => generateExercise(input))
+  return useMutation({
+    mutationFn: (input: GenerateInput) => generateExercise(input),
+  })
+}
+
+// Called when a generation job reports success — the new draft has to appear on
+// the class page the admin came from.
+export function useExerciseCreated() {
+  const queryClient = useQueryClient()
+  // Stable so the caller can depend on it from an effect without re-firing.
+  return useCallback(
+    (job: GenerationJob) => {
+      queryClient.invalidateQueries({ queryKey: ["exercise"] })
+      queryClient.invalidateQueries({ queryKey: ["class"] })
+      queryClient.invalidateQueries({ queryKey: ["classes"] })
+      return job
+    },
+    [queryClient],
+  )
 }
 
 export function useUpdateExercise() {

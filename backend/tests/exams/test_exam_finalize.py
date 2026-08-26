@@ -1,15 +1,9 @@
 import uuid
 from datetime import datetime
-from unittest.mock import AsyncMock, patch
 
-from app.core.dependencies import require_admin
-from app.core.llm import GeneratedQuestion
-from app.main import app
-from app.modules.classes.models import Class
-from app.modules.documents.models import Document, DocumentChunk, DocumentVersion
 from app.modules.exams.models import Exercise
+from tests.exams.helpers import BASE, seed_class, seed_draft, use_stub_admin
 
-BASE = "/api/v1/exams"
 
 START = "2026-08-01T09:00:00+00:00"
 END = "2026-08-01T11:00:00+00:00"
@@ -24,71 +18,10 @@ def _finalize_body(*, start = START, end = END, duration = 60, pass_score = 2):
     }
 
 
-def _use_stub_admin():
-    app.dependency_overrides[require_admin] = lambda: type("U", (), {"id": None})()
-
-
-async def _seed_class(db):
-    c = Class(name = f"Class {uuid.uuid4()}")
-    db.add(c)
-    await db.flush()
-    return c
-
-
-async def _seed_document(db, *, num_chunks = 3):
-    doc = Document(title = f"Doc {uuid.uuid4()}", active_version_number = 1)
-    db.add(doc)
-    await db.flush()
-    db.add(DocumentVersion(
-        document_id = doc.id,
-        version_number = 1,
-        file_url = "documents/x/v1.pdf",
-        file_name = "f.pdf",
-        file_size_bytes = 10,
-        mime_type = "application/pdf",
-        processing_status = "ready",
-    ))
-    await db.flush()
-    for i in range(num_chunks):
-        db.add(DocumentChunk(
-            document_id = doc.id,
-            version_number = 1,
-            chunk_index = i,
-            content = f"chunk {i} content",
-        ))
-    await db.flush()
-    return doc
-
-
-def _fake_questions(n):
-    return [
-        GeneratedQuestion(
-            question_text = f"Question {i}?",
-            explanation = "Because the source says so.",
-            options = [f"Option {j}" for j in range(4)],
-            correct_index = 1,
-        )
-        for i in range(n)
-    ]
-
-
+# Generation now runs in the worker and POST /exams/generate returns a job, not an
+# exercise. These tests only ever needed a draft to finalize, so seed one directly.
 async def _generate_draft(client, db, *, num_questions = 3):
-    _use_stub_admin()
-    cls = await _seed_class(db)
-    doc = await _seed_document(db)
-    with patch(
-        "app.modules.exams.service.generate_quiz",
-        new = AsyncMock(return_value = _fake_questions(num_questions)),
-    ):
-        resp = await client.post(f"{BASE}/generate", json = {
-            "title": "Quiz A",
-            "class_id": str(cls.id),
-            "document_ids": [str(doc.id)],
-            "num_questions": num_questions,
-            "prompt": "Cover the basics",
-        })
-    assert resp.status_code == 201
-    return resp.json()
+    return await seed_draft(db, client, num_questions = num_questions)
 
 
 async def test_finalize_happy_path_recomputes_total_points(client, db_session):
@@ -150,8 +83,8 @@ async def test_finalize_zero_duration_rejected(client, db_session):
 
 
 async def test_finalize_zero_questions_rejected(client, db_session):
-    _use_stub_admin()
-    cls = await _seed_class(db_session)
+    use_stub_admin()
+    cls = await seed_class(db_session)
     exercise = Exercise(
         title = "Empty",
         class_id = cls.id,
