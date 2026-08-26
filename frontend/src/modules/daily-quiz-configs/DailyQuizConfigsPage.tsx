@@ -19,7 +19,7 @@ import {
 import { isApiError } from "@/lib/errors"
 import { documentBlockedReason, type DailyQuizConfigRow, type LookupRow } from "@/modules/daily-quiz-configs/api"
 import { DailyQuizConfigFormDialog, DEFAULT_TIMEZONE } from "@/modules/daily-quiz-configs/DailyQuizConfigFormDialog"
-import { formatPushTime, formatRange } from "@/modules/daily-quiz-configs/dates"
+import { formatPushTime, formatRange, formatRelative } from "@/modules/daily-quiz-configs/dates"
 import {
   useDailyQuizConfigs,
   useEligibleDocuments,
@@ -36,6 +36,14 @@ function toOptions(rows: LookupRow[]): Option[] {
 function nameFor(rows: LookupRow[], id: string | null | undefined) {
   if (id === null || id === undefined) return null
   return rows.find((row) => row.id === id)?.name ?? null
+}
+
+// The three values the beat task stamps, matching the check constraint on
+// daily_quiz_configs.last_run_status.
+const runStatuses: Record<string, { label: string; variant: "success" | "secondary" | "destructive" }> = {
+  success: { label: "Success", variant: "success" },
+  skipped: { label: "Skipped", variant: "secondary" },
+  failed: { label: "Failed", variant: "destructive" },
 }
 
 export function DailyQuizConfigsPage() {
@@ -145,6 +153,9 @@ export function DailyQuizConfigsPage() {
               <TableHead className="w-28">
                 <span className="label-micro">Status</span>
               </TableHead>
+              <TableHead className="w-56">
+                <span className="label-micro">Last run</span>
+              </TableHead>
               <TableHead className="w-40 text-right">
                 <span className="label-micro">Actions</span>
               </TableHead>
@@ -153,13 +164,13 @@ export function DailyQuizConfigsPage() {
           <TableBody>
             {list.isPending ? (
               <TableRow>
-                <TableCell colSpan={5} className="py-10 text-center text-muted-foreground">
+                <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
                   Loading…
                 </TableCell>
               </TableRow>
             ) : list.isError ? (
               <TableRow className="hover:bg-transparent">
-                <TableCell colSpan={5} className="py-10 text-center">
+                <TableCell colSpan={6} className="py-10 text-center">
                   <QueryErrorState
                     title="Could not load daily quiz configs"
                     error={list.error}
@@ -170,7 +181,7 @@ export function DailyQuizConfigsPage() {
               </TableRow>
             ) : rows.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="py-12 text-center">
+                <TableCell colSpan={6} className="py-12 text-center">
                   <p className="text-sm font-medium text-foreground">No daily quiz configs yet</p>
                   <p className="mt-1 text-sm text-muted-foreground">
                     Create one to start pushing daily quizzes to learners.
@@ -185,6 +196,9 @@ export function DailyQuizConfigsPage() {
                   nameFor(targetLookups.job_positions, row.target_job_position_id),
                   nameFor(targetLookups.employee_levels, row.target_employee_level_id),
                 ].filter((tag): tag is string => tag !== null)
+
+                const lastRun =
+                  row.last_run_status === null ? undefined : runStatuses[row.last_run_status]
 
                 return (
                   <TableRow key={row.id} className={row.is_active ? "" : "opacity-60"}>
@@ -216,6 +230,44 @@ export function DailyQuizConfigsPage() {
                     </TableCell>
                     <TableCell>
                       <StatusBadge active={row.is_active} />
+                    </TableCell>
+                    <TableCell className="min-w-0">
+                      {row.last_run_at === null ? (
+                        <span className="text-sm text-muted-foreground">Never run</span>
+                      ) : (
+                        <div className="flex min-w-0 flex-col gap-1">
+                          <div className="flex items-center gap-2">
+                            <time
+                              dateTime={row.last_run_at}
+                              className="numeric text-sm text-muted-foreground"
+                            >
+                              {formatRelative(row.last_run_at)}
+                            </time>
+                            {lastRun !== undefined && (
+                              <Badge variant={lastRun.variant}>{lastRun.label}</Badge>
+                            )}
+                          </div>
+                          {/* Both failed and skipped stamp a reason; success never does.
+                              Skipped reads muted rather than red — "No matching learners"
+                              is an outcome, not an error. */}
+                          {row.last_run_error !== null && (
+                            // Capped explicitly: the cell is whitespace-nowrap and the
+                            // table is auto-layout, so an uncapped error string sets the
+                            // column's max-content width and pushes Actions out of the
+                            // clipped container. 52 = the w-56 column minus its p-2.
+                            <span
+                              className={`block max-w-52 truncate text-xs ${
+                                row.last_run_status === "failed"
+                                  ? "text-destructive"
+                                  : "text-muted-foreground"
+                              }`}
+                              title={row.last_run_error}
+                            >
+                              {row.last_run_error}
+                            </span>
+                          )}
+                        </div>
+                      )}
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-1">

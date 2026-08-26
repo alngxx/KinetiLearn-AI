@@ -30,8 +30,17 @@ function config(id: string, name: string, extra: Record<string, unknown> = {}): 
     created_by: null,
     is_active: true,
     created_at: "2026-01-01T00:00:00Z",
+    last_run_at: null,
+    last_run_status: null,
+    last_run_error: null,
     ...extra,
   }
+}
+
+// Anchored off the clock the test runs on, so the relative label the component
+// derives stays the same whenever the suite runs.
+function hoursAgo(hours: number): string {
+  return new Date(Date.now() - hours * 60 * 60 * 1000).toISOString()
 }
 
 function doc(id: string, title: string, extra: Record<string, unknown> = {}): DocRow {
@@ -292,6 +301,93 @@ describe("DailyQuizConfigsPage", () => {
 
     const seniority = dialog.getByLabelText(/^Seniority/)
     expect(seniority.getAttribute("aria-describedby")).toBeNull()
+  })
+
+  it("shows Never run for a config the beat task has not stamped yet", async () => {
+    renderConfigs()
+
+    await screen.findByText("Morning refresher")
+    expect(within(rowFor("Morning refresher")).getByText("Never run")).toBeInTheDocument()
+  })
+
+  it("shows the relative time and a success badge for a successful run", async () => {
+    configs = [
+      config("cfg1", "Morning refresher", {
+        last_run_at: hoursAgo(2),
+        last_run_status: "success",
+        last_run_error: null,
+      }),
+    ]
+    renderConfigs()
+
+    await screen.findByText("Morning refresher")
+    const row = rowFor("Morning refresher")
+    expect(within(row).getByText("2 hours ago")).toBeInTheDocument()
+    expect(within(row).getByText("Success")).toBeInTheDocument()
+    expect(within(row).queryByText("Never run")).toBeNull()
+  })
+
+  // A skipped run carries a real reason, and it is the only place that reason
+  // surfaces — muted rather than destructive, since it is not an error.
+  it("shows the reason for a skipped run", async () => {
+    configs = [
+      config("cfg1", "Morning refresher", {
+        last_run_at: hoursAgo(1),
+        last_run_status: "skipped",
+        last_run_error: "No matching learners",
+      }),
+    ]
+    renderConfigs()
+
+    await screen.findByText("Morning refresher")
+    const row = rowFor("Morning refresher")
+    expect(within(row).getByText("Skipped")).toBeInTheDocument()
+
+    const reason = within(row).getByText("No matching learners")
+    expect(reason).toHaveClass("truncate", "max-w-52", "text-muted-foreground")
+    expect(reason).not.toHaveClass("text-destructive")
+    expect(reason).toHaveAttribute("title", "No matching learners")
+  })
+
+  // A successful run stamps no reason, so nothing extra should appear.
+  it("shows no reason line for a successful run", async () => {
+    configs = [
+      config("cfg1", "Morning refresher", {
+        last_run_at: hoursAgo(1),
+        last_run_status: "success",
+        last_run_error: null,
+      }),
+    ]
+    renderConfigs()
+
+    await screen.findByText("Morning refresher")
+    expect(rowFor("Morning refresher").querySelector("[title]")).toBeNull()
+  })
+
+  // The cell truncates, so the full text has to stay reachable on the title.
+  it("shows a failed badge with the run error truncated in the cell", async () => {
+    const error = "OpenAI request failed: rate limit exceeded, retry after 60 seconds"
+    configs = [
+      config("cfg1", "Morning refresher", {
+        last_run_at: hoursAgo(3),
+        last_run_status: "failed",
+        last_run_error: error,
+      }),
+    ]
+    renderConfigs()
+
+    await screen.findByText("Morning refresher")
+    const row = rowFor("Morning refresher")
+    expect(within(row).getByText("Failed")).toBeInTheDocument()
+
+    // Width-capped, not just clipped: an uncapped string sets the column's
+    // max-content width and pushes the Actions column out of the table.
+    const message = within(row).getByText(error)
+    expect(message).toHaveClass("truncate", "max-w-52", "text-destructive")
+    expect(message).toHaveAttribute("title", error)
+
+    // The row must still expose its actions with a long error present.
+    expect(within(row).getByRole("button", { name: "Edit" })).toBeInTheDocument()
   })
 
   it("deactivates a config only after confirmation, and reactivates without one", async () => {
