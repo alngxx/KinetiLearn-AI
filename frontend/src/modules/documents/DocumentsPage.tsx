@@ -108,7 +108,7 @@ export function DocumentsPage() {
       <PageHeader
         eyebrow="Content"
         title="Documents"
-        description="The source material the chatbot, exams and daily quizzes read from. Each upload is a new version; only the promoted one is live."
+        description="The source material that RAG chatbot, exams and daily quizzes read from" 
         actions={
           <Button onClick={() => setUploadOpen(true)}>
             <UploadIcon />

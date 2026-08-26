@@ -24,6 +24,7 @@ export function useUsers(filters: UserFilters) {
   return useQuery({
     queryKey: ["users", filters],
     queryFn: () => listUsers(filters),
+    staleTime: 30_000,
   })
 }
 

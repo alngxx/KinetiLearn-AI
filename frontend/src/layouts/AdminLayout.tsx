@@ -1,4 +1,11 @@
-import { FileTextIcon, GraduationCapIcon, LogOutIcon, UsersIcon } from "lucide-react"
+import {
+  CalendarClockIcon,
+  ClipboardCheckIcon,
+  FileTextIcon,
+  GraduationCapIcon,
+  LogOutIcon,
+  UsersIcon,
+} from "lucide-react"
 import { NavLink, Outlet, useNavigate } from "react-router-dom"
 import { ThemeToggle } from "@/components/ThemeToggle"
 import { Button } from "@/components/ui/button"
@@ -63,6 +70,24 @@ export function AdminLayout() {
             >
               <FileTextIcon className="size-4" />
               Documents
+            </NavLink>
+            <NavLink
+              to="/admin/daily-quizzes"
+              className={({ isActive }) => cn(navLinkClasses, isActive && activeClasses)}
+            >
+              <CalendarClockIcon className="size-4" />
+              Daily quizzes
+            </NavLink>
+          </div>
+
+          <div className="flex flex-col gap-0.5">
+            <span className="label-micro px-2.5 pb-1">Review</span>
+            <NavLink
+              to="/admin/submissions"
+              className={({ isActive }) => cn(navLinkClasses, isActive && activeClasses)}
+            >
+              <ClipboardCheckIcon className="size-4" />
+              Submissions
             </NavLink>
           </div>
 

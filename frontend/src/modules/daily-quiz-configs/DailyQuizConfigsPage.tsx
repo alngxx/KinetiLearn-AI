@@ -1,6 +1,5 @@
 import { PlusIcon } from "lucide-react"
 import { useState } from "react"
-import { Link } from "react-router-dom"
 import { toast } from "sonner"
 import { ConfirmDialog } from "@/components/ConfirmDialog"
 import type { Option } from "@/components/form/types"
@@ -18,14 +17,17 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { isApiError } from "@/lib/errors"
-import type { LookupRow, UserFilters, UserRow } from "@/modules/users/api"
-import { UserFormDialog } from "@/modules/users/UserFormDialog"
-import { useSaveUser, useSetUserActive, useUserLookups, useUsers } from "@/modules/users/queries"
-
-const ROLE_OPTIONS: Option[] = [
-  { value: "learner", label: "Learner" },
-  { value: "admin", label: "Admin" },
-]
+import { documentBlockedReason, type DailyQuizConfigRow, type LookupRow } from "@/modules/daily-quiz-configs/api"
+import { DailyQuizConfigFormDialog, DEFAULT_TIMEZONE } from "@/modules/daily-quiz-configs/DailyQuizConfigFormDialog"
+import { formatPushTime, formatRange } from "@/modules/daily-quiz-configs/dates"
+import {
+  useDailyQuizConfigs,
+  useEligibleDocuments,
+  useSaveConfig,
+  useSetConfigActive,
+  useTargetLookups,
+} from "@/modules/daily-quiz-configs/queries"
+import { timezoneOptions } from "@/modules/daily-quiz-configs/timezones"
 
 function toOptions(rows: LookupRow[]): Option[] {
   return rows.map((row) => ({ value: row.id, label: row.name }))
@@ -36,53 +38,46 @@ function nameFor(rows: LookupRow[], id: string | null | undefined) {
   return rows.find((row) => row.id === id)?.name ?? null
 }
 
-// The API has no job_position_id filter, so it is not offered as one.
-const FILTERS: { name: keyof UserFilters; label: string; optionsFrom: string }[] = [
-  { name: "role", label: "Role", optionsFrom: "roles" },
-  { name: "department_id", label: "Department", optionsFrom: "departments" },
-  { name: "seniority_id", label: "Seniority", optionsFrom: "seniority_levels" },
-  { name: "employee_level_id", label: "Employee level", optionsFrom: "employee_levels" },
-]
-
-export function UsersPage() {
-  const [filters, setFilters] = useState<UserFilters>({})
-  const [editing, setEditing] = useState<UserRow | null>(null)
+export function DailyQuizConfigsPage() {
+  const [includeInactive, setIncludeInactive] = useState(false)
+  const [editing, setEditing] = useState<DailyQuizConfigRow | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
-  const [confirming, setConfirming] = useState<UserRow | null>(null)
+  const [confirming, setConfirming] = useState<DailyQuizConfigRow | null>(null)
 
-  const lookups = useUserLookups()
-  const list = useUsers(filters)
-  const save = useSaveUser()
-  const setActive = useSetUserActive()
+  const list = useDailyQuizConfigs(includeInactive)
+  const documents = useEligibleDocuments()
+  const targetLookups = useTargetLookups()
+  const save = useSaveConfig()
+  const setActive = useSetConfigActive()
+
+  const eligibleDocuments = (documents.data ?? []).filter(
+    (row) => documentBlockedReason(row) === null,
+  )
+  const blockedCount = (documents.data?.length ?? 0) - eligibleDocuments.length
 
   const options: Record<string, Option[]> = {
-    roles: ROLE_OPTIONS,
-    departments: toOptions(lookups.departments),
-    seniority_levels: toOptions(lookups.seniority_levels),
-    job_positions: toOptions(lookups.job_positions),
-    employee_levels: toOptions(lookups.employee_levels),
-  }
-
-  function setFilter(name: keyof UserFilters, value: string) {
-    setFilters((current) => {
-      const next = { ...current }
-      if (value === "") delete next[name]
-      else next[name] = value
-      return next
-    })
+    source_document: eligibleDocuments.map((row) => ({ value: row.document_id, label: row.title })),
+    timezone: timezoneOptions(editing?.timezone ?? DEFAULT_TIMEZONE).map((zone) => ({
+      value: zone,
+      label: zone,
+    })),
+    departments: toOptions(targetLookups.departments),
+    seniority_levels: toOptions(targetLookups.seniority_levels),
+    job_positions: toOptions(targetLookups.job_positions),
+    employee_levels: toOptions(targetLookups.employee_levels),
   }
 
   async function handleSave(id: string | undefined, body: Record<string, unknown>) {
     await save.mutateAsync({ id, body })
-    toast.success(id === undefined ? "Person created" : "Changes saved")
+    toast.success(id === undefined ? "Daily quiz config created" : "Changes saved")
   }
 
-  function handleSetActive(row: UserRow, active: boolean) {
+  function handleSetActive(row: DailyQuizConfigRow, active: boolean) {
     setActive.mutate(
       { id: row.id, active },
       {
         onSuccess: () =>
-          toast.success(active ? `${row.full_name} activated` : `${row.full_name} deactivated`),
+          toast.success(active ? `${row.name} activated` : `${row.name} deactivated`),
         onError: (err) =>
           toast.error(isApiError(err) ? err.message : "Could not change the status."),
       },
@@ -94,9 +89,9 @@ export function UsersPage() {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        eyebrow="People"
-        title="Users"
-        description=""
+        eyebrow="Daily quiz"
+        title="Daily quiz configs"
+        description="What each daily quiz covers, when it's pushed, and which learners it reaches."
         actions={
           <Button
             onClick={() => {
@@ -105,36 +100,32 @@ export function UsersPage() {
             }}
           >
             <PlusIcon />
-            New person
+            New config
           </Button>
         }
       />
 
+      {blockedCount > 0 && (
+        <p className="text-xs text-muted-foreground">
+          <span className="numeric">{blockedCount}</span>{" "}
+          {blockedCount === 1 ? "document isn't" : "documents aren't"} eligible as a source —
+          each needs an active version that has finished processing.
+        </p>
+      )}
+
       <div className="flex flex-wrap items-end gap-3">
-        {FILTERS.map((filter) => (
-          <div key={filter.name} className="flex flex-col gap-1.5">
-            <label htmlFor={`filter-${filter.name}`} className="label-micro">
-              {filter.label}
-            </label>
-            <select
-              id={`filter-${filter.name}`}
-              value={filters[filter.name] ?? ""}
-              onChange={(event) => setFilter(filter.name, event.target.value)}
-              className="h-8 w-44 appearance-none rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm text-foreground transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30"
-            >
-              <option value="">All</option>
-              {options[filter.optionsFrom].map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </div>
-        ))}
+        <Button
+          variant="outline"
+          aria-pressed={includeInactive}
+          onClick={() => setIncludeInactive((current) => !current)}
+          className="aria-pressed:border-ring aria-pressed:bg-accent aria-pressed:text-accent-foreground"
+        >
+          Show inactive
+        </Button>
 
         <span className="ml-auto text-sm text-muted-foreground">
           <span className="numeric text-foreground">{rows.length}</span>{" "}
-          {rows.length === 1 ? "person" : "people"}
+          {rows.length === 1 ? "config" : "configs"}
         </span>
       </div>
 
@@ -145,16 +136,16 @@ export function UsersPage() {
               <TableHead>
                 <span className="label-micro">Name</span>
               </TableHead>
-              <TableHead>
-                <span className="label-micro">Role</span>
+              <TableHead className="w-56">
+                <span className="label-micro">Runs</span>
               </TableHead>
               <TableHead>
-                <span className="label-micro">Tags</span>
+                <span className="label-micro">Audience</span>
               </TableHead>
               <TableHead className="w-28">
                 <span className="label-micro">Status</span>
               </TableHead>
-              <TableHead className="w-56 text-right">
+              <TableHead className="w-40 text-right">
                 <span className="label-micro">Actions</span>
               </TableHead>
             </TableRow>
@@ -170,7 +161,7 @@ export function UsersPage() {
               <TableRow className="hover:bg-transparent">
                 <TableCell colSpan={5} className="py-10 text-center">
                   <QueryErrorState
-                    title="Could not load people"
+                    title="Could not load daily quiz configs"
                     error={list.error}
                     retrying={list.isFetching}
                     onRetry={() => void list.refetch()}
@@ -180,37 +171,39 @@ export function UsersPage() {
             ) : rows.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={5} className="py-12 text-center">
-                  <p className="text-sm font-medium text-foreground">No one matches</p>
+                  <p className="text-sm font-medium text-foreground">No daily quiz configs yet</p>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    Clear the filters, or add someone new.
+                    Create one to start pushing daily quizzes to learners.
                   </p>
                 </TableCell>
               </TableRow>
             ) : (
               rows.map((row) => {
                 const tags = [
-                  nameFor(lookups.departments, row.department_id),
-                  nameFor(lookups.seniority_levels, row.seniority_id),
-                  nameFor(lookups.job_positions, row.job_position_id),
-                  nameFor(lookups.employee_levels, row.employee_level_id),
+                  nameFor(targetLookups.departments, row.target_department_id),
+                  nameFor(targetLookups.seniority_levels, row.target_seniority_id),
+                  nameFor(targetLookups.job_positions, row.target_job_position_id),
+                  nameFor(targetLookups.employee_levels, row.target_employee_level_id),
                 ].filter((tag): tag is string => tag !== null)
 
                 return (
                   <TableRow key={row.id} className={row.is_active ? "" : "opacity-60"}>
+                    <TableCell className="min-w-0 max-w-sm">
+                      <span className="font-medium break-words">{row.name}</span>
+                    </TableCell>
                     <TableCell>
                       <div className="flex flex-col">
-                        <span className="font-medium">{row.full_name}</span>
-                        <span className="text-xs text-muted-foreground">{row.email}</span>
+                        <span className="numeric text-sm text-muted-foreground">
+                          {formatRange(row.start_date, row.end_date)}
+                        </span>
+                        <span className="numeric text-xs text-muted-foreground">
+                          {formatPushTime(row.push_time)} · {row.timezone}
+                        </span>
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge variant={row.role === "admin" ? "default" : "secondary"}>
-                        {row.role}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
                       {tags.length === 0 ? (
-                        <span className="text-muted-foreground">Untagged</span>
+                        <span className="text-muted-foreground">Everyone</span>
                       ) : (
                         <div className="flex flex-wrap gap-1">
                           {tags.map((tag) => (
@@ -226,9 +219,6 @@ export function UsersPage() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-1">
-                        <Button variant="ghost" size="sm" asChild>
-                          <Link to={`/admin/users/${row.id}/skills`}>Skills</Link>
-                        </Button>
                         <Button
                           variant="ghost"
                           size="sm"
@@ -260,7 +250,7 @@ export function UsersPage() {
       </div>
 
       {dialogOpen && (
-        <UserFormDialog
+        <DailyQuizConfigFormDialog
           key={editing?.id ?? "new"}
           row={editing}
           options={options}
@@ -275,8 +265,8 @@ export function UsersPage() {
         onOpenChange={(open) => {
           if (!open) setConfirming(null)
         }}
-        title={`Deactivate ${confirming?.full_name}?`}
-        description="They lose access immediately and stop receiving classes and daily quizzes. You can activate them again later."
+        title={`Deactivate ${confirming?.name}?`}
+        description="It stops being pushed to learners. The config is kept, so activating it again resumes it on its existing schedule."
         confirmLabel="Deactivate"
         onConfirm={() => {
           if (confirming !== null) handleSetActive(confirming, false)
