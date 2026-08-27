@@ -145,6 +145,10 @@
     }
   html {
     @apply font-sans;
+    /* The learner shell has a sticky top bar. Without this, tabbing to an
+       element just above the viewport scrolls it flush to the top and under
+       that bar, leaving the focused control hidden. */
+    scroll-padding-top: 4.5rem;
     }
 }
 
@@ -158,6 +162,20 @@
   .numeric {
     @apply font-mono tabular-nums;
     }
+}
+
+/* Radix locks background scroll for the dialogs via react-remove-scroll. The
+   chat panel is deliberately not a dialog — a focus trap would inert the page
+   it exists to ask about — so it locks its own. Only below md, where it is a
+   full-screen overlay: from md up it is a column beside the content, and
+   locking there would stop a learner scrolling the thing they are asking
+   about. The breakpoint lives here rather than in JS so resizing the window
+   corrects itself with no listener. 47.9375rem is one pixel below Tailwind's
+   md (48rem). */
+@media (max-width: 47.9375rem) {
+  body.chat-panel-open {
+    overflow: hidden;
+  }
 }
 
 /* Unlayered so this beats every Tailwind utility, including the per-component

@@ -67,7 +67,6 @@ When editing existing code:
 - Don't "improve" adjacent code, comments, or formatting.
 - Don't refactor things that aren't broken.
 - Match existing style, even if you'd do it differently.
-- Always generate code with spaces around every "=" (e.g., `x = 5`, not `x=5`)
 - If you notice unrelated dead code, mention it - don't delete it.
 
 When your changes create orphans:
@@ -94,6 +93,14 @@ Once success criteria are stated, run to completion against them. Don't add
 extra self-review passes or re-verification steps beyond what the stated
 criteria require — a stated test suite passing is the verification; no need
 to double-check it again afterward.
+
+**Exception:** for numbered/plan-mode tasks specifically, the prompt may ask
+for a single adversarial-review-subagent pass at the end, checking the diff
+against the approved plan (requirements implemented, edge cases tested,
+nothing out-of-scope changed). This is not the same agent re-checking its
+own already-stated criteria — it's an independent reviewer catching plan
+drift the stated criteria didn't cover. It does not apply to small/routine
+fixes; on those, this rule's default (no extra passes) still holds.
 
 ## 5. Reporting Back
 
@@ -136,16 +143,15 @@ to double-check it again afterward.
   settled in Task 34, do not re-litigate.
 
 ## Frontend Consistency Passes (Phase 3)
-- A mid-point consistency pass runs around Task 37-38 (after the admin
-  portal is complete, before the learner portal begins): review all admin
-  screens together for drift in motion, spacing, and any deferred items
-  that have accumulated (dark mode, URL-synced filters, virtualization,
-  focus-first-error, etc.) — fix what's cheap and genuinely cross-cutting,
-  re-defer the rest to the final pass.
-- The final pass (originally Task 42, "Polish") remains the complete pass:
-  heavier motion (framer-motion sequences, scroll-reveal, staggered
-  entrances), full accessibility re-audit, and E2E smoke tests across both
-  portals.
+- Mid-point consistency pass (ran at Task 37-38, after the admin portal
+  completed, before the learner portal began): done. Admin screens were
+  reviewed together for drift in motion, spacing, and accumulated deferred
+  items (dark mode, URL-synced filters, virtualization, focus-first-error).
+  Cheap cross-cutting fixes were applied; the rest was re-deferred to the
+  final pass below.
+- The final pass (Task 42, "Polish") remains the complete pass: heavier
+  motion (framer-motion sequences, scroll-reveal, staggered entrances), full
+  accessibility re-audit, and E2E smoke tests across both portals.
 - This does not change per-task scope otherwise — baseline design quality
   (typography, palette, hover/focus states, accessibility) stays mandatory
   every task, same as before.

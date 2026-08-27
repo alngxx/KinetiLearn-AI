@@ -13,11 +13,14 @@ import { useAuth } from "@/modules/auth/useAuth"
 import { ClassDetailPage } from "@/modules/classes/ClassDetailPage"
 import { ClassesPage } from "@/modules/classes/ClassesPage"
 import { ConfigEntityPage } from "@/modules/config/ConfigEntityPage"
+import { TakeQuizPage } from "@/modules/daily-quiz/TakeQuizPage"
 import { DailyQuizConfigsPage } from "@/modules/daily-quiz-configs/DailyQuizConfigsPage"
 import { DocumentDetailPage } from "@/modules/documents/DocumentDetailPage"
 import { DocumentsPage } from "@/modules/documents/DocumentsPage"
 import { ExerciseDetailPage } from "@/modules/exams/ExerciseDetailPage"
 import { GenerateExamPage } from "@/modules/exams/GenerateExamPage"
+import { LearnerClassPage } from "@/modules/learner-home/LearnerClassPage"
+import { LearnerHomePage } from "@/modules/learner-home/LearnerHomePage"
 import { UserSkillsPage } from "@/modules/scoring/UserSkillsPage"
 import { SubmissionDetailPage } from "@/modules/submissions/SubmissionDetailPage"
 import { SubmissionsPage } from "@/modules/submissions/SubmissionsPage"
@@ -65,9 +68,13 @@ export default function App() {
                     <Route path="users/:userId/skills" element={<UserSkillsPage />} />
                   </Route>
                 </Route>
-                {/* Learner screens land here in a later task. */}
                 <Route element={<RoleRoute role="learner" />}>
-                  <Route path="/learner" element={<LearnerLayout />} />
+                  <Route path="/learner" element={<LearnerLayout />}>
+                    <Route index element={<LearnerHomePage />} />
+                    <Route path="classes/:classId" element={<LearnerClassPage />} />
+                    {/* Taking an exam is a later task; this is the daily quiz. */}
+                    <Route path="quiz/:quizId" element={<TakeQuizPage />} />
+                  </Route>
                 </Route>
               </Route>
 
