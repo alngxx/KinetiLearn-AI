@@ -170,6 +170,9 @@ function DetailView({ documentId }: { documentId: string }) {
       />
 
       {detail.isPending ? (
+        // Not role="status": ProcessingBadge below already gives each version
+        // row its own live region, and this text is gone before that ever
+        // renders — the two would only ever collide, never coexist usefully.
         <p className="py-10 text-center text-sm text-muted-foreground">Loading…</p>
       ) : detail.isError ? (
         <div className="rounded-xl border border-border bg-card py-10">

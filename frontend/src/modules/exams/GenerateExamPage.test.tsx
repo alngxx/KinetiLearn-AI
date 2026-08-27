@@ -407,6 +407,19 @@ describe("GenerateExamPage", () => {
     expect(posts).toHaveLength(0)
   })
 
+  // The picker renders after every other field, so a missing-documents error
+  // is a fallback: it only gets focus once title, class, count and prompt all
+  // pass their own checks first.
+  it("moves focus to the document picker when only the document selection is missing", async () => {
+    renderGenerate()
+    await screen.findByLabelText("Escalation policy")
+    await userEvent.type(screen.getByLabelText(/^Title/), "Week 1 check")
+    await userEvent.click(screen.getByRole("button", { name: /Generate exam/ }))
+
+    await screen.findByText("Choose at least one document.")
+    expect(document.activeElement).toBe(document.getElementById("source-documents"))
+  })
+
   it("picks a question count from the preset list", async () => {
     renderGenerate()
     await fillForm()

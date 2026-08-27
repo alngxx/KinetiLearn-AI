@@ -62,12 +62,12 @@ const rankField: FormField = {
 const descriptionColumn: Column = {
   key: "description",
   header: "Description",
-  className: "max-w-md",
+  className: "min-w-0 max-w-md",
   render: (row) =>
     row.description === null || row.description === undefined || row.description === "" ? (
       <span className="text-muted-foreground">—</span>
     ) : (
-      <span className="line-clamp-1">{row.description}</span>
+      <span className="block break-words whitespace-normal">{row.description}</span>
     ),
 }
 

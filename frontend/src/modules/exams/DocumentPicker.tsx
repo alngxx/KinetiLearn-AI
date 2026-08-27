@@ -19,16 +19,16 @@ export function DocumentPicker({
     <fieldset className="flex flex-col gap-1.5">
       <legend className="text-sm font-medium">Source documents</legend>
 
-      <p id="documents-help" className="text-xs text-muted-foreground">
-      </p>
-
       <div
-        aria-describedby="documents-help"
+        id="source-documents"
+        tabIndex={-1}
         aria-invalid={error !== undefined}
-        className="max-h-64 overflow-y-auto rounded-lg border border-input aria-invalid:border-destructive"
+        className="max-h-64 overflow-y-auto rounded-lg border border-input outline-none aria-invalid:border-destructive"
       >
         {loading ? (
-          <p className="p-3 text-sm text-muted-foreground">Loading documents…</p>
+          <p role="status" className="p-3 text-sm text-muted-foreground">
+            Loading documents…
+          </p>
         ) : rows.length === 0 ? (
           <p className="p-3 text-sm text-muted-foreground">
             No documents yet. Upload one before generating an exam.

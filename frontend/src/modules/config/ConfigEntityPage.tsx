@@ -17,6 +17,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { isApiError } from "@/lib/errors"
+import { useUrlFilters } from "@/lib/useUrlFilters"
 import type { ConfigRow } from "@/modules/config/api"
 import { ConfigEntityDialog } from "@/modules/config/ConfigEntityDialog"
 import { configEntities, findEntity, type LookupMap } from "@/modules/config/descriptors"
@@ -33,11 +34,14 @@ export function ConfigEntityPage() {
   return <EntityView key={descriptor.key} descriptorKey={descriptor.key} />
 }
 
+const FILTER_KEYS = ["category_id", "inactive"] as const
+
 function EntityView({ descriptorKey }: { descriptorKey: string }) {
   const descriptor = findEntity(descriptorKey)!
 
-  const [includeInactive, setIncludeInactive] = useState(false)
-  const [filterValue, setFilterValue] = useState("")
+  const { values: filterValues, setFilter } = useUrlFilters(FILTER_KEYS)
+  const includeInactive = filterValues.inactive === "1"
+  const filterValue = filterValues.category_id
   const [editing, setEditing] = useState<ConfigRow | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [confirming, setConfirming] = useState<ConfigRow | null>(null)
@@ -124,7 +128,7 @@ function EntityView({ descriptorKey }: { descriptorKey: string }) {
             <select
               id="entity-filter"
               value={filterValue}
-              onChange={(event) => setFilterValue(event.target.value)}
+              onChange={(event) => setFilter("category_id", event.target.value)}
               className="h-8 w-52 appearance-none rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm text-foreground transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30"
             >
               <option value="">All categories</option>
@@ -140,7 +144,7 @@ function EntityView({ descriptorKey }: { descriptorKey: string }) {
         <Button
           variant="outline"
           aria-pressed={includeInactive}
-          onClick={() => setIncludeInactive((current) => !current)}
+          onClick={() => setFilter("inactive", includeInactive ? "" : "1")}
           className="aria-pressed:border-ring aria-pressed:bg-accent aria-pressed:text-accent-foreground"
         >
           Show inactive
@@ -172,7 +176,11 @@ function EntityView({ descriptorKey }: { descriptorKey: string }) {
           <TableBody>
             {list.isPending ? (
               <TableRow>
-                <TableCell colSpan={columnCount} className="py-10 text-center text-muted-foreground">
+                <TableCell
+                  role="status"
+                  colSpan={columnCount}
+                  className="py-10 text-center text-muted-foreground"
+                >
                   Loading…
                 </TableCell>
               </TableRow>

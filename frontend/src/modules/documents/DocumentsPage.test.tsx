@@ -33,13 +33,13 @@ function pdf(name = "handbook.pdf") {
   return new File(["pdf bytes"], name, { type: PDF_MIME })
 }
 
-function renderDocuments() {
+function renderDocuments(initialPath = "/admin/documents") {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   })
   return render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={["/admin/documents"]}>
+      <MemoryRouter initialEntries={[initialPath]}>
         <Routes>
           <Route path="/admin/documents" element={<DocumentsPage />} />
           <Route path="/admin/documents/:documentId" element={<p>Detail for a document</p>} />
@@ -128,6 +128,47 @@ describe("DocumentsPage", () => {
     expect(await dialog.findByRole("alert")).toHaveTextContent("File exceeds the 20 MB limit")
     // The dialog stays open so the file can be swapped for a smaller one.
     expect(screen.getByRole("dialog")).toBeInTheDocument()
+  })
+
+  it("reads its filters from the URL on load, and updates the URL when they change", async () => {
+    const requests: string[] = []
+    server.use(
+      http.get(`${API}/api/v1/documents`, ({ request }) => {
+        requests.push(request.url)
+        return HttpResponse.json(documents)
+      }),
+    )
+
+    renderDocuments("/admin/documents?category_id=c1&inactive=1")
+    await screen.findByRole("link", { name: "Safety handbook" })
+
+    expect(requests[0]).toContain("category_id=c1")
+    expect(requests[0]).toContain("include_inactive=true")
+    expect(screen.getByRole("button", { name: "Show inactive" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    )
+
+    await userEvent.selectOptions(screen.getByLabelText("Category"), "")
+    await expect
+      .poll(() => requests.some((url) => !url.includes("category_id")))
+      .toBe(true)
+  })
+
+  // A blank form fails on Title, which sits above the file input in the
+  // dialog — the file's own error stays visible either way, so this is an
+  // accepted tradeoff rather than a missed focus target. See the comment at
+  // UploadDialog's handleSubmit.
+  it("focuses Title, not the file input, on a fully blank submit", async () => {
+    renderDocuments()
+    await screen.findByRole("link", { name: "Safety handbook" })
+
+    await userEvent.click(screen.getByRole("button", { name: /Upload document/ }))
+    const dialog = within(await screen.findByRole("dialog"))
+    await userEvent.click(screen.getByRole("button", { name: "Upload" }))
+
+    expect(await dialog.findByText("Choose a PDF or DOCX file.")).toBeInTheDocument()
+    expect(dialog.getByLabelText(/^Title/)).toHaveFocus()
   })
 
   it("explains a failed load and recovers when retried", async () => {

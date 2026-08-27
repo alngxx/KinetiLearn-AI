@@ -25,10 +25,7 @@ export function QuestionCountField({
   const [custom, setCustom] = useState(() => !PRESETS.some((n) => String(n) === value))
 
   const errorId = "num_questions-error"
-  const helpId = "num_questions-help"
-  const describedBy = [helpId, error === undefined ? null : errorId]
-    .filter((id): id is string => id !== null)
-    .join(" ")
+  const describedBy = error === undefined ? undefined : errorId
 
   function handleSelect(next: string) {
     if (next === CUSTOM) {
@@ -49,7 +46,11 @@ export function QuestionCountField({
 
       <div className="relative">
         <select
-          id="num_questions"
+          // Only one of the select and the custom input carries this id at a
+          // time — whichever is the actual editable control — so focus-first-
+          // error lands on the field the admin can see and type into, not the
+          // hidden-behind-it preset picker.
+          id={custom ? undefined : "num_questions"}
           name="num_questions"
           value={custom ? CUSTOM : value}
           aria-required="true"
@@ -78,6 +79,7 @@ export function QuestionCountField({
           in-page. */}
       {custom && (
         <Input
+          id="num_questions"
           type="number"
           inputMode="numeric"
           autoComplete="off"
@@ -90,8 +92,6 @@ export function QuestionCountField({
         />
       )}
 
-      <p id={helpId} className="text-xs text-muted-foreground">
-      </p>
       {error !== undefined && (
         <p id={errorId} role="alert" className="text-xs text-destructive">
           {error}

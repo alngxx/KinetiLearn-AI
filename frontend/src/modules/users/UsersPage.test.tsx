@@ -86,7 +86,7 @@ describe("UsersPage", () => {
 
     expect(await screen.findByText("Mai")).toBeInTheDocument()
     const mai = screen.getByRole("row", { name: /Mai/ })
-    expect(within(mai).getByText("learner")).toBeInTheDocument()
+    expect(within(mai).getByText("Learner")).toBeInTheDocument()
     expect(within(mai).getByText("Engineering")).toBeInTheDocument()
     expect(within(mai).getByText("Active")).toBeInTheDocument()
     expect(screen.getByRole("row", { name: /Duc/ })).toBeInTheDocument()

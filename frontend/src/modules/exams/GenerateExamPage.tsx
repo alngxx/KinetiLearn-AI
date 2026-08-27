@@ -136,10 +136,14 @@ function GenerateView({ classId }: { classId: string }) {
   // Both run on every attempt so a blank form reports the missing documents and
   // the missing title together, not one and then the other.
   function handleSubmit() {
-    setDocumentsError(validateDocuments(selected))
+    const problem = validateDocuments(selected)
+    setDocumentsError(problem)
     // Drop the finished job before retrying, otherwise its error outlives it.
     if (jobId !== null) setSearchParams({}, { replace: true })
-    void form.submit()
+    // The document picker renders after every other field, so this fallback is
+    // only reached once nothing above it failed — it never steals focus from
+    // an earlier field error.
+    void form.submit(problem === undefined ? undefined : "source-documents")
   }
 
   function toggle(id: string) {

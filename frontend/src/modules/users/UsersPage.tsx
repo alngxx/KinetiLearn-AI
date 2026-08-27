@@ -18,7 +18,8 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { isApiError } from "@/lib/errors"
-import type { LookupRow, UserFilters, UserRow } from "@/modules/users/api"
+import { useUrlFilters } from "@/lib/useUrlFilters"
+import type { LookupRow, UserRow } from "@/modules/users/api"
 import { UserFormDialog } from "@/modules/users/UserFormDialog"
 import { useSaveUser, useSetUserActive, useUserLookups, useUsers } from "@/modules/users/queries"
 
@@ -37,7 +38,9 @@ function nameFor(rows: LookupRow[], id: string | null | undefined) {
 }
 
 // The API has no job_position_id filter, so it is not offered as one.
-const FILTERS: { name: keyof UserFilters; label: string; optionsFrom: string }[] = [
+const FILTER_KEYS = ["role", "department_id", "seniority_id", "employee_level_id"] as const
+
+const FILTERS: { name: (typeof FILTER_KEYS)[number]; label: string; optionsFrom: string }[] = [
   { name: "role", label: "Role", optionsFrom: "roles" },
   { name: "department_id", label: "Department", optionsFrom: "departments" },
   { name: "seniority_id", label: "Seniority", optionsFrom: "seniority_levels" },
@@ -45,7 +48,7 @@ const FILTERS: { name: keyof UserFilters; label: string; optionsFrom: string }[]
 ]
 
 export function UsersPage() {
-  const [filters, setFilters] = useState<UserFilters>({})
+  const { values: filters, setFilter } = useUrlFilters(FILTER_KEYS)
   const [editing, setEditing] = useState<UserRow | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [confirming, setConfirming] = useState<UserRow | null>(null)
@@ -61,15 +64,6 @@ export function UsersPage() {
     seniority_levels: toOptions(lookups.seniority_levels),
     job_positions: toOptions(lookups.job_positions),
     employee_levels: toOptions(lookups.employee_levels),
-  }
-
-  function setFilter(name: keyof UserFilters, value: string) {
-    setFilters((current) => {
-      const next = { ...current }
-      if (value === "") delete next[name]
-      else next[name] = value
-      return next
-    })
   }
 
   async function handleSave(id: string | undefined, body: Record<string, unknown>) {
@@ -96,7 +90,7 @@ export function UsersPage() {
       <PageHeader
         eyebrow="People"
         title="Users"
-        description=""
+        description="Everyone with access to the platform, admins and learners alike."
         actions={
           <Button
             onClick={() => {
@@ -162,7 +156,11 @@ export function UsersPage() {
           <TableBody>
             {list.isPending ? (
               <TableRow>
-                <TableCell colSpan={5} className="py-10 text-center text-muted-foreground">
+                <TableCell
+                  role="status"
+                  colSpan={5}
+                  className="py-10 text-center text-muted-foreground"
+                >
                   Loading…
                 </TableCell>
               </TableRow>
@@ -205,7 +203,7 @@ export function UsersPage() {
                     </TableCell>
                     <TableCell>
                       <Badge variant={row.role === "admin" ? "default" : "secondary"}>
-                        {row.role}
+                        {ROLE_OPTIONS.find((option) => option.value === row.role)?.label ?? row.role}
                       </Badge>
                     </TableCell>
                     <TableCell>

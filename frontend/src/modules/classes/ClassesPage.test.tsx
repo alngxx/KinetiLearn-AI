@@ -255,6 +255,42 @@ describe("ClassesPage", () => {
     expect(screen.getByRole("dialog")).toBeInTheDocument()
   })
 
+  // Radix's DialogContent traps focus within itself while open (FocusScope
+  // trapped), and this is a real Dialog — not a stub — so this exercises the
+  // actual trap, not an assumption about it. It only redirects focus back
+  // inside when focus tries to leave the container; moving focus to a field
+  // that is already inside is accepted, not fought. Run twice on purpose: the
+  // same field failing twice in a row is the case that needs the hook to
+  // clear its focus target between attempts, or the second failure would
+  // leave focus wherever the click landed instead of moving it back.
+  it("moves focus back to the first invalid field on a blank submit, even with the dialog's own focus trap active, and even on a repeat failure", async () => {
+    renderClasses()
+    await screen.findByRole("link", { name: "Q1 onboarding" })
+
+    await userEvent.click(screen.getByRole("button", { name: /New class/ }))
+    const dialog = within(await screen.findByRole("dialog"))
+    const nameInput = dialog.getByLabelText(/^Name/)
+
+    // Move focus off Name before the first submit, so a pass just means "focus
+    // happened to already be there" is ruled out.
+    await userEvent.click(dialog.getByLabelText(/^Start date/))
+    expect(nameInput).not.toHaveFocus()
+
+    await userEvent.click(dialog.getByRole("button", { name: "Create" }))
+    expect(await dialog.findByRole("alert")).toHaveTextContent("Name is required.")
+    expect(nameInput).toHaveFocus()
+
+    // Move focus away again and fail the exact same way a second time.
+    await userEvent.click(dialog.getByLabelText(/^Start date/))
+    expect(nameInput).not.toHaveFocus()
+
+    await userEvent.click(dialog.getByRole("button", { name: "Create" }))
+    expect(await dialog.findByRole("alert")).toHaveTextContent("Name is required.")
+    expect(nameInput).toHaveFocus()
+
+    expect(requests.every((item) => item.method === "GET")).toBe(true)
+  })
+
   it("deactivates a class only after the confirmation", async () => {
     renderClasses()
     await screen.findByRole("link", { name: "Q1 onboarding" })

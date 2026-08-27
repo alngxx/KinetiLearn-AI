@@ -27,10 +27,7 @@ export function ThresholdLadder({
           shades of one color the way primary/ring do in dark mode. */}
       <div aria-hidden="true" className="flex h-1.5 overflow-hidden rounded-full bg-muted">
         <div style={{ flexGrow: basicMax }} className="bg-info" />
-        <div
-          style={{ flexGrow: intermediateSpan }}
-          className="bg-[oklch(0.55_0.12_305)] dark:bg-[oklch(0.7_0.13_305)]"
-        />
+        <div style={{ flexGrow: intermediateSpan }} className="bg-band-intermediate" />
         <div
           style={{ flexGrow: advancedSpan }}
           className="bg-gradient-to-r from-ring to-ring/15"

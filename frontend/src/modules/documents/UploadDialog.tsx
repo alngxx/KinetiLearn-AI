@@ -82,8 +82,15 @@ export function UploadDialog({
   // Both checks run on every attempt so a blank form reports the missing file
   // and the missing title together, not one and then the other.
   function handleSubmit() {
-    setFileError(validateFile(file))
-    void form.submit()
+    const problem = validateFile(file)
+    setFileError(problem)
+    // "file" only wins focus when it is the sole failure. A field error from
+    // the hook always outranks this fallback, so a fully blank form focuses
+    // Title, above the file input, rather than the file input itself. That is
+    // accepted as-is: fixing it needs a second ordering concept in a hook with
+    // 11 consumers, and the file error is still visible with its own
+    // role="alert" either way — this is not a missed case.
+    void form.submit(problem === undefined ? undefined : "file")
   }
 
   return (

@@ -18,6 +18,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { isApiError } from "@/lib/errors"
+import { useUrlFilters } from "@/lib/useUrlFilters"
 import type { DocumentRow, LookupRow, UploadInput } from "@/modules/documents/api"
 import { DocumentEditDialog } from "@/modules/documents/DocumentEditDialog"
 import { ProcessingBadge } from "@/modules/documents/ProcessingBadge"
@@ -36,10 +37,13 @@ function nameFor(rows: LookupRow[], id: string | null | undefined) {
   return rows.find((row) => row.id === id)?.name ?? null
 }
 
+const FILTER_KEYS = ["category_id", "inactive"] as const
+
 export function DocumentsPage() {
   const navigate = useNavigate()
-  const [categoryId, setCategoryId] = useState("")
-  const [includeInactive, setIncludeInactive] = useState(false)
+  const { values: filterValues, setFilter } = useUrlFilters(FILTER_KEYS)
+  const categoryId = filterValues.category_id
+  const includeInactive = filterValues.inactive === "1"
   const [uploadOpen, setUploadOpen] = useState(false)
   const [confirming, setConfirming] = useState<DocumentRow | null>(null)
   const [editing, setEditing] = useState<DocumentRow | null>(null)
@@ -125,7 +129,7 @@ export function DocumentsPage() {
           <select
             id="category-filter"
             value={categoryId}
-            onChange={(event) => setCategoryId(event.target.value)}
+            onChange={(event) => setFilter("category_id", event.target.value)}
             className="h-8 w-52 appearance-none rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm text-foreground transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30"
           >
             <option value="">All categories</option>
@@ -140,7 +144,7 @@ export function DocumentsPage() {
         <Button
           variant="outline"
           aria-pressed={includeInactive}
-          onClick={() => setIncludeInactive((current) => !current)}
+          onClick={() => setFilter("inactive", includeInactive ? "" : "1")}
           className="aria-pressed:border-ring aria-pressed:bg-accent aria-pressed:text-accent-foreground"
         >
           Show inactive
@@ -179,7 +183,11 @@ export function DocumentsPage() {
           <TableBody>
             {list.isPending ? (
               <TableRow>
-                <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
+                <TableCell
+                  role="status"
+                  colSpan={6}
+                  className="py-10 text-center text-muted-foreground"
+                >
                   Loading…
                 </TableCell>
               </TableRow>

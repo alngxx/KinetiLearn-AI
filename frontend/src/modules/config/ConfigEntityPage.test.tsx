@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { render, screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { http, HttpResponse } from "msw"
-import { MemoryRouter, Route, Routes } from "react-router-dom"
+import { Link, MemoryRouter, Route, Routes } from "react-router-dom"
 import { beforeEach, describe, expect, it } from "vitest"
 import { ConfigEntityPage } from "@/modules/config/ConfigEntityPage"
 import { server } from "@/test/server"
@@ -39,6 +39,24 @@ function renderEntity(entityKey: string) {
 
 function rowFor(name: string) {
   return screen.getByRole("row", { name: new RegExp(name) })
+}
+
+// Mirrors AdminLayout's real NavLink for a config entity: to={`/admin/config/${key}`},
+// no search of its own — the mechanism the remount-clears-filters guarantee relies on.
+function renderWithEntitySwitch(from: string, to: string) {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  })
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={[`/admin/config/${from}`]}>
+        <Link to={`/admin/config/${to}`}>Go to {to}</Link>
+        <Routes>
+          <Route path="/admin/config/:entityKey" element={<ConfigEntityPage />} />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>,
+  )
 }
 
 describe("ConfigEntityPage — categories", () => {
@@ -270,6 +288,33 @@ describe("ConfigEntityPage — skills variant", () => {
     await expect
       .poll(() => requests.some((item) => item.url.includes("category_id=c2")))
       .toBe(true)
+  })
+
+  // Regression for the constraint key={descriptor.key} exists to defend: a
+  // filter set on one entity must not leak onto the next one when switching
+  // through nav, which carries no search of its own.
+  it("does not carry the skills category filter onto a different entity", async () => {
+    const departmentRequests: string[] = []
+    server.use(
+      http.get(`${API}/api/v1/config/departments`, ({ request }) => {
+        departmentRequests.push(request.url)
+        return HttpResponse.json([row("d1", "Engineering")])
+      }),
+    )
+
+    renderWithEntitySwitch("skills", "departments")
+    await screen.findByText("Caching")
+
+    await userEvent.selectOptions(screen.getByLabelText("Category"), "c2")
+    await expect
+      .poll(() => requests.some((item) => item.url.includes("category_id=c2")))
+      .toBe(true)
+
+    await userEvent.click(screen.getByRole("link", { name: /Go to departments/ }))
+
+    expect(await screen.findByText("Engineering")).toBeInTheDocument()
+    expect(departmentRequests).toHaveLength(1)
+    expect(departmentRequests[0]).not.toContain("category_id")
   })
 })
 

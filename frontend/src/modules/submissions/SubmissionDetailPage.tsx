@@ -4,7 +4,7 @@ import { Link, useParams } from "react-router-dom"
 import { toast } from "sonner"
 import { PageHeader } from "@/components/PageHeader"
 import { QueryErrorState } from "@/components/QueryErrorState"
-import { Badge } from "@/components/ui/badge"
+import { ResultBadge } from "@/components/ResultBadge"
 import { Button } from "@/components/ui/button"
 import { formatMoment } from "@/modules/submissions/dates"
 import { ScoreOverrideDialog } from "@/modules/submissions/ScoreOverrideDialog"
@@ -40,14 +40,18 @@ function DetailView({ submissionId }: { submissionId: string }) {
       </Link>
 
       {detail.isPending ? (
-        <p className="py-10 text-center text-sm text-muted-foreground">Loading…</p>
+        <p role="status" className="py-10 text-center text-sm text-muted-foreground">
+          Loading…
+        </p>
       ) : detail.isError ? (
-        <QueryErrorState
-          title="Could not load this submission"
-          error={detail.error}
-          retrying={detail.isFetching}
-          onRetry={() => void detail.refetch()}
-        />
+        <div className="rounded-xl border border-border bg-card py-10">
+          <QueryErrorState
+            title="Could not load this submission"
+            error={detail.error}
+            retrying={detail.isFetching}
+            onRetry={() => void detail.refetch()}
+          />
+        </div>
       ) : (
         <>
           <PageHeader
@@ -79,13 +83,7 @@ function DetailView({ submissionId }: { submissionId: string }) {
             </div>
             <div className="flex flex-col gap-1">
               <span className="label-micro">Result</span>
-              {detail.data.is_passed === null ? (
-                <span className="text-sm text-muted-foreground">—</span>
-              ) : (
-                <Badge variant={detail.data.is_passed ? "success" : "destructive"}>
-                  {detail.data.is_passed ? "Passed" : "Failed"}
-                </Badge>
-              )}
+              <ResultBadge isPassed={detail.data.is_passed} />
             </div>
             <div className="flex flex-col gap-1">
               <span className="label-micro">Submitted</span>
@@ -97,14 +95,18 @@ function DetailView({ submissionId }: { submissionId: string }) {
           </div>
 
           {exercise.isPending ? (
-            <p className="py-6 text-center text-sm text-muted-foreground">Loading questions…</p>
+            <p role="status" className="py-6 text-center text-sm text-muted-foreground">
+              Loading questions…
+            </p>
           ) : exercise.isError ? (
-            <QueryErrorState
-              title="Could not load the exam's questions"
-              error={exercise.error}
-              retrying={exercise.isFetching}
-              onRetry={() => void exercise.refetch()}
-            />
+            <div className="rounded-xl border border-border bg-card py-10">
+              <QueryErrorState
+                title="Could not load the exam's questions"
+                error={exercise.error}
+                retrying={exercise.isFetching}
+                onRetry={() => void exercise.refetch()}
+              />
+            </div>
           ) : (
             <ol className="flex flex-col gap-3">
               {[...exercise.data.questions]

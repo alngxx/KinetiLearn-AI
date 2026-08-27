@@ -16,6 +16,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { isApiError } from "@/lib/errors"
+import { useUrlFilters } from "@/lib/useUrlFilters"
 import type { ClassRow } from "@/modules/classes/api"
 import { ClassFormDialog } from "@/modules/classes/ClassFormDialog"
 import { formatRange } from "@/modules/classes/dates"
@@ -26,8 +27,11 @@ import {
   useSetClassActive,
 } from "@/modules/classes/queries"
 
+const FILTER_KEYS = ["inactive"] as const
+
 export function ClassesPage() {
-  const [includeInactive, setIncludeInactive] = useState(false)
+  const { values: filterValues, setFilter } = useUrlFilters(FILTER_KEYS)
+  const includeInactive = filterValues.inactive === "1"
   const [editing, setEditing] = useState<ClassRow | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [confirming, setConfirming] = useState<ClassRow | null>(null)
@@ -93,7 +97,7 @@ export function ClassesPage() {
         <Button
           variant="outline"
           aria-pressed={includeInactive}
-          onClick={() => setIncludeInactive((current) => !current)}
+          onClick={() => setFilter("inactive", includeInactive ? "" : "1")}
           className="aria-pressed:border-ring aria-pressed:bg-accent aria-pressed:text-accent-foreground"
         >
           Show inactive
@@ -126,7 +130,11 @@ export function ClassesPage() {
           <TableBody>
             {list.isPending ? (
               <TableRow>
-                <TableCell colSpan={4} className="py-10 text-center text-muted-foreground">
+                <TableCell
+                  role="status"
+                  colSpan={4}
+                  className="py-10 text-center text-muted-foreground"
+                >
                   Loading…
                 </TableCell>
               </TableRow>

@@ -163,7 +163,9 @@ function DetailView({ classId, exerciseId }: { classId: string; exerciseId: stri
       />
 
       {detail.isPending ? (
-        <p className="py-10 text-center text-sm text-muted-foreground">Loading…</p>
+        <p role="status" className="py-10 text-center text-sm text-muted-foreground">
+          Loading…
+        </p>
       ) : detail.isError ? (
         <div className="rounded-xl border border-border bg-card py-10">
           <QueryErrorState

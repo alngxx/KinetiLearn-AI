@@ -23,10 +23,7 @@ export function SkillBandBar({
   return (
     <div aria-hidden="true" className="relative flex h-1.5 min-w-36 rounded-full bg-muted">
       <div style={{ flexGrow: basicMax }} className="rounded-l-full bg-info" />
-      <div
-        style={{ flexGrow: intermediateSpan }}
-        className="bg-[oklch(0.55_0.12_305)] dark:bg-[oklch(0.7_0.13_305)]"
-      />
+      <div style={{ flexGrow: intermediateSpan }} className="bg-band-intermediate" />
       <div
         style={{ flexGrow: advancedSpan }}
         className="rounded-r-full bg-gradient-to-r from-ring to-ring/15"

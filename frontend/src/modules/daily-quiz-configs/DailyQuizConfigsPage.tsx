@@ -17,6 +17,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { isApiError } from "@/lib/errors"
+import { useUrlFilters } from "@/lib/useUrlFilters"
 import { documentBlockedReason, type DailyQuizConfigRow, type LookupRow } from "@/modules/daily-quiz-configs/api"
 import { DailyQuizConfigFormDialog, DEFAULT_TIMEZONE } from "@/modules/daily-quiz-configs/DailyQuizConfigFormDialog"
 import { formatPushTime, formatRange, formatRelative } from "@/modules/daily-quiz-configs/dates"
@@ -46,8 +47,11 @@ const runStatuses: Record<string, { label: string; variant: "success" | "seconda
   failed: { label: "Failed", variant: "destructive" },
 }
 
+const FILTER_KEYS = ["inactive"] as const
+
 export function DailyQuizConfigsPage() {
-  const [includeInactive, setIncludeInactive] = useState(false)
+  const { values: filterValues, setFilter } = useUrlFilters(FILTER_KEYS)
+  const includeInactive = filterValues.inactive === "1"
   const [editing, setEditing] = useState<DailyQuizConfigRow | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [confirming, setConfirming] = useState<DailyQuizConfigRow | null>(null)
@@ -125,7 +129,7 @@ export function DailyQuizConfigsPage() {
         <Button
           variant="outline"
           aria-pressed={includeInactive}
-          onClick={() => setIncludeInactive((current) => !current)}
+          onClick={() => setFilter("inactive", includeInactive ? "" : "1")}
           className="aria-pressed:border-ring aria-pressed:bg-accent aria-pressed:text-accent-foreground"
         >
           Show inactive
@@ -164,7 +168,11 @@ export function DailyQuizConfigsPage() {
           <TableBody>
             {list.isPending ? (
               <TableRow>
-                <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
+                <TableCell
+                  role="status"
+                  colSpan={6}
+                  className="py-10 text-center text-muted-foreground"
+                >
                   Loading…
                 </TableCell>
               </TableRow>
@@ -251,17 +259,19 @@ export function DailyQuizConfigsPage() {
                               Skipped reads muted rather than red — "No matching learners"
                               is an outcome, not an error. */}
                           {row.last_run_error !== null && (
-                            // Capped explicitly: the cell is whitespace-nowrap and the
-                            // table is auto-layout, so an uncapped error string sets the
-                            // column's max-content width and pushes Actions out of the
-                            // clipped container. 52 = the w-56 column minus its p-2.
+                            // Wraps rather than truncating: a title attribute is
+                            // mouse-only, and nothing else in this table hides content
+                            // behind a hover. Still width-capped — the cell is
+                            // whitespace-nowrap and the table is auto-layout, so an
+                            // uncapped block would still set the column's max-content
+                            // width and push Actions out of the clipped container. 52 =
+                            // the w-56 column minus its p-2.
                             <span
-                              className={`block max-w-52 truncate text-xs ${
+                              className={`block max-w-52 break-words whitespace-normal text-xs ${
                                 row.last_run_status === "failed"
                                   ? "text-destructive"
                                   : "text-muted-foreground"
                               }`}
-                              title={row.last_run_error}
                             >
                               {row.last_run_error}
                             </span>

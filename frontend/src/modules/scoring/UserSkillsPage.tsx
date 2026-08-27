@@ -19,9 +19,13 @@ const LEVEL_LABEL: Record<string, string> = {
   advanced: "Advanced",
 }
 
+// Matches SkillBandBar's hues: info blue for basic, then outline, then success
+// at mastery — so a level's badge colour means the same thing as the bar
+// segment beside it, rather than info doubling as "basic" in one and
+// "intermediate" in the other.
 const LEVEL_VARIANT: Record<string, "outline" | "info" | "success"> = {
-  basic: "outline",
-  intermediate: "info",
+  basic: "info",
+  intermediate: "outline",
   advanced: "success",
 }
 
@@ -74,14 +78,18 @@ function PageView({ userId }: { userId: string }) {
       />
 
       {breakdown.isPending ? (
-        <p className="py-10 text-center text-sm text-muted-foreground">Loading…</p>
+        <p role="status" className="py-10 text-center text-sm text-muted-foreground">
+          Loading…
+        </p>
       ) : breakdown.isError ? (
-        <QueryErrorState
-          title="Could not load this learner's skills"
-          error={breakdown.error}
-          retrying={breakdown.isFetching}
-          onRetry={() => void breakdown.refetch()}
-        />
+        <div className="rounded-xl border border-border bg-card py-10">
+          <QueryErrorState
+            title="Could not load this learner's skills"
+            error={breakdown.error}
+            retrying={breakdown.isFetching}
+            onRetry={() => void breakdown.refetch()}
+          />
+        </div>
       ) : groups.length === 0 ? (
         <p className="py-10 text-center text-sm text-muted-foreground">
           There are no active skills to score against.

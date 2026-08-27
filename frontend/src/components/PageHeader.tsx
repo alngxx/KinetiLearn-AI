@@ -8,7 +8,7 @@ export function PageHeader({
 }: {
   eyebrow: string
   title: string
-  description: string
+  description?: string
   actions?: ReactNode
 }) {
   return (
@@ -16,7 +16,9 @@ export function PageHeader({
       <div className="flex flex-col gap-1.5">
         <span className="label-micro">{eyebrow}</span>
         <h1 className="text-2xl font-semibold tracking-tight text-foreground">{title}</h1>
-        <p className="max-w-prose text-sm text-muted-foreground">{description}</p>
+        {description !== undefined && description !== "" && (
+          <p className="max-w-prose text-sm text-muted-foreground">{description}</p>
+        )}
       </div>
       {actions !== undefined && <div className="flex items-center gap-2">{actions}</div>}
     </header>

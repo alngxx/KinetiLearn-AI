@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { fireEvent, render, screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { http, HttpResponse } from "msw"
+import { MemoryRouter } from "react-router-dom"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { DailyQuizConfigsPage } from "@/modules/daily-quiz-configs/DailyQuizConfigsPage"
 import { server } from "@/test/server"
@@ -57,13 +58,15 @@ function doc(id: string, title: string, extra: Record<string, unknown> = {}): Do
   }
 }
 
-function renderConfigs() {
+function renderConfigs(initialEntries = ["/admin/daily-quiz-configs"]) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   })
   return render(
     <QueryClientProvider client={queryClient}>
-      <DailyQuizConfigsPage />
+      <MemoryRouter initialEntries={initialEntries}>
+        <DailyQuizConfigsPage />
+      </MemoryRouter>
     </QueryClientProvider>,
   )
 }
@@ -344,9 +347,10 @@ describe("DailyQuizConfigsPage", () => {
     expect(within(row).getByText("Skipped")).toBeInTheDocument()
 
     const reason = within(row).getByText("No matching learners")
-    expect(reason).toHaveClass("truncate", "max-w-52", "text-muted-foreground")
+    expect(reason).toHaveClass("max-w-52", "break-words", "text-muted-foreground")
     expect(reason).not.toHaveClass("text-destructive")
-    expect(reason).toHaveAttribute("title", "No matching learners")
+    // Wraps rather than hiding behind a mouse-only title.
+    expect(reason).not.toHaveAttribute("title")
   })
 
   // A successful run stamps no reason, so nothing extra should appear.
@@ -361,11 +365,17 @@ describe("DailyQuizConfigsPage", () => {
     renderConfigs()
 
     await screen.findByText("Morning refresher")
-    expect(rowFor("Morning refresher").querySelector("[title]")).toBeNull()
+    const row = rowFor("Morning refresher")
+    expect(within(row).getByText("Success")).toBeInTheDocument()
+    // A success stamps no last_run_error, so the reason line never renders —
+    // only the time+badge row sits under it.
+    const timeBadgeRow = row.querySelector("time")?.parentElement
+    expect(timeBadgeRow?.parentElement?.children).toHaveLength(1)
   })
 
-  // The cell truncates, so the full text has to stay reachable on the title.
-  it("shows a failed badge with the run error truncated in the cell", async () => {
+  // The cell wraps rather than truncating, so the whole error is always in the
+  // accessibility tree — no title attribute standing in for it.
+  it("shows a failed badge with the run error wrapped in the cell", async () => {
     const error = "OpenAI request failed: rate limit exceeded, retry after 60 seconds"
     configs = [
       config("cfg1", "Morning refresher", {
@@ -380,11 +390,13 @@ describe("DailyQuizConfigsPage", () => {
     const row = rowFor("Morning refresher")
     expect(within(row).getByText("Failed")).toBeInTheDocument()
 
-    // Width-capped, not just clipped: an uncapped string sets the column's
-    // max-content width and pushes the Actions column out of the table.
+    // Width-capped, not clipped: an uncapped block would still set the
+    // column's max-content width and push the Actions column out of the
+    // table, so the cap stays even though the text now wraps instead of
+    // truncating.
     const message = within(row).getByText(error)
-    expect(message).toHaveClass("truncate", "max-w-52", "text-destructive")
-    expect(message).toHaveAttribute("title", error)
+    expect(message).toHaveClass("max-w-52", "break-words", "text-destructive")
+    expect(message).not.toHaveAttribute("title")
 
     // The row must still expose its actions with a long error present.
     expect(within(row).getByRole("button", { name: "Edit" })).toBeInTheDocument()

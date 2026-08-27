@@ -1,8 +1,7 @@
-import { useState } from "react"
 import { Link } from "react-router-dom"
 import { PageHeader } from "@/components/PageHeader"
 import { QueryErrorState } from "@/components/QueryErrorState"
-import { Badge } from "@/components/ui/badge"
+import { ResultBadge } from "@/components/ResultBadge"
 import {
   Table,
   TableBody,
@@ -11,29 +10,20 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { useUrlFilters } from "@/lib/useUrlFilters"
 import { formatMoment } from "@/modules/submissions/dates"
 import { useClasses, useExerciseDirectory, useLearners, useSubmissions } from "@/modules/submissions/queries"
 
 const selectClasses =
   "h-8 w-48 appearance-none rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm text-foreground transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30"
 
-function ResultBadge({ isPassed }: { isPassed: boolean | null }) {
-  if (isPassed === null) return <span className="text-muted-foreground">—</span>
-  return (
-    <Badge variant={isPassed ? "success" : "destructive"}>
-      <span
-        aria-hidden="true"
-        className={`size-1.5 rounded-full ${isPassed ? "bg-success" : "bg-destructive"}`}
-      />
-      {isPassed ? "Passed" : "Failed"}
-    </Badge>
-  )
-}
+const FILTER_KEYS = ["class_id", "user_id", "exercise_id"] as const
 
 export function SubmissionsPage() {
-  const [classId, setClassId] = useState("")
-  const [userId, setUserId] = useState("")
-  const [exerciseId, setExerciseId] = useState("")
+  const { values, setFilter } = useUrlFilters(FILTER_KEYS)
+  const classId = values.class_id
+  const userId = values.user_id
+  const exerciseId = values.exercise_id
 
   const classes = useClasses()
   const learners = useLearners()
@@ -65,7 +55,7 @@ export function SubmissionsPage() {
           <select
             id="filter-class"
             value={classId}
-            onChange={(event) => setClassId(event.target.value)}
+            onChange={(event) => setFilter("class_id", event.target.value)}
             className={selectClasses}
           >
             <option value="">All</option>
@@ -84,7 +74,7 @@ export function SubmissionsPage() {
           <select
             id="filter-learner"
             value={userId}
-            onChange={(event) => setUserId(event.target.value)}
+            onChange={(event) => setFilter("user_id", event.target.value)}
             className={selectClasses}
           >
             <option value="">All</option>
@@ -103,7 +93,7 @@ export function SubmissionsPage() {
           <select
             id="filter-exercise"
             value={exerciseId}
-            onChange={(event) => setExerciseId(event.target.value)}
+            onChange={(event) => setFilter("exercise_id", event.target.value)}
             className={selectClasses}
           >
             <option value="">All</option>
@@ -148,7 +138,11 @@ export function SubmissionsPage() {
           <TableBody>
             {list.isPending ? (
               <TableRow>
-                <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
+                <TableCell
+                  role="status"
+                  colSpan={6}
+                  className="py-10 text-center text-muted-foreground"
+                >
                   Loading…
                 </TableCell>
               </TableRow>
