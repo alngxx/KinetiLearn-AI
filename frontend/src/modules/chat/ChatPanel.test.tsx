@@ -83,6 +83,39 @@ async function ask(text: string) {
   await userEvent.click(within(panel()).getByRole("button", { name: "Send" }))
 }
 
+const SESSIONS = [
+  {
+    id: "s1",
+    exercise_id: null,
+    document_id: null,
+    title: "what is the leave policy?",
+    is_active: true,
+    created_at: "2026-08-27T09:00:00Z",
+    updated_at: "2026-08-27T09:05:00Z",
+  },
+  {
+    id: "s2",
+    exercise_id: null,
+    document_id: null,
+    title: "how do I escalate an incident?",
+    is_active: true,
+    created_at: "2026-08-26T09:00:00Z",
+    updated_at: "2026-08-26T09:05:00Z",
+  },
+]
+
+function storedMessage(id: string, role: "user" | "assistant", content: string) {
+  return { id, role, content, created_at: "2026-08-26T09:00:00Z", citations: [] }
+}
+
+async function openHistory() {
+  await userEvent.click(within(panel()).getByRole("button", { name: "Recent chats" }))
+}
+
+function composer() {
+  return within(panel()).queryByLabelText("Your question")
+}
+
 afterEach(() => {
   vi.unstubAllGlobals()
 })
@@ -93,6 +126,8 @@ describe("ChatPanel", () => {
   beforeEach(() => {
     stream = controllableStream()
     server.use(
+      http.get(`${API}/api/v1/chat/sessions`, () => HttpResponse.json(SESSIONS)),
+      http.get(`${API}/api/v1/chat/sessions/:id/messages`, () => HttpResponse.json([])),
       http.post(`${API}/api/v1/chat/sessions`, () =>
         HttpResponse.json(
           {
@@ -339,5 +374,209 @@ describe("ChatPanel", () => {
 
     await userEvent.keyboard("{Escape}")
     expect(screen.queryByRole("complementary")).not.toBeInTheDocument()
+  })
+
+  describe("recent chats", () => {
+    it("lists past conversations and loads the one that is picked", async () => {
+      server.use(
+        http.get(`${API}/api/v1/chat/sessions/s2/messages`, () =>
+          HttpResponse.json([
+            storedMessage("db1", "user", "how do I escalate an incident?"),
+            storedMessage("db2", "assistant", "Raise a ticket with your lead."),
+          ]),
+        ),
+      )
+      renderLayout()
+      await openPanel()
+      await openHistory()
+
+      const list = within(panel()).getByRole("list")
+      expect(within(list).getAllByRole("button")).toHaveLength(2)
+
+      await userEvent.click(
+        within(list).getByRole("button", { name: /how do I escalate an incident\?/ }),
+      )
+
+      // Picking a conversation returns to it, rather than leaving the learner
+      // on the list to find their own way back.
+      expect(await within(panel()).findByText("Raise a ticket with your lead.")).toBeInTheDocument()
+      expect(within(panel()).getByRole("heading", { name: "Ask" })).toBeInTheDocument()
+    })
+
+    it("marks the conversation that is currently open", async () => {
+      renderLayout()
+      await openPanel()
+      await ask("what is the leave policy?")
+      act(() => {
+        stream.push(frame("token", { content: "20 days." }))
+        stream.push(frame("done", { session_id: "s1", message_id: "m1", citations: [] }))
+        stream.close()
+      })
+      await within(panel()).findByText("20 days.")
+
+      await openHistory()
+      const rows = within(within(panel()).getByRole("list")).getAllByRole("button")
+      expect(rows[0]).toHaveAttribute("aria-current", "true")
+      expect(rows[1]).not.toHaveAttribute("aria-current")
+    })
+
+    it("starts a fresh conversation from New chat", async () => {
+      renderLayout()
+      await openPanel()
+      await ask("what is the leave policy?")
+      act(() => {
+        stream.push(frame("token", { content: "20 days." }))
+        stream.push(frame("done", { session_id: "s1", message_id: "m1", citations: [] }))
+        stream.close()
+      })
+      await within(panel()).findByText("20 days.")
+
+      await openHistory()
+      await userEvent.click(within(panel()).getByRole("button", { name: "New chat" }))
+
+      expect(within(panel()).queryByText("20 days.")).not.toBeInTheDocument()
+      expect(
+        within(panel()).getByText(/Ask anything about the training material/),
+      ).toBeInTheDocument()
+      // Nothing to restore, so the composer is there straight away.
+      expect(composer()).toBeEnabled()
+    })
+
+    it("says so when there is nothing to show yet", async () => {
+      server.use(http.get(`${API}/api/v1/chat/sessions`, () => HttpResponse.json([])))
+      renderLayout()
+      await openPanel()
+      await openHistory()
+
+      expect(await within(panel()).findByText("No chats yet")).toBeInTheDocument()
+      // New chat is still offered — it is the way out of an empty list.
+      expect(within(panel()).getByRole("button", { name: "New chat" })).toBeEnabled()
+    })
+
+    it("offers a retry when the list cannot be loaded", async () => {
+      server.use(
+        http.get(`${API}/api/v1/chat/sessions`, () =>
+          HttpResponse.json({ detail: "Something broke." }, { status: 500 }),
+        ),
+      )
+      renderLayout()
+      await openPanel()
+      await openHistory()
+
+      expect(await within(panel()).findByRole("alert")).toHaveTextContent("Something broke.")
+      expect(within(panel()).getByRole("button", { name: "Try again" })).toBeEnabled()
+    })
+
+    it("moves focus into the view it swaps to", async () => {
+      renderLayout()
+      await openPanel()
+      await openHistory()
+
+      // The list has no composer, so the heading is where focus belongs.
+      expect(within(panel()).getByRole("heading", { name: "Recent chats" })).toHaveFocus()
+
+      await userEvent.click(
+        within(panel()).getByRole("button", { name: "Back to the chat" }),
+      )
+      // Coming back, the panel's own autofocus takes over from the heading —
+      // the learner returned to the conversation to type in it.
+      expect(composer()).toHaveFocus()
+    })
+
+    it("leaves focus on the heading when returning on a touch device", async () => {
+      renderLayout({ pointerFine: false })
+      await openPanel()
+      await openHistory()
+      await userEvent.click(
+        within(panel()).getByRole("button", { name: "Back to the chat" }),
+      )
+
+      // Autofocus is suppressed on a phone, so the hand-off has to hold.
+      expect(within(panel()).getByRole("heading", { name: "Ask" })).toHaveFocus()
+    })
+  })
+
+  // Without the gate the restore resolves into a reset() that aborts the live
+  // stream and replaces the turn with history that cannot contain it — and
+  // silently, since reset suppresses the abort's own terminal state.
+  describe("restoring a stored conversation", () => {
+    it("offers no composer until the restore settles, then works normally", async () => {
+      localStorage.setItem("kinetilearn_chat_session", "s2")
+
+      let releaseRestore!: () => void
+      const restoreGate = new Promise<void>((resolve) => {
+        releaseRestore = resolve
+      })
+      let messageCalls = 0
+      server.use(
+        http.get(`${API}/api/v1/chat/sessions/s2/messages`, async () => {
+          await restoreGate
+          return HttpResponse.json([storedMessage("db1", "user", "an older question")])
+        }),
+        http.post(`${API}/api/v1/chat/messages`, () => {
+          messageCalls += 1
+          return new HttpResponse(stream.stream, {
+            headers: { "Content-Type": "text/event-stream" },
+          })
+        }),
+      )
+
+      renderLayout()
+      await openPanel()
+
+      // All three send entry points are gone at once, because the composer is
+      // not rendered at all.
+      expect(composer()).not.toBeInTheDocument()
+      expect(within(panel()).queryByRole("button", { name: "Send" })).not.toBeInTheDocument()
+      expect(within(panel()).getByText("Loading…")).toBeInTheDocument()
+
+      releaseRestore()
+      expect(await within(panel()).findByText("an older question")).toBeInTheDocument()
+      expect(messageCalls).toBe(0)
+
+      await ask("and what about carry-over?")
+      act(() => {
+        stream.push(frame("token", { content: "Up to five days." }))
+        stream.push(frame("done", { session_id: "s2", message_id: "m9", citations: [] }))
+        stream.close()
+      })
+
+      expect(await within(panel()).findByText("Up to five days.")).toBeInTheDocument()
+      expect(messageCalls).toBe(1)
+      // The restored turn is still there — the new one was appended, not swapped in.
+      expect(within(panel()).getByText("an older question")).toBeInTheDocument()
+    })
+
+    it("restores the conversation with its sources", async () => {
+      localStorage.setItem("kinetilearn_chat_session", "s2")
+      server.use(
+        http.get(`${API}/api/v1/chat/sessions/s2/messages`, () =>
+          HttpResponse.json([
+            storedMessage("db1", "user", "what is the leave policy?"),
+            {
+              ...storedMessage("db2", "assistant", "Employees accrue 20 days."),
+              citations: [
+                {
+                  document_chunk_id: "c1",
+                  document_id: "d1",
+                  document_title: "Leave handbook",
+                  chunk_index: 2,
+                  relevance_score: 0.87,
+                  content: "Employees accrue twenty days of annual leave.",
+                },
+              ],
+            },
+          ]),
+        ),
+      )
+
+      renderLayout()
+      await openPanel()
+
+      expect(await within(panel()).findByText("Employees accrue 20 days.")).toBeInTheDocument()
+      // A reloaded answer keeps its sources, so it reads the same as a live one.
+      expect(within(panel()).getByText("1 source")).toBeInTheDocument()
+      expect(within(panel()).getByText("Leave handbook")).toBeInTheDocument()
+    })
   })
 })

@@ -27,7 +27,9 @@ export function LearnerLayout() {
   // calling stop() on close, and do not move useChat into ChatPanel.
   const [chatOpen, setChatOpen] = useState(false)
   const askRef = useRef<HTMLButtonElement>(null)
-  const chat = useChat()
+  // Gated on chatOpen: the panel boots closed on every page load, so the
+  // restore fetch is not paid for by a learner who never opens it.
+  const chat = useChat(chatOpen)
 
   // Focus is inside the panel, so unmounting it would drop focus to <body> and
   // lose the keyboard user's place. Standard disclosure behaviour is to hand it
@@ -121,8 +123,15 @@ export function LearnerLayout() {
             messages={chat.messages}
             status={chat.status}
             busy={chat.busy}
+            sessionId={chat.sessionId}
+            restoring={chat.restoring}
+            restoreError={chat.restoreError}
+            retryingRestore={chat.retryingRestore}
+            onRetryRestore={chat.retryRestore}
             onSend={(content) => void chat.send(content)}
             onStop={chat.stop}
+            onSelectSession={chat.openSession}
+            onNewChat={chat.newChat}
             onClose={closeChat}
           />
         )}

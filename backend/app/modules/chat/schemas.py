@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -30,7 +31,8 @@ class ExplainRequest(BaseModel):
     submission_id: UUID
 
 
-# Sent inside the terminal "done" SSE event, not used as a response_model.
+# Sent inside the terminal "done" SSE event, and reused as the citation shape on
+# a stored message so a reloaded answer looks identical to one just streamed.
 class CitationResponse(BaseModel):
     document_chunk_id: UUID
     document_id: UUID
@@ -38,3 +40,13 @@ class CitationResponse(BaseModel):
     chunk_index: int
     relevance_score: float
     content: str
+
+
+class ChatMessageResponse(BaseModel):
+    id: UUID
+    # Literal rather than str so the generated TypeScript is a union the
+    # frontend's own ChatMessage role can be assigned from.
+    role: Literal["user", "assistant"]
+    content: str
+    created_at: datetime
+    citations: list[CitationResponse]

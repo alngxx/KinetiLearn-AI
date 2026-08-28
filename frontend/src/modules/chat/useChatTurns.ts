@@ -38,6 +38,10 @@ export function useChatTurns() {
   // conversation across two of them with no way to merge it.
   const busyRef = useRef(false)
   const idRef = useRef(0)
+  // Bumped by reset. A turn that was abandoned mid-flight must not write its
+  // outcome over the conversation that replaced it — the abort below lands a
+  // microtask later, by which time these messages belong to another session.
+  const generationRef = useRef(0)
 
   function nextId() {
     idRef.current += 1
@@ -46,6 +50,16 @@ export function useChatTurns() {
 
   const stop = useCallback(() => {
     controllerRef.current?.abort()
+  }, [])
+
+  // Swaps the conversation out: used when a different session is opened and
+  // when a restored transcript arrives. Aborting is the point, not cleanup —
+  // whatever was streaming belonged to the conversation being left.
+  const reset = useCallback((initial: ChatMessage[] = []) => {
+    generationRef.current += 1
+    controllerRef.current?.abort()
+    setMessages(initial)
+    setStatus("idle")
   }, [])
 
   // Resolves to the done payload so a caller can keep what the stream told it —
@@ -60,6 +74,7 @@ export function useChatTurns() {
     // of the calls in a turn is in flight.
     const controller = new AbortController()
     controllerRef.current = controller
+    const generation = generationRef.current
 
     const assistantId = nextId()
     const opening: ChatMessage[] =
@@ -109,10 +124,14 @@ export function useChatTurns() {
           ),
         controller.signal,
       )
+      if (generationRef.current !== generation) return null
       patch({ citations: done.citations, status: "done" })
       setStatus("ready")
       return done
     } catch (err) {
+      // Reset already replaced these messages and the status, so there is
+      // nothing left of this turn to mark up.
+      if (generationRef.current !== generation) return null
       // The signal, not the error's shape: an aborted fetch surfaces as a
       // DOMException in the browser but not everywhere, and apiClient turns
       // anything it does not recognise into a plain network ApiError. Asking
@@ -149,5 +168,5 @@ export function useChatTurns() {
     }
   }, [])
 
-  return { messages, status, busy, stop, runTurn }
+  return { messages, status, busy, stop, reset, runTurn }
 }

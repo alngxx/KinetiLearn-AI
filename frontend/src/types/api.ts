@@ -1002,10 +1002,28 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** List Sessions */
+        get: operations["list_sessions_api_v1_chat_sessions_get"];
         put?: never;
         /** Create Session */
         post: operations["create_session_api_v1_chat_sessions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/chat/sessions/{session_id}/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Session Messages */
+        get: operations["list_session_messages_api_v1_chat_sessions__session_id__messages_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1366,6 +1384,28 @@ export interface components {
             /** Description */
             description?: string | null;
         };
+        /** ChatMessageResponse */
+        ChatMessageResponse: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "user" | "assistant";
+            /** Content */
+            content: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Citations */
+            citations: components["schemas"]["CitationResponse"][];
+        };
         /** ChatSessionResponse */
         ChatSessionResponse: {
             /**
@@ -1391,6 +1431,27 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
+        };
+        /** CitationResponse */
+        CitationResponse: {
+            /**
+             * Document Chunk Id
+             * Format: uuid
+             */
+            document_chunk_id: string;
+            /**
+             * Document Id
+             * Format: uuid
+             */
+            document_id: string;
+            /** Document Title */
+            document_title: string;
+            /** Chunk Index */
+            chunk_index: number;
+            /** Relevance Score */
+            relevance_score: number;
+            /** Content */
+            content: string;
         };
         /** ClassCreate */
         ClassCreate: {
@@ -5170,6 +5231,26 @@ export interface operations {
             };
         };
     };
+    list_sessions_api_v1_chat_sessions_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatSessionResponse"][];
+                };
+            };
+        };
+    };
     create_session_api_v1_chat_sessions_post: {
         parameters: {
             query?: never;
@@ -5190,6 +5271,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ChatSessionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_session_messages_api_v1_chat_sessions__session_id__messages_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatMessageResponse"][];
                 };
             };
             /** @description Validation Error */

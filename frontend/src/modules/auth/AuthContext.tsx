@@ -1,4 +1,5 @@
 import { createContext, useCallback, useMemo, useState, type ReactNode } from "react"
+import { clearStoredChatSession } from "@/lib/chatSessionStorage"
 import { queryClient } from "@/lib/queryClient"
 import { clearToken, decodeToken, getToken, isExpired, setToken } from "@/lib/tokenStorage"
 
@@ -50,6 +51,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(() => {
     clearToken()
     queryClient.clear()
+    // The chat panel reopens whatever session id is stored, so leaving it
+    // behind would point the next learner on this browser at someone else's
+    // conversation. The server 404s it, but the panel should not ask.
+    clearStoredChatSession()
     setTokenState(null)
   }, [])
 

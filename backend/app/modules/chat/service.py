@@ -21,6 +21,7 @@ from app.core.llm import (
 )
 from app.modules.chat.models import ChatMessage, ChatMessageCitation, ChatSession
 from app.modules.chat.schemas import (
+    ChatMessageResponse,
     ChatSessionResponse,
     CitationResponse,
     ExplainRequest,
@@ -37,6 +38,9 @@ from app.modules.submissions.models import Submission
 
 TOP_K = 5
 HISTORY_LIMIT = 10
+# The recent-chats sidebar shows one learner's own conversations, so this is a
+# bound on an unbounded table rather than a page size — there is no page two.
+SESSION_LIST_LIMIT = 20
 # Cosine similarity below this counts as "the corpus has nothing on this". Deliberately
 # permissive: a short question against a 500-token chunk scores around 0.2-0.5 even
 # when it matches well, so a stricter cutoff would reject real questions.
@@ -88,6 +92,97 @@ class ChatService:
         if session is None:
             raise HTTPException(status_code = 404, detail = "Chat session not found.")
         return session
+
+    # Backs the recent-chats sidebar. Explain sessions are left out on purpose:
+    # they answer follow-ups only from their own exam's source documents, and the
+    # general panel gives no sign of that narrower scope. They are reached from
+    # the result page instead.
+    async def list_sessions(self, user_id: UUID) -> list[ChatSessionResponse]:
+        result = await self.db.execute(
+            select(ChatSession)
+            .where(
+                ChatSession.user_id == user_id,
+                ChatSession.exercise_id.is_(None),
+                # create_session commits before any turn exists, so a first
+                # message that never finished leaves an untitled empty session.
+                ChatSession.messages.any(),
+            )
+            .order_by(ChatSession.updated_at.desc())
+            .limit(SESSION_LIST_LIMIT)
+        )
+        return [
+            ChatSessionResponse.model_validate(row) for row in result.scalars().all()
+        ]
+
+    # The whole transcript, oldest first — created_at is what _persist_turn sets
+    # a millisecond apart so an answer sorts after its question. Not capped: the
+    # LLM history window is a separate, much smaller thing (HISTORY_LIMIT).
+    async def list_messages(
+        self, session_id: UUID, user_id: UUID
+    ) -> list[ChatMessageResponse]:
+        await self._load_session(session_id, user_id)
+
+        result = await self.db.execute(
+            select(ChatMessage)
+            .where(ChatMessage.session_id == session_id)
+            .order_by(ChatMessage.created_at)
+            .options(selectinload(ChatMessage.citations))
+        )
+        messages = list(result.scalars().all())
+
+        chunk_ids = {c.document_chunk_id for m in messages for c in m.citations}
+        sources = await self._citation_sources(chunk_ids)
+
+        return [
+            ChatMessageResponse(
+                id = message.id,
+                role = message.role,
+                content = message.content,
+                created_at = message.created_at,
+                citations = self._stored_citations(message, sources),
+            )
+            for message in messages
+        ]
+
+    # One query for every chunk the whole transcript cites, so restoring a long
+    # conversation is not one round trip per citation. Same chunk-to-title join
+    # _retrieve uses.
+    async def _citation_sources(
+        self, chunk_ids: set[UUID]
+    ) -> dict[UUID, tuple[DocumentChunk, str]]:
+        if not chunk_ids:
+            return {}
+
+        result = await self.db.execute(
+            select(DocumentChunk, Document.title)
+            .join(Document, Document.id == DocumentChunk.document_id)
+            .where(DocumentChunk.id.in_(chunk_ids))
+        )
+        return {chunk.id: (chunk, title) for chunk, title in result.all()}
+
+    # Same shape the done frame sends, so a restored answer renders exactly like
+    # one just streamed. Best match first: the stored rows have no order of their
+    # own, and the live list is ranked.
+    def _stored_citations(
+        self,
+        message: ChatMessage,
+        sources: dict[UUID, tuple[DocumentChunk, str]],
+    ) -> list[CitationResponse]:
+        citations = []
+        for stored in message.citations:
+            found = sources.get(stored.document_chunk_id)
+            if found is None:
+                continue
+            chunk, title = found
+            citations.append(CitationResponse(
+                document_chunk_id = chunk.id,
+                document_id = chunk.document_id,
+                document_title = title,
+                chunk_index = chunk.chunk_index,
+                relevance_score = stored.relevance_score or 0.0,
+                content = chunk.content,
+            ))
+        return sorted(citations, key = lambda c: c.relevance_score, reverse = True)
 
     # The (document, version) pairs a learner is allowed to see: a live document,
     # its promoted version, and only if that version finished processing. Passing
