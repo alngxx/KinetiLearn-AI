@@ -17,6 +17,8 @@ import { TakeQuizPage } from "@/modules/daily-quiz/TakeQuizPage"
 import { DailyQuizConfigsPage } from "@/modules/daily-quiz-configs/DailyQuizConfigsPage"
 import { DocumentDetailPage } from "@/modules/documents/DocumentDetailPage"
 import { DocumentsPage } from "@/modules/documents/DocumentsPage"
+import { ExamResultPage } from "@/modules/exams/ExamResultPage"
+import { ExamTakePage } from "@/modules/exams/ExamTakePage"
 import { ExerciseDetailPage } from "@/modules/exams/ExerciseDetailPage"
 import { GenerateExamPage } from "@/modules/exams/GenerateExamPage"
 import { LearnerClassPage } from "@/modules/learner-home/LearnerClassPage"
@@ -72,8 +74,12 @@ export default function App() {
                   <Route path="/learner" element={<LearnerLayout />}>
                     <Route index element={<LearnerHomePage />} />
                     <Route path="classes/:classId" element={<LearnerClassPage />} />
-                    {/* Taking an exam is a later task; this is the daily quiz. */}
                     <Route path="quiz/:quizId" element={<TakeQuizPage />} />
+                    <Route path="exams/:exerciseId/take" element={<ExamTakePage />} />
+                    <Route
+                      path="exams/:exerciseId/result/:submissionId"
+                      element={<ExamResultPage />}
+                    />
                   </Route>
                 </Route>
               </Route>

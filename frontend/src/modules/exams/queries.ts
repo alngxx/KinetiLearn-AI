@@ -4,10 +4,13 @@ import {
   deleteExercise,
   finalizeExercise,
   generateExercise,
+  getExamForLearner,
   getExercise,
   getGenerationJob,
+  getSubmission,
   listClasses,
   listDocuments,
+  submitExam,
   unpublishExercise,
   updateExercise,
   updateOption,
@@ -17,7 +20,11 @@ import {
   type FinalizeInput,
   type GenerateInput,
   type GenerationJob,
+  type LearnerExam,
+  type LearnerQuestion,
   type Question,
+  type ExamSubmission,
+  type SubmitExamRequest,
   type SaveStep,
 } from "@/modules/exams/api"
 
@@ -56,6 +63,37 @@ export function useExercise(id: string) {
   return useQuery({
     queryKey: ["exercise", id],
     queryFn: () => getExercise(id),
+  })
+}
+
+// The take page and the result page share this key: the result needs the
+// question text and option labels to show back what was answered, and there is
+// no other learner-facing read that carries them.
+export function useLearnerExam(exerciseId: string) {
+  return useQuery({
+    queryKey: ["exam-take", exerciseId],
+    queryFn: () => getExamForLearner(exerciseId),
+  })
+}
+
+export function useSubmission(submissionId: string) {
+  return useQuery({
+    queryKey: ["submission", submissionId],
+    queryFn: () => getSubmission(submissionId),
+  })
+}
+
+// Submitting changes attempt_count and best_score on the class page, and the
+// learner's own submission list that links to past results.
+export function useSubmitExam() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (body: SubmitExamRequest) => submitExam(body),
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["my-class-exercises"] })
+      queryClient.invalidateQueries({ queryKey: ["my-classes"] })
+      queryClient.invalidateQueries({ queryKey: ["my-submissions"] })
+    },
   })
 }
 
@@ -160,3 +198,5 @@ export function useQuestionStepRunner(exerciseId: string) {
     return fresh
   }
 }
+
+export type { ExamSubmission, LearnerExam, LearnerQuestion }

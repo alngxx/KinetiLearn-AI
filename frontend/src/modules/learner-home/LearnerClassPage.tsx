@@ -6,8 +6,15 @@ import { PageHeader } from "@/components/PageHeader"
 import { QueryErrorState } from "@/components/QueryErrorState"
 import { ResultBadge } from "@/components/ResultBadge"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { formatMoment } from "@/modules/learner-home/dates"
-import { useMyClassExercises, useMyClasses, type MyExercise } from "@/modules/learner-home/queries"
+import {
+  bestSubmissionByExercise,
+  useMyClassExercises,
+  useMyClasses,
+  useMySubmissions,
+  type MyExercise,
+} from "@/modules/learner-home/queries"
 
 export function LearnerClassPage() {
   const { classId } = useParams()
@@ -21,6 +28,11 @@ function ClassView({ classId }: { classId: string }) {
   // not the class itself, and there is no learner-facing class detail endpoint.
   const classes = useMyClasses()
   const row = classes.data?.find((item) => item.id === classId)
+  // Only to link a card to the attempt its Best figure came from. A failure here
+  // costs the link and nothing else, so the page does not wait on it or report
+  // it — the exercises are still readable and still startable.
+  const submissions = useMySubmissions(classId)
+  const bestSubmissions = bestSubmissionByExercise(submissions.data ?? [])
 
   return (
     <div className="flex flex-col gap-6">
@@ -65,7 +77,10 @@ function ClassView({ classId }: { classId: string }) {
         <ul className="flex flex-col gap-3">
           {exercises.data.map((exercise) => (
             <li key={exercise.id}>
-              <ExerciseCard exercise={exercise} />
+              <ExerciseCard
+                exercise={exercise}
+                bestSubmissionId={bestSubmissions.get(exercise.id)}
+              />
             </li>
           ))}
         </ul>
@@ -74,7 +89,13 @@ function ClassView({ classId }: { classId: string }) {
   )
 }
 
-function ExerciseCard({ exercise }: { exercise: MyExercise }) {
+function ExerciseCard({
+  exercise,
+  bestSubmissionId,
+}: {
+  exercise: MyExercise
+  bestSubmissionId: string | undefined
+}) {
   return (
     <article className="flex flex-col gap-3 rounded-xl border border-border bg-card p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -101,6 +122,25 @@ function ExerciseCard({ exercise }: { exercise: MyExercise }) {
         <Fact label="Attempts">{exercise.attempt_count}</Fact>
         {exercise.best_score !== null && <Fact label="Best">{exercise.best_score}</Fact>}
       </dl>
+
+      <div className="flex flex-wrap items-center gap-3">
+        {/* Always offered. Whether the exam is open is the server's to answer —
+            it refuses one that has not started yet, with its own wording — and
+            guessing that here would mean duplicating the rule. */}
+        <Button asChild>
+          <Link to={`/learner/exams/${exercise.id}/take`}>
+            {exercise.attempt_count === 0 ? "Start" : "Try again"}
+          </Link>
+        </Button>
+        {bestSubmissionId !== undefined && (
+          <Link
+            to={`/learner/exams/${exercise.id}/result/${bestSubmissionId}`}
+            className="text-sm text-muted-foreground underline-offset-4 transition-colors outline-none hover:text-foreground hover:underline focus-visible:rounded-sm focus-visible:ring-3 focus-visible:ring-ring/50"
+          >
+            See your best attempt
+          </Link>
+        )}
+      </div>
 
       {/* Empty for a multi-document exam, which awards no skill points at all —
           so no skills is a real answer, not a missing one. */}

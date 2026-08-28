@@ -20,4 +20,17 @@ export function streamChatMessage(
   return streamSSE("/api/v1/chat/messages", { session_id: sessionId, content }, { onToken, signal })
 }
 
+// The whole request: chat/schemas.py's ExplainRequest is submission_id and
+// nothing else. Which questions get explained is the server's call — it takes
+// every answer that is not correct, skipped ones included, capped at ten.
+// This is also what creates the session, so its id arrives in the done frame
+// rather than beforehand.
+export function streamExplain(
+  submissionId: string,
+  onToken: (token: string) => void,
+  signal: AbortSignal,
+): Promise<DonePayload> {
+  return streamSSE("/api/v1/chat/explain", { submission_id: submissionId }, { onToken, signal })
+}
+
 export type { Citation }
