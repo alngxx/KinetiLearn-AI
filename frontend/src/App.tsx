@@ -1,4 +1,5 @@
 import { QueryClientProvider } from "@tanstack/react-query"
+import { lazy, Suspense } from "react"
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom"
 import { Toaster } from "@/components/ui/sonner"
 import { AdminLayout } from "@/layouts/AdminLayout"
@@ -28,6 +29,15 @@ import { SubmissionDetailPage } from "@/modules/submissions/SubmissionDetailPage
 import { SubmissionsPage } from "@/modules/submissions/SubmissionsPage"
 import { ThemeProvider } from "@/modules/theme/ThemeContext"
 import { UsersPage } from "@/modules/users/UsersPage"
+
+// The only split route in the app. Recharts and its dependency tree are roughly
+// as large as everything else put together, and one screen uses them — eagerly
+// importing it would put that weight on every page load in both portals.
+const SkillDashboardPage = lazy(() =>
+  import("@/modules/scoring/SkillDashboardPage").then((module) => ({
+    default: module.SkillDashboardPage,
+  })),
+)
 
 function HomeRedirect() {
   const { user } = useAuth()
@@ -74,6 +84,26 @@ export default function App() {
                   <Route path="/learner" element={<LearnerLayout />}>
                     <Route index element={<LearnerHomePage />} />
                     <Route path="classes/:classId" element={<LearnerClassPage />} />
+                    <Route
+                      path="skills"
+                      element={
+                        // Matches the loading line every page in this portal
+                        // shows while its query is pending, so the chunk
+                        // arriving looks like the data arriving.
+                        <Suspense
+                          fallback={
+                            <p
+                              role="status"
+                              className="py-10 text-center text-sm text-muted-foreground"
+                            >
+                              Loading…
+                            </p>
+                          }
+                        >
+                          <SkillDashboardPage />
+                        </Suspense>
+                      }
+                    />
                     <Route path="quiz/:quizId" element={<TakeQuizPage />} />
                     <Route path="exams/:exerciseId/take" element={<ExamTakePage />} />
                     <Route

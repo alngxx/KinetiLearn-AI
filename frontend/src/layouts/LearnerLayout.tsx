@@ -1,4 +1,4 @@
-import { HouseIcon, LogOutIcon, MessageCircleIcon } from "lucide-react"
+import { ChartSplineIcon, HouseIcon, LogOutIcon, MessageCircleIcon } from "lucide-react"
 import { useRef, useState } from "react"
 import { NavLink, Outlet, useNavigate } from "react-router-dom"
 import { ThemeToggle } from "@/components/ThemeToggle"
@@ -69,6 +69,13 @@ export function LearnerLayout() {
           >
             <HouseIcon className="size-4" />
             Home
+          </NavLink>
+          <NavLink
+            to="/learner/skills"
+            className={({ isActive }) => cn(navLinkClasses, isActive && activeClasses)}
+          >
+            <ChartSplineIcon className="size-4" />
+            Skills
           </NavLink>
         </nav>
 
