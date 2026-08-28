@@ -27,9 +27,15 @@ function exercise(id: string, title: string, extra: Record<string, unknown> = {}
   }
 }
 
-function renderClass(exercises: unknown[], classes: unknown[] = [], status = 200) {
+function renderClass(
+  exercises: unknown[],
+  classes: unknown[] = [],
+  status = 200,
+  submissions: unknown[] = [],
+) {
   server.use(
     http.get(`${API}/api/v1/classes/me`, () => HttpResponse.json(classes)),
+    http.get(`${API}/api/v1/submissions/me`, () => HttpResponse.json(submissions)),
     http.get(`${API}/api/v1/classes/cl1/exercises`, () =>
       status === 200
         ? HttpResponse.json(exercises)
@@ -52,13 +58,29 @@ function renderClass(exercises: unknown[], classes: unknown[] = [], status = 200
   )
 }
 
+function submission(id: string, exerciseId: string, score: number, attempt: number) {
+  return {
+    id,
+    user_id: "u1",
+    exercise_id: exerciseId,
+    attempt_number: attempt,
+    submitted_at: "2026-08-20T10:00:00Z",
+    score,
+    is_passed: score >= 70,
+    is_late: false,
+  }
+}
+
 function cardFor(title: string) {
   return screen.getByRole("heading", { name: title }).closest("article") as HTMLElement
 }
 
 describe("LearnerClassPage", () => {
   beforeEach(() => {
-    server.use(http.get(`${API}/api/v1/classes/me`, () => HttpResponse.json([])))
+    server.use(
+      http.get(`${API}/api/v1/classes/me`, () => HttpResponse.json([])),
+      http.get(`${API}/api/v1/submissions/me`, () => HttpResponse.json([])),
+    )
   })
 
   it("shows an attempted exercise with its score and result", async () => {
@@ -93,12 +115,57 @@ describe("LearnerClassPage", () => {
     expect(within(card).queryByRole("list")).not.toBeInTheDocument()
   })
 
-  it("offers no way to start an exercise yet", async () => {
+  it("offers Start on an exercise nobody has attempted, and no past result to open", async () => {
     renderClass([exercise("ex1", "Incident reporting")])
 
     await screen.findByRole("heading", { name: "Incident reporting" })
-    expect(screen.queryByRole("button", { name: /Start/ })).not.toBeInTheDocument()
-    expect(screen.queryByRole("link", { name: /Start/ })).not.toBeInTheDocument()
+    const card = cardFor("Incident reporting")
+
+    expect(within(card).getByRole("link", { name: "Start" })).toHaveAttribute(
+      "href",
+      "/learner/exams/ex1/take",
+    )
+    expect(within(card).queryByRole("link", { name: /best attempt/ })).not.toBeInTheDocument()
+  })
+
+  it("calls it Try again once there is an attempt, and links to the best one", async () => {
+    renderClass(
+      [exercise("ex1", "Incident reporting", { attempt_count: 2, best_score: 80 })],
+      [],
+      200,
+      // Newest first, as the server orders them. The best attempt is the older,
+      // higher-scoring one — the same number the card shows as Best.
+      [
+        submission("sub2", "ex1", 55, 2),
+        submission("sub1", "ex1", 80, 1),
+      ],
+    )
+
+    await screen.findByRole("heading", { name: "Incident reporting" })
+    const card = cardFor("Incident reporting")
+
+    expect(within(card).getByRole("link", { name: "Try again" })).toBeInTheDocument()
+    expect(within(card).getByRole("link", { name: "See your best attempt" })).toHaveAttribute(
+      "href",
+      "/learner/exams/ex1/result/sub1",
+    )
+  })
+
+  // The list is only there to link a past result. Losing it must not cost the
+  // learner the exercises or the ability to start one.
+  it("still offers Start when the submission list fails", async () => {
+    renderClass([exercise("ex1", "Incident reporting")])
+    server.use(
+      http.get(`${API}/api/v1/submissions/me`, () =>
+        HttpResponse.json({ detail: "Nope." }, { status: 500 }),
+      ),
+    )
+
+    await screen.findByRole("heading", { name: "Incident reporting" })
+    const card = cardFor("Incident reporting")
+
+    expect(within(card).getByRole("link", { name: "Start" })).toBeInTheDocument()
+    expect(within(card).queryByRole("link", { name: /best attempt/ })).not.toBeInTheDocument()
   })
 
   it("surfaces the server's own message when the learner is not a member", async () => {

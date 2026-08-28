@@ -1,6 +1,7 @@
-import { CheckIcon, ChevronLeftIcon, MinusIcon, XIcon } from "lucide-react"
+import { ChevronLeftIcon } from "lucide-react"
 import { useState } from "react"
 import { Link, useParams } from "react-router-dom"
+import { AnswerLine } from "@/components/AnswerLine"
 import { ConfirmDialog } from "@/components/ConfirmDialog"
 import { PageHeader } from "@/components/PageHeader"
 import { QueryErrorState } from "@/components/QueryErrorState"
@@ -269,21 +270,6 @@ function ResultView({ result }: { result: Result }) {
         })}
       </ul>
     </div>
-  )
-}
-
-function AnswerLine({ isCorrect, text }: { isCorrect: boolean | null; text: string }) {
-  const Icon = isCorrect === null ? MinusIcon : isCorrect ? CheckIcon : XIcon
-  const tone =
-    isCorrect === null ? "text-muted-foreground" : isCorrect ? "text-success" : "text-destructive"
-  const label = isCorrect === null ? "Skipped" : isCorrect ? "Correct" : "Incorrect"
-
-  return (
-    <p className={`flex items-start gap-2 text-sm ${tone}`}>
-      <Icon aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
-      <span className="sr-only">{label}: </span>
-      <span className="min-w-0 break-words">{text}</span>
-    </p>
   )
 }
 

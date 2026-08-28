@@ -2,19 +2,9 @@ import { ArrowUpIcon, SquareIcon, XIcon } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
-import { Citations } from "@/modules/chat/Citations"
+import { Bubble } from "@/modules/chat/Bubble"
+import { ChatStatusLine } from "@/modules/chat/ChatStatusLine"
 import type { ChatMessage, ChatStatus } from "@/modules/chat/useChat"
-
-// What the live region says. The answer text itself is deliberately not
-// announced — a token-by-token live region is unusable with a screen reader —
-// so a failure has to be reported here or it is silent.
-const STATUS_TEXT: Record<ChatStatus, string> = {
-  idle: "",
-  answering: "Answering…",
-  ready: "Answer ready",
-  stopped: "Stopped",
-  failed: "Answer failed",
-}
 
 export function ChatPanel({
   messages,
@@ -109,9 +99,7 @@ export function ChatPanel({
         )}
       </div>
 
-      <p role="status" className="sr-only">
-        {STATUS_TEXT[status]}
-      </p>
+      <ChatStatusLine status={status} />
 
       <div className="flex flex-col gap-2 border-t border-border p-4">
         <Textarea
@@ -147,38 +135,5 @@ export function ChatPanel({
         )}
       </div>
     </aside>
-  )
-}
-
-function Bubble({ message }: { message: ChatMessage }) {
-  if (message.role === "user") {
-    return (
-      <p className="ml-6 self-end rounded-xl rounded-br-sm bg-primary px-3 py-2 text-sm break-words text-primary-foreground">
-        {message.content}
-      </p>
-    )
-  }
-
-  return (
-    <div className="mr-6 flex flex-col">
-      <div className="rounded-xl rounded-bl-sm border border-border bg-card px-3 py-2">
-        {message.content === "" && message.status === "streaming" ? (
-          <p className="text-sm text-muted-foreground">Thinking…</p>
-        ) : (
-          <p className="text-sm break-words whitespace-pre-wrap text-card-foreground">
-            {message.content}
-          </p>
-        )}
-        {message.status === "stopped" && (
-          <p className="mt-1 text-xs text-muted-foreground">Stopped</p>
-        )}
-        {message.error !== null && (
-          <p role="alert" className="mt-1 text-xs text-destructive">
-            {message.error}
-          </p>
-        )}
-      </div>
-      <Citations citations={message.citations} />
-    </div>
   )
 }

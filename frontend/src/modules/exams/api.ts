@@ -11,6 +11,14 @@ export type ExerciseUpdateInput = components["schemas"]["ExerciseUpdate"]
 export type GenerateInput = components["schemas"]["GenerateExerciseRequest"]
 export type GenerationJob = components["schemas"]["GenerationJobResponse"]
 
+// The learner side of the same exercise. A different schema, not a subset by
+// convention: LearnerExerciseDetail has no is_correct and no explanation on it
+// anywhere, which is what keeps the answer key out of a take page.
+export type LearnerExam = components["schemas"]["LearnerExerciseDetail"]
+export type LearnerQuestion = components["schemas"]["LearnerQuestionOut"]
+export type SubmitExamRequest = components["schemas"]["SubmitRequest"]
+export type ExamSubmission = components["schemas"]["SubmissionDetailResponse"]
+
 type DocumentRow = components["schemas"]["DocumentResponse"]
 type ClassRow = components["schemas"]["ClassResponse"]
 
@@ -49,6 +57,23 @@ export function getExercise(id: string) {
 // reaches "succeeded", which is what carries exercise_id.
 export function generateExercise(body: GenerateInput) {
   return api.post<GenerationJob>("/api/v1/exams/generate", body)
+}
+
+// Attempt-agnostic: it never looks at submissions, so a retry and a first go
+// get the same payload, and reading it after submitting is the same request
+// again. Refused before start_time, but deliberately not after end_time —
+// submitting late is allowed and only flagged.
+export function getExamForLearner(exerciseId: string) {
+  return api.get<LearnerExam>(`/api/v1/exams/${exerciseId}/take`)
+}
+
+export function submitExam(body: SubmitExamRequest) {
+  return api.post<ExamSubmission>("/api/v1/submissions", body)
+}
+
+// Owner or admin only; anyone else gets a 403.
+export function getSubmission(submissionId: string) {
+  return api.get<ExamSubmission>(`/api/v1/submissions/${submissionId}`)
 }
 
 export function getGenerationJob(jobId: string) {
