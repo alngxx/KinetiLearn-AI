@@ -1,6 +1,7 @@
-import { ChevronLeftIcon } from "lucide-react"
+import { ChevronLeftIcon, ClipboardListIcon } from "lucide-react"
 import type { ReactNode } from "react"
 import { Link, useParams } from "react-router-dom"
+import { EmptyState } from "@/components/EmptyState"
 import { PageHeader } from "@/components/PageHeader"
 import { QueryErrorState } from "@/components/QueryErrorState"
 import { ResultBadge } from "@/components/ResultBadge"
@@ -55,12 +56,11 @@ function ClassView({ classId }: { classId: string }) {
           />
         </div>
       ) : exercises.data.length === 0 ? (
-        <div className="rounded-xl border border-border bg-card px-5 py-12 text-center">
-          <p className="text-sm font-medium text-foreground">No exercises yet</p>
-          <p className="mx-auto mt-1 max-w-prose text-sm text-muted-foreground">
-            Nothing has been assigned to this class so far. It will appear here once it is.
-          </p>
-        </div>
+        <EmptyState
+          icon={ClipboardListIcon}
+          title="No exercises yet"
+          body="Nothing has been assigned to this class so far. It will appear here once it is."
+        />
       ) : (
         <ul className="flex flex-col gap-3">
           {exercises.data.map((exercise) => (

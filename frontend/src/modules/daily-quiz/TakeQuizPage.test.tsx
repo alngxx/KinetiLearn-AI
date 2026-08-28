@@ -108,7 +108,7 @@ describe("TakeQuizPage", () => {
 
     expect(await screen.findByText("What is the reporting window?")).toBeInTheDocument()
     expect(screen.getByText("Who owns the incident log?")).toBeInTheDocument()
-    expect(screen.queryByText("This quiz isn't available")).not.toBeInTheDocument()
+    expect(screen.queryByText("This quiz isn’t available")).not.toBeInTheDocument()
   })
 
   it("shows the options without leaking the answer key", async () => {
@@ -185,7 +185,7 @@ describe("TakeQuizPage", () => {
     await userEvent.click(await screen.findByRole("button", { name: "Send anyway" }))
 
     expect(await screen.findByText("1 of 2")).toBeInTheDocument()
-    expect(screen.queryByText("You've already answered this quiz")).not.toBeInTheDocument()
+    expect(screen.queryByText("You’ve already answered this quiz")).not.toBeInTheDocument()
   })
 
   it("shows the server's message when someone already answered it", async () => {
@@ -208,15 +208,15 @@ describe("TakeQuizPage", () => {
   // a job well done. They must not share a sentence.
   it("says a missing quiz is unavailable", async () => {
     renderTake("/learner/quiz/nope")
-    expect(await screen.findByText("This quiz isn't available")).toBeInTheDocument()
-    expect(screen.queryByText("You've already answered this quiz")).not.toBeInTheDocument()
+    expect(await screen.findByText("This quiz isn’t available")).toBeInTheDocument()
+    expect(screen.queryByText("You’ve already answered this quiz")).not.toBeInTheDocument()
   })
 
   it("says an answered quiz is already done", async () => {
     quizzes = [quiz({ already_submitted: true })]
     renderTake()
-    expect(await screen.findByText("You've already answered this quiz")).toBeInTheDocument()
-    expect(screen.queryByText("This quiz isn't available")).not.toBeInTheDocument()
+    expect(await screen.findByText("You’ve already answered this quiz")).toBeInTheDocument()
+    expect(screen.queryByText("This quiz isn’t available")).not.toBeInTheDocument()
   })
 
   it("surfaces a failed load rather than calling the quiz missing", async () => {
@@ -228,6 +228,6 @@ describe("TakeQuizPage", () => {
     renderTake()
 
     expect(await screen.findByText("Quiz service is down.")).toBeInTheDocument()
-    expect(screen.queryByText("This quiz isn't available")).not.toBeInTheDocument()
+    expect(screen.queryByText("This quiz isn’t available")).not.toBeInTheDocument()
   })
 })

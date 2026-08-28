@@ -35,8 +35,11 @@ export function ChatPanel({
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
 
+  // Desktop only. On a phone this is a full-screen overlay the learner has only
+  // just opened, and focusing the composer throws the keyboard up over it before
+  // they have read anything. Same direct matchMedia call ThemeContext uses.
   useEffect(() => {
-    inputRef.current?.focus()
+    if (window.matchMedia("(pointer: fine)").matches) inputRef.current?.focus()
   }, [])
 
   // Marks the body while the panel is mounted; index.css turns that into an
@@ -67,8 +70,11 @@ export function ChatPanel({
         if (event.key === "Escape") onClose()
       }}
       // Overlays on a phone, where a stacked panel would sit below the whole
-      // page and have to be scrolled to. A column beside the content from md up.
-      className="fixed inset-0 z-20 flex flex-col border-border bg-sidebar md:static md:z-auto md:w-96 md:shrink-0 md:border-l"
+      // page and have to be scrolled to; a column beside the content from md up.
+      // Being full-bleed, it owns the safe-area insets itself — without them the
+      // Close button sits under the notch and the composer under the home
+      // indicator. Reset from md up, where the layout root handles them.
+      className="fixed inset-0 z-20 flex flex-col border-border bg-sidebar pt-[env(safe-area-inset-top)] pr-[env(safe-area-inset-right)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] md:static md:z-auto md:w-96 md:shrink-0 md:border-l md:p-0"
     >
       <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-3">
         <h2 className="text-sm font-semibold tracking-tight text-sidebar-foreground">Ask</h2>

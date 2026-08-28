@@ -107,6 +107,35 @@ describe("LearnerHomePage", () => {
     expect(screen.queryByRole("link", { name: /Start quiz/ })).not.toBeInTheDocument()
   })
 
+  // An open quiz is the one actionable thing on the page, so it is marked as
+  // such rather than looking identical to one that is already done.
+  it("distinguishes an open quiz from an answered one beyond the wording", async () => {
+    quizzes = [quiz("dq1"), quiz("dq2", { already_submitted: true })]
+    renderHome()
+
+    await screen.findByRole("link", { name: /Start quiz/ })
+    const cards = screen.getAllByRole("article")
+
+    expect(cards[0]).toHaveAttribute("data-available")
+    expect(cards[1]).not.toHaveAttribute("data-available")
+  })
+
+  it("shows progress for a class and drops the bar when there is nothing assigned", async () => {
+    classes = [
+      myClass("cl1", "Q1 onboarding"),
+      myClass("cl2", "Empty class", { exercise_count: 0, completed_exercise_count: 0 }),
+    ]
+    renderHome()
+
+    const withWork = await screen.findByRole("link", { name: /Q1 onboarding/ })
+    expect(within(withWork).getByText("3 of 7")).toBeInTheDocument()
+
+    // 0 of 0 has no honest denominator, so it says so instead of drawing a bar.
+    const empty = screen.getByRole("link", { name: /Empty class/ })
+    expect(within(empty).getByText("No exercises yet")).toBeInTheDocument()
+    expect(empty.textContent).not.toContain("0 of 0")
+  })
+
   it("renders both empty states independently", async () => {
     quizzes = []
     classes = []

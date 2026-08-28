@@ -1,7 +1,9 @@
-import { ChevronRightIcon } from "lucide-react"
+import { CalendarClockIcon, ChevronRightIcon, UsersIcon } from "lucide-react"
 import { Link } from "react-router-dom"
+import { EmptyState } from "@/components/EmptyState"
 import { PageHeader } from "@/components/PageHeader"
 import { QueryErrorState } from "@/components/QueryErrorState"
+import { cn } from "@/lib/utils"
 import { QuizCard } from "@/modules/daily-quiz/QuizCard"
 import { useTodayQuizzes } from "@/modules/daily-quiz/queries"
 import { formatRange } from "@/modules/learner-home/dates"
@@ -16,7 +18,7 @@ export function LearnerHomePage() {
       <PageHeader
         eyebrow="Home"
         title="Your training"
-        description="Today's quiz and the classes you are enrolled in."
+        description="Today’s quiz and the classes you are enrolled in."
       />
 
       <section className="flex flex-col gap-3">
@@ -36,6 +38,7 @@ export function LearnerHomePage() {
           </div>
         ) : quizzes.data.length === 0 ? (
           <EmptyState
+            icon={CalendarClockIcon}
             title="No quiz right now"
             body="Daily quizzes are sent out on a schedule. When one is waiting for you, it shows up here."
           />
@@ -65,6 +68,7 @@ export function LearnerHomePage() {
           </div>
         ) : classes.data.length === 0 ? (
           <EmptyState
+            icon={UsersIcon}
             title="You are not enrolled yet"
             body="Your training manager adds you to a class. Once that happens, it appears here."
           />
@@ -102,12 +106,14 @@ function ClassCard({ row }: { row: MyClass }) {
       </div>
 
       <div className="flex items-center gap-3">
-        <p className="text-sm text-muted-foreground">
-          <span className="numeric text-foreground">
-            {done} of {total}
-          </span>{" "}
-          {total === 1 ? "exercise done" : "exercises done"}
-        </p>
+        {total === 0 ? (
+          // A class with nothing assigned has no progress to show. A bar here
+          // would have to invent a denominator, and 0 of 0 reads as failure
+          // rather than as "nothing has been set yet".
+          <p className="text-sm text-muted-foreground">No exercises yet</p>
+        ) : (
+          <ClassProgress done={done} total={total} />
+        )}
         <ChevronRightIcon
           aria-hidden="true"
           className="size-4 text-muted-foreground transition-colors group-hover:text-foreground"
@@ -117,11 +123,32 @@ function ClassCard({ row }: { row: MyClass }) {
   )
 }
 
-function EmptyState({ title, body }: { title: string; body: string }) {
+function ClassProgress({ done, total }: { done: number; total: number }) {
+  const percent = Math.min(100, Math.round((done / total) * 100))
+
   return (
-    <div className="rounded-xl border border-border bg-card px-5 py-12 text-center">
-      <p className="text-sm font-medium text-foreground">{title}</p>
-      <p className="mx-auto mt-1 max-w-prose text-sm text-muted-foreground">{body}</p>
+    <div className="flex flex-col gap-1.5">
+      <p className="text-sm text-muted-foreground">
+        <span className="numeric text-foreground">
+          {done} of {total}
+        </span>{" "}
+        {total === 1 ? "exercise done" : "exercises done"}
+      </p>
+      {/* The line above already states the exact value, so the bar repeats it
+          visually and is hidden from screen readers — the same call
+          ThresholdLadder and SkillBandBar make. Brass while there is still work
+          left, green once the class is finished, matching the Answered badge
+          and ResultBadge. Nothing started leaves an empty track, which reads as
+          not-started without needing a third colour. */}
+      <div
+        aria-hidden="true"
+        className="h-1.5 w-28 overflow-hidden rounded-full bg-muted"
+      >
+        <div
+          className={cn("h-full rounded-full", done >= total ? "bg-success" : "bg-ring")}
+          style={{ width: `${percent}%` }}
+        />
+      </div>
     </div>
   )
 }

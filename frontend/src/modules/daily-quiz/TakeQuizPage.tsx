@@ -95,12 +95,12 @@ function TakeView({ quizId }: { quizId: string }) {
         </div>
       ) : quiz === undefined ? (
         <Fallback
-          title="This quiz isn't available"
+          title="This quiz isn’t available"
           body="It may have expired, or it was never assigned to you. Anything still open is on your home page."
         />
       ) : quiz.already_submitted ? (
         <Fallback
-          title="You've already answered this quiz"
+          title="You’ve already answered this quiz"
           body="There is one attempt per quiz, and yours is in. Your next one will appear on your home page when it is sent."
         />
       ) : (

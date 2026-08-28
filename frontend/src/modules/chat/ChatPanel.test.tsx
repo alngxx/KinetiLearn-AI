@@ -30,12 +30,15 @@ function controllableStream() {
   }
 }
 
-function stubMatchMedia() {
+// Query-aware: the panel asks "(pointer: fine)" to decide whether autofocusing
+// the composer is safe, so a stub that answers false to everything would silently
+// put every test on the mobile path. Desktop unless a test says otherwise.
+function stubMatchMedia({ pointerFine = true }: { pointerFine?: boolean } = {}) {
   vi.stubGlobal(
     "matchMedia",
-    vi.fn(() => ({
-      matches: false,
-      media: "(prefers-color-scheme: dark)",
+    vi.fn((query: string) => ({
+      matches: query.includes("pointer: fine") ? pointerFine : false,
+      media: query,
       addEventListener: vi.fn(),
       removeEventListener: vi.fn(),
     })),
@@ -44,8 +47,8 @@ function stubMatchMedia() {
 
 // The real layout, so the panel is exercised where it actually lives — mounted
 // beside the routed page, not standalone.
-function renderLayout() {
-  stubMatchMedia()
+function renderLayout(options: { pointerFine?: boolean } = {}) {
+  stubMatchMedia(options)
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   })
@@ -119,6 +122,18 @@ describe("ChatPanel", () => {
     expect(screen.queryByRole("complementary")).not.toBeInTheDocument()
 
     await openPanel()
+    expect(within(panel()).getByLabelText("Your question")).toHaveFocus()
+  })
+
+  // A phone has no hover pointer. Focusing the composer there throws the
+  // keyboard up over a full-screen overlay the learner has not engaged with yet.
+  it("does not focus the composer on a touch device", async () => {
+    renderLayout({ pointerFine: false })
+    await openPanel()
+
+    expect(within(panel()).getByLabelText("Your question")).not.toHaveFocus()
+    // Still reachable — this suppresses autofocus, it does not disable the box.
+    await userEvent.click(within(panel()).getByLabelText("Your question"))
     expect(within(panel()).getByLabelText("Your question")).toHaveFocus()
   })
 

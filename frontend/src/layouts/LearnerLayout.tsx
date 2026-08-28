@@ -39,7 +39,9 @@ export function LearnerLayout() {
   }
 
   return (
-    <div className="flex min-h-svh flex-col bg-background">
+    // Landscape notches eat into both edges, so the insets sit on the root and
+    // every row inside inherits the safe width.
+    <div className="flex min-h-svh flex-col bg-background pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]">
       {/* First thing in the tab order: skips the whole header. */}
       <a
         href="#main-content"
@@ -48,9 +50,12 @@ export function LearnerLayout() {
         Skip to content
       </a>
 
-      <header className="sticky top-0 z-10 flex flex-wrap items-center gap-x-6 gap-y-3 border-b border-sidebar-border bg-sidebar px-6 py-3">
+      <header className="sticky top-0 z-10 flex flex-wrap items-center gap-x-6 gap-y-3 border-b border-sidebar-border bg-sidebar px-6 pt-[calc(0.75rem+env(safe-area-inset-top))] pb-3">
         <div>
-          <span className="text-sm font-semibold tracking-tight text-sidebar-foreground">
+          <span
+            translate="no"
+            className="text-sm font-semibold tracking-tight text-sidebar-foreground"
+          >
             KinetiLearn
           </span>
           <p className="label-micro mt-0.5">Learner</p>
@@ -94,7 +99,11 @@ export function LearnerLayout() {
       </header>
 
       <div className="flex min-h-0 flex-1 flex-col md:flex-row">
-        <main id="main-content" tabIndex={-1} className="min-w-0 flex-1 px-6 py-8 outline-none">
+        <main
+          id="main-content"
+          tabIndex={-1}
+          className="min-w-0 flex-1 px-6 pt-8 pb-[calc(2rem+env(safe-area-inset-bottom))] outline-none"
+        >
           <div className="mx-auto max-w-4xl">
             <Outlet />
           </div>
