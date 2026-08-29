@@ -7,15 +7,54 @@
 - `dist/` is a **Vite app build**, not a component library. Only its compiled
   stylesheet is used (see cssEntry below).
 
-## Entry: why `--entry .design-sync/ds-entry.tsx`
+## Entry: why `.design-sync/ds-entry.tsx` (pinned as `cfg.entry`)
 - The converter's synth entry does `export * from` **every** `.tsx` under
   `srcDir`, which would include `src/main.tsx` and run the app's bootstrap
   (`createRoot().render()`) inside every preview.
 - `.design-sync/ds-entry.tsx` is a hand-written barrel listing exactly the
-  21 in-scope component files, plus the preview provider. **Always build with
-  `--entry ./.design-sync/ds-entry.tsx`** — a bare build would re-synthesize.
+  21 in-scope component files, plus the preview provider. This is now pinned as
+  `cfg.entry`, so a bare `resync.mjs`/`package-build.mjs` run picks it up — the
+  `--entry` flag is no longer required (it still works and wins if passed).
 - Adding a component to the sync means adding it to BOTH `ds-entry.tsx` and
   `componentSrcMap`.
+
+## Real prop contracts (`.d.ts`) — needs a declaration emit
+
+Without this, **all 21 components emitted `[key: string]: unknown`** — no prop
+information at all for the design agent, in either the `.d.ts` or the generated
+`.prompt.md`. The cause: `lib/dts.mjs` resolves props from a `.d.ts` tree, and a
+Vite *app* build never emits declarations, so `findTypesRoot` fell through to the
+package root and `propsBodyFor`'s call-signature fallback found no `entry`.
+
+Fixed with `cfg.buildCmd`, which must be run before the converter:
+1. `tsc --declaration --emitDeclarationOnly --outDir dist/types` — clean, exit 0.
+   `dist/types` is one of the dirs `findTypesRoot` probes, and `dist/` is already
+   gitignored.
+2. `node .design-sync/gen-dts-barrel.mjs` — writes `frontend/index.d.ts`, the
+   barrel `dts.mjs` uses as its `entry` (no `types` field in package.json, so it
+   falls back to `<pkgDir>/index.d.ts`).
+
+**The barrel is generated from `componentSrcMap`, deliberately.** An earlier
+attempt used `export *`, which pulled in every subcomponent (CardHeader,
+TableRow, DialogContent…) and took the card count from 21 to **59**. Named
+exports keep the DTS set equal to the synced set. Subcomponents still ship in
+the bundle and are importable — they just don't get their own cards.
+
+Result: 20/21 components carry real props. `ThemeToggle` takes none, so its
+empty signature is honest.
+
+### `cfg.dtsPropsFor` overrides — why each exists
+The emitted declarations reference types that don't travel into the single-file
+contract, leaving dangling names the design agent can't resolve. Four overrides
+inline the real shapes:
+- `RowActions` — `actions: RowAction[]` (type lives in RowActions.tsx).
+- `FieldRow` — `FormField` / `Option[]` (from `components/form/types.ts`).
+- `EmptyState` — `LucideIcon` (from lucide-react).
+- `Toaster` — `ToastOptions` / `ToastIcons` / bare `CSSProperties` (sonner).
+  Kept sonner's real literal unions; only the three unresolvable names were
+  replaced. **Write this body by hand** — deriving it by slicing the generated
+  file dropped the interface's closing brace and produced `[DTS_PARSE]`.
+`RegExp` in FieldRow is a global built-in — resolvable, not a dangling ref.
 
 ## Layouts are deliberately out of scope
 - `AdminLayout` / `LearnerLayout` were dropped (user decision, this sync).
@@ -79,15 +118,27 @@
   usage changes.
 - **`ds-entry.tsx` drift**: components added to `src/components/` are NOT
   picked up automatically; the barrel and `componentSrcMap` are both manual.
+- **Run `cfg.buildCmd` before every sync.** It regenerates `dist/types` and
+  `index.d.ts`. Skip it after editing a component's props and the `.d.ts` ships
+  stale; skip it on a fresh clone (both paths are gitignored) and every
+  component silently reverts to `[key: string]: unknown`.
+- **`dtsPropsFor` drift**: the four overrides above are hand-written snapshots.
+  If `FormField`, `RowAction`, or the sonner props change, they go stale
+  silently — the build won't warn. Re-check them when those types change.
 - **Provider chain**: if a newly synced component needs a context beyond
   router + theme, it will render as a floor card until `DesignPreviewProvider`
   is extended.
-- **Upload never happened on the first run** (see below) — the project has no
-  `_ds_sync.json` anchor until a real upload lands, so the next sync
-  re-verifies everything.
+- **Anchor exists now** (first upload landed 2026-08-30). Fetch the project's
+  `_ds_sync.json` to `.design-sync/.cache/remote-sync.json` and pass `--remote`,
+  or the driver re-verifies all 21 components instead of just what changed.
 
 ## Sync status
-- First sync (this run) built and verified 21 components locally but **could
-  not upload**: `DesignSync` needs design-system authorization and
-  `/design-login` cannot run in a non-interactive session. No project was
-  created, so `config.json` has no `projectId` yet.
+- **First sync completed 2026-08-30.** Project `KinetiLearn`
+  (`8178c566-d7f5-4ac9-92ae-88fcb1717e1c`, pinned as `cfg.projectId`); 125 files,
+  21 components, render check clean (`bad: 0`), validate exit 0.
+- The uploaded `_ds_sync.json` is now the anchor: the next sync fetches it to
+  `.design-sync/.cache/remote-sync.json` and passes `--remote`, so unchanged
+  components skip re-verification.
+- `tokens/` and `guidelines/` are empty by design and don't upload — this DS
+  keeps its 167 custom properties inside `_ds_bundle.css`, which `styles.css`
+  `@import`s (that closure is what rendered designs receive).

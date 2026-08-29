@@ -1,4 +1,5 @@
 {
+  "projectId": "8178c566-d7f5-4ac9-92ae-88fcb1717e1c",
   "pkg": "kinetilearn-frontend",
   "globalName": "KinetiLearn",
   "shape": "package",
@@ -94,5 +95,13 @@
     "StatusBadge": "src/components/StatusBadge.tsx",
     "ThemeToggle": "src/components/ThemeToggle.tsx",
     "FieldRow": "src/components/form/FieldRow.tsx"
-  }
+  },
+  "dtsPropsFor": {
+    "RowActions": "  label: string;\n  actions: Array<{\n    label: string;\n    icon: React.ComponentType<{ className?: string }>;\n    to?: string;\n    onSelect?: () => void;\n    destructive?: boolean;\n    disabled?: boolean;\n  }>;",
+    "EmptyState": "  icon: React.ComponentType<{ className?: string }>;\n  title: string;\n  body: string;",
+    "FieldRow": "  field: {\n    name: string;\n    label: string;\n    kind: \"text\" | \"textarea\" | \"number\" | \"select\" | \"password\" | \"email\" | \"date\" | \"datetime\" | \"time\";\n    required?: boolean;\n    optionsFrom?: string;\n    pattern?: RegExp;\n    patternMessage?: string;\n    maxLength?: number;\n    minLength?: number;\n    placeholder?: string;\n    helpText?: string;\n  };\n  value: string;\n  error?: string;\n  options?: Array<{ value: string; label: string }>;\n  onChange: (value: string) => void;",
+    "Toaster": "  id?: string;\n  invert?: boolean;\n  theme?: \"light\" | \"dark\" | \"system\";\n  position?: \"top-left\" | \"top-right\" | \"bottom-left\" | \"bottom-right\" | \"top-center\" | \"bottom-center\";\n  hotkey?: string[];\n  richColors?: boolean;\n  expand?: boolean;\n  duration?: number;\n  gap?: number;\n  visibleToasts?: number;\n  closeButton?: boolean;\n  toastOptions?: Record<string, unknown>;\n  className?: string;\n  style?: React.CSSProperties;\n  offset?: string | number | { top?: string | number; right?: string | number; bottom?: string | number; left?: string | number; };\n  mobileOffset?: string | number | { top?: string | number; right?: string | number; bottom?: string | number; left?: string | number; };\n  dir?: \"ltr\" | \"rtl\" | \"auto\";\n  swipeDirections?: (\"top\" | \"right\" | \"bottom\" | \"left\")[];\n  icons?: Record<string, React.ReactNode>;\n  customAriaLabel?: string;\n  containerAriaLabel?: string;"
+  },
+  "entry": "./.design-sync/ds-entry.tsx",
+  "buildCmd": "npx tsc -p tsconfig.app.json --declaration --emitDeclarationOnly --noEmit false --outDir dist/types && node .design-sync/gen-dts-barrel.mjs"
 }
