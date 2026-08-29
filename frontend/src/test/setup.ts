@@ -12,6 +12,20 @@ globalThis.ResizeObserver ??= class {
   disconnect() {}
 }
 
+// jsdom ships no matchMedia, and useReducedMotion / ThemeContext both read it
+// on mount. Defaults to "no preference" — the tests that care about a specific
+// preference stub it themselves with vi.stubGlobal.
+globalThis.matchMedia ??= ((query: string) => ({
+  matches: false,
+  media: query,
+  onchange: null,
+  addEventListener: () => {},
+  removeEventListener: () => {},
+  addListener: () => {},
+  removeListener: () => {},
+  dispatchEvent: () => false,
+})) as typeof globalThis.matchMedia
+
 beforeAll(() => server.listen({ onUnhandledRequest: "error" }))
 
 afterEach(() => {

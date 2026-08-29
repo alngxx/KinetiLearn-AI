@@ -1,10 +1,11 @@
-import { UploadIcon } from "lucide-react"
+import { CircleCheckIcon, CircleSlashIcon, PencilIcon, Trash2Icon, UploadIcon } from "lucide-react"
 import { useState } from "react"
 import { Link, useNavigate } from "react-router-dom"
 import { toast } from "sonner"
 import { ConfirmDialog } from "@/components/ConfirmDialog"
 import type { Option } from "@/components/form/types"
 import { PageHeader } from "@/components/PageHeader"
+import { RowActions } from "@/components/RowActions"
 import { QueryErrorState } from "@/components/QueryErrorState"
 import { StatusBadge } from "@/components/StatusBadge"
 import { Badge } from "@/components/ui/badge"
@@ -18,6 +19,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { isApiError } from "@/lib/errors"
+import { staggerStyle } from "@/lib/stagger"
 import { useUrlFilters } from "@/lib/useUrlFilters"
 import type { DocumentRow, LookupRow, UploadInput } from "@/modules/documents/api"
 import { DocumentEditDialog } from "@/modules/documents/DocumentEditDialog"
@@ -156,7 +158,7 @@ export function DocumentsPage() {
         </span>
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-border bg-card">
+      <div className="overflow-hidden surface">
         <Table>
           <TableHeader>
             <TableRow className="hover:bg-transparent">
@@ -175,7 +177,7 @@ export function DocumentsPage() {
               <TableHead className="w-28">
                 <span className="label-micro">Status</span>
               </TableHead>
-              <TableHead className="w-56 text-right">
+              <TableHead className="w-12 text-right">
                 <span className="label-micro">Actions</span>
               </TableHead>
             </TableRow>
@@ -212,7 +214,7 @@ export function DocumentsPage() {
                 </TableCell>
               </TableRow>
             ) : (
-              rows.map((row) => {
+              rows.map((row, index) => {
                 const skills = row.skill_ids
                   .map((id) => nameFor(lookups.skills, id))
                   .filter((name): name is string => name !== null)
@@ -220,7 +222,8 @@ export function DocumentsPage() {
                 return (
                   <TableRow
                     key={row.document_id}
-                    className={row.is_active ? "" : "opacity-60"}
+                    style={staggerStyle(index)}
+                    className={`enter-stagger ${row.is_active ? "" : "opacity-60"}`}
                   >
                     <TableCell>
                       <Link
@@ -262,30 +265,26 @@ export function DocumentsPage() {
                       <StatusBadge active={row.is_active} />
                     </TableCell>
                     <TableCell className="text-right">
-                      <div className="flex justify-end gap-1">
-                        <Button variant="ghost" size="sm" onClick={() => setEditing(row)}>
-                          Edit
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          disabled={setActive.isPending}
-                          onClick={() =>
-                            row.is_active ? setConfirming(row) : handleSetActive(row, true)
-                          }
-                        >
-                          {row.is_active ? "Deactivate" : "Activate"}
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          disabled={remove.isPending}
-                          className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                          onClick={() => setDeleting(row)}
-                        >
-                          Delete
-                        </Button>
-                      </div>
+                      <RowActions
+                        label={row.title}
+                        actions={[
+                          { label: "Edit", icon: PencilIcon, onSelect: () => setEditing(row) },
+                          {
+                            label: row.is_active ? "Deactivate" : "Activate",
+                            icon: row.is_active ? CircleSlashIcon : CircleCheckIcon,
+                            disabled: setActive.isPending,
+                            onSelect: () =>
+                              row.is_active ? setConfirming(row) : handleSetActive(row, true),
+                          },
+                          {
+                            label: "Delete",
+                            icon: Trash2Icon,
+                            destructive: true,
+                            disabled: remove.isPending,
+                            onSelect: () => setDeleting(row),
+                          },
+                        ]}
+                      />
                     </TableCell>
                   </TableRow>
                 )

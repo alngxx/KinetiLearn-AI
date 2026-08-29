@@ -14,7 +14,7 @@ export function EmptyState({
   body: string
 }) {
   return (
-    <div className="flex items-start gap-3 rounded-xl border border-border bg-card px-5 py-6">
+    <div className="flex items-start gap-3 surface px-5 py-6">
       <span
         aria-hidden="true"
         className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground"

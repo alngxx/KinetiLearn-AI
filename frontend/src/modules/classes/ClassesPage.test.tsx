@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { fireEvent, render, screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
+import { clickRowAction } from "@/test/rowActions"
 import { http, HttpResponse } from "msw"
 import { MemoryRouter, Route, Routes } from "react-router-dom"
 import { Toaster } from "sonner"
@@ -143,7 +144,7 @@ describe("ClassesPage", () => {
     renderClasses()
     await screen.findByRole("link", { name: "Q1 onboarding" })
 
-    await userEvent.click(within(rowFor("Q1 onboarding")).getByRole("button", { name: "Edit" }))
+    await clickRowAction(rowFor("Q1 onboarding"), "Edit")
     const nameInput = screen.getByLabelText(/^Name/)
     await userEvent.clear(nameInput)
     await userEvent.type(nameInput, "Q1 induction")
@@ -160,7 +161,7 @@ describe("ClassesPage", () => {
     renderClasses()
     await screen.findByRole("link", { name: "Q1 onboarding" })
 
-    await userEvent.click(within(rowFor("Q1 onboarding")).getByRole("button", { name: "Edit" }))
+    await clickRowAction(rowFor("Q1 onboarding"), "Edit")
     setDate(/^End date/, "")
     await userEvent.click(screen.getByRole("button", { name: "Save changes" }))
 
@@ -193,7 +194,7 @@ describe("ClassesPage", () => {
     renderClasses()
     await screen.findByRole("link", { name: "Q1 onboarding" })
 
-    await userEvent.click(within(rowFor("Q1 onboarding")).getByRole("button", { name: "Edit" }))
+    await clickRowAction(rowFor("Q1 onboarding"), "Edit")
     const dialog = within(await screen.findByRole("dialog"))
 
     // Both dates are set on this class, so both carry the warning, and the
@@ -216,9 +217,7 @@ describe("ClassesPage", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Show inactive" }))
     await screen.findByRole("link", { name: "Safety refresher" })
-    await userEvent.click(
-      within(rowFor("Safety refresher")).getByRole("button", { name: "Edit" }),
-    )
+    await clickRowAction(rowFor("Safety refresher"), "Edit")
 
     // This class has no dates at all — there is nothing that could fail to clear.
     const dialog = within(await screen.findByRole("dialog"))
@@ -295,9 +294,7 @@ describe("ClassesPage", () => {
     renderClasses()
     await screen.findByRole("link", { name: "Q1 onboarding" })
 
-    await userEvent.click(
-      within(rowFor("Q1 onboarding")).getByRole("button", { name: "Deactivate" }),
-    )
+    await clickRowAction(rowFor("Q1 onboarding"), "Deactivate")
 
     const confirm = within(await screen.findByRole("alertdialog"))
     expect(requests.some((item) => item.method === "PATCH")).toBe(false)
@@ -382,7 +379,7 @@ describe("ClassesPage delete", () => {
     renderWithToasts()
     await screen.findByRole("link", { name: "Q1 onboarding" })
 
-    await userEvent.click(within(rowFor("Q1 onboarding")).getByRole("button", { name: "Delete" }))
+    await clickRowAction(rowFor("Q1 onboarding"), "Delete")
 
     const confirm = within(await screen.findByRole("alertdialog"))
     // Worded as permanent, so it cannot be mistaken for the deactivate confirm.
@@ -398,7 +395,7 @@ describe("ClassesPage delete", () => {
     renderWithToasts()
     await screen.findByRole("link", { name: "Q1 onboarding" })
 
-    await userEvent.click(within(rowFor("Q1 onboarding")).getByRole("button", { name: "Delete" }))
+    await clickRowAction(rowFor("Q1 onboarding"), "Delete")
     await userEvent.click(
       within(await screen.findByRole("alertdialog")).getByRole("button", {
         name: "Delete permanently",
@@ -417,7 +414,7 @@ describe("ClassesPage delete", () => {
     renderWithToasts()
     await screen.findByRole("link", { name: "Q1 onboarding" })
 
-    await userEvent.click(within(rowFor("Q1 onboarding")).getByRole("button", { name: "Delete" }))
+    await clickRowAction(rowFor("Q1 onboarding"), "Delete")
     await userEvent.click(
       within(await screen.findByRole("alertdialog")).getByRole("button", {
         name: "Delete permanently",

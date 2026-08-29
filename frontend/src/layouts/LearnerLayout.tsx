@@ -1,4 +1,4 @@
-import { ChartSplineIcon, HouseIcon, LogOutIcon, MessageCircleIcon } from "lucide-react"
+import { ChartSplineIcon, HouseIcon, LogOutIcon, MessageCircleIcon, XIcon } from "lucide-react"
 import { useRef, useState } from "react"
 import { NavLink, Outlet, useNavigate } from "react-router-dom"
 import { ThemeToggle } from "@/components/ThemeToggle"
@@ -33,8 +33,8 @@ export function LearnerLayout() {
 
   // Focus is inside the panel, so unmounting it would drop focus to <body> and
   // lose the keyboard user's place. Standard disclosure behaviour is to hand it
-  // back to the control that opened it — and below md that toggle is also the
-  // only way back in, since the panel covers the header.
+  // back to the control that opened it — the Ask FAB, which is kept mounted for
+  // exactly this reason even while the panel covers it.
   function closeChat() {
     setChatOpen(false)
     askRef.current?.focus()
@@ -43,7 +43,7 @@ export function LearnerLayout() {
   return (
     // Landscape notches eat into both edges, so the insets sit on the root and
     // every row inside inherits the safe width.
-    <div className="flex min-h-svh flex-col bg-background pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]">
+    <div className="flex min-h-svh flex-col pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]">
       {/* First thing in the tab order: skips the whole header. */}
       <a
         href="#main-content"
@@ -82,16 +82,6 @@ export function LearnerLayout() {
         </nav>
 
         <div className="ml-auto flex items-center gap-2">
-          <Button
-            ref={askRef}
-            variant="outline"
-            size="sm"
-            aria-expanded={chatOpen}
-            onClick={() => setChatOpen((open) => !open)}
-          >
-            <MessageCircleIcon />
-            Ask
-          </Button>
           <ThemeToggle />
           <Button
             variant="ghost"
@@ -111,7 +101,7 @@ export function LearnerLayout() {
         <main
           id="main-content"
           tabIndex={-1}
-          className="min-w-0 flex-1 px-6 pt-8 pb-[calc(2rem+env(safe-area-inset-bottom))] outline-none"
+          className="min-w-0 flex-1 px-6 pt-8 pb-[calc(5.5rem+env(safe-area-inset-bottom))] outline-none"
         >
           <div className="mx-auto max-w-4xl">
             <Outlet />
@@ -136,6 +126,33 @@ export function LearnerLayout() {
           />
         )}
       </div>
+
+      {/* Always mounted, never conditional: closeChat() calls focus() on this ref
+          in the same tick it clears chatOpen, so a FAB that unmounted while open
+          would drop the keyboard user on <body>. When the panel is open it is
+          shifted, hidden behind, or relabelled — never removed.
+
+          Below md the panel is a full-screen overlay at z-20 and covers this; the
+          panel's own Close button is the way out there, which is why it carries a
+          44px target. From md up the panel is a static 24rem column, so the FAB
+          steps left of it rather than sitting on the composer.
+
+          Bottom-right is also sonner's default corner, but every toast in the app
+          fires from an admin screen and this is learner-only. A learner-side toast
+          added later would need to clear this. */}
+      <Button
+        ref={askRef}
+        aria-expanded={chatOpen}
+        onClick={() => setChatOpen((open) => !open)}
+        className={cn(
+          "fixed right-[calc(1.5rem+env(safe-area-inset-right))] bottom-[calc(1.5rem+env(safe-area-inset-bottom))] z-10",
+          "h-11 rounded-full px-5 shadow-floating hover:-translate-y-0.5",
+          chatOpen && "md:right-[calc(25.5rem+env(safe-area-inset-right))]",
+        )}
+      >
+        {chatOpen ? <XIcon /> : <MessageCircleIcon />}
+        {chatOpen ? "Close" : "Ask"}
+      </Button>
     </div>
   )
 }

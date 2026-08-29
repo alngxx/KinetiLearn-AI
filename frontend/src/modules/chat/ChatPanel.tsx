@@ -8,6 +8,12 @@ import { ChatStatusLine } from "@/modules/chat/ChatStatusLine"
 import { RecentChats } from "@/modules/chat/RecentChats"
 import type { ChatMessage, ChatStatus } from "@/modules/chat/useChat"
 
+const SUGGESTIONS = [
+  "What topics does my training cover?",
+  "Summarise the key points I should remember",
+  "What should I revise before my next exercise?",
+]
+
 export function ChatPanel({
   messages,
   status,
@@ -68,6 +74,11 @@ export function ChatPanel({
     if (list !== null) list.scrollTop = list.scrollHeight
   }, [messages])
 
+  function applySuggestion(question: string) {
+    setDraft(question)
+    inputRef.current?.focus()
+  }
+
   function submit() {
     if (busy || draft.trim() === "") return
     onSend(draft)
@@ -126,10 +137,10 @@ export function ChatPanel({
         >
           {history ? "Recent chats" : "Ask"}
         </h2>
-        {/* On a phone the panel is a full-screen overlay stacked above the
-            header, so its Ask toggle is unreachable and Escape needs a keyboard
-            — this button is the only way out, and gets a 44px target to match.
-            Back to the compact size once the panel is a column beside content. */}
+        {/* On a phone the panel is a full-screen overlay covering the Ask FAB,
+            so that toggle is unreachable and Escape needs a keyboard — this
+            button is the only way out, and gets a 44px target to match. Back to
+            the compact size once the panel is a column beside content. */}
         <Button
           variant="ghost"
           size="icon-sm"
@@ -163,10 +174,31 @@ export function ChatPanel({
                 onRetry={onRetryRestore}
               />
             ) : messages.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                Ask anything about the training material. Answers are drawn from the documents
-                your organisation has uploaded, with the sources shown.
-              </p>
+              <div className="flex flex-col gap-4">
+                {/* h3, not h2: the panel header's h2 is the focus target when
+                    views swap, and two headings competing for the same job in
+                    one panel reads as two panels. */}
+                <h3 className="text-sm font-medium text-foreground">Ask about your training</h3>
+                <p className="text-sm text-muted-foreground">
+                  Answers come from the documents your organisation has uploaded, and every
+                  answer shows its sources.
+                </p>
+                <div className="flex flex-col items-start gap-2">
+                  {SUGGESTIONS.map((question) => (
+                    <Button
+                      key={question}
+                      variant="outline"
+                      size="sm"
+                      // The base is whitespace-nowrap and fixed-height, neither
+                      // of which survives a full sentence in a 384px column.
+                      className="h-auto py-1.5 text-left whitespace-normal"
+                      onClick={() => applySuggestion(question)}
+                    >
+                      {question}
+                    </Button>
+                  ))}
+                </div>
+              </div>
             ) : (
               messages.map((message) => <Bubble key={message.id} message={message} />)
             )}

@@ -74,7 +74,7 @@ function TakeView({ exerciseId }: { exerciseId: string }) {
       ) : exam.isError ? (
         // The server words this one itself — not finalized, not started yet, not
         // a member — so the page reports its reason rather than guessing one.
-        <div className="rounded-xl border border-border bg-card py-10">
+        <div className="surface py-10">
           <QueryErrorState
             title="Could not open this exam"
             error={exam.error}
@@ -274,7 +274,7 @@ function QuestionField({
   // flex item consistently across browsers. Same reason the daily quiz keeps its
   // fieldset a block and spaces the legend with a margin.
   return (
-    <fieldset className="rounded-xl border border-border bg-card p-5">
+    <fieldset className="surface p-5">
       <legend className="mb-3 flex gap-2 text-sm font-medium break-words text-foreground">
         <span className="label-micro shrink-0 pt-0.5">{index + 1}</span>
         <span className="min-w-0">{question.question_text}</span>

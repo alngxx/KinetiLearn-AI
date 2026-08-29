@@ -316,9 +316,9 @@ describe("ChatPanel", () => {
     expect(within(panel()).getByText("what is the leave policy?")).toBeInTheDocument()
   })
 
-  // On a phone the panel covers the header, so the Ask toggle cannot be reached
+  // On a phone the panel covers the Ask FAB, so that toggle cannot be reached
   // and Escape needs a keyboard. This button is the only way out.
-  it("closes from its own close button, without Escape or the header toggle", async () => {
+  it("closes from its own close button, without Escape or the Ask toggle", async () => {
     renderLayout()
     await openPanel()
 
@@ -366,6 +366,22 @@ describe("ChatPanel", () => {
     await userEvent.keyboard("{Escape}")
 
     expect(ask).toHaveFocus()
+  })
+
+  // One control for both directions, so it has to say which one it is doing.
+  it("swaps the Ask toggle to Close while the panel is open, and back", async () => {
+    renderLayout()
+    const toggle = screen.getByRole("button", { name: "Ask" })
+    expect(toggle).toHaveAttribute("aria-expanded", "false")
+
+    await openPanel()
+    expect(toggle).toHaveAccessibleName("Close")
+    expect(toggle).toHaveAttribute("aria-expanded", "true")
+
+    await userEvent.click(toggle)
+    expect(screen.queryByRole("complementary")).not.toBeInTheDocument()
+    expect(toggle).toHaveAccessibleName("Ask")
+    expect(toggle).toHaveAttribute("aria-expanded", "false")
   })
 
   it("closes on Escape", async () => {
@@ -436,10 +452,42 @@ describe("ChatPanel", () => {
 
       expect(within(panel()).queryByText("20 days.")).not.toBeInTheDocument()
       expect(
-        within(panel()).getByText(/Ask anything about the training material/),
+        within(panel()).getByRole("heading", { name: "Ask about your training" }),
       ).toBeInTheDocument()
       // Nothing to restore, so the composer is there straight away.
       expect(composer()).toBeEnabled()
+    })
+
+    it("fills the composer from a suggestion without sending it", async () => {
+      renderLayout()
+      await openPanel()
+
+      await userEvent.click(
+        within(panel()).getByRole("button", { name: "What topics does my training cover?" }),
+      )
+
+      expect(composer()).toHaveValue("What topics does my training cover?")
+      expect(composer()).toHaveFocus()
+      // Filling is not asking — the learner may want to edit it first, so the
+      // empty state is still on screen and nothing is streaming.
+      expect(
+        within(panel()).getByRole("heading", { name: "Ask about your training" }),
+      ).toBeInTheDocument()
+      expect(within(panel()).queryByRole("button", { name: "Stop" })).not.toBeInTheDocument()
+    })
+
+    it("drops the suggestions once the conversation has started", async () => {
+      renderLayout()
+      await openPanel()
+      expect(
+        within(panel()).getByRole("heading", { name: "Ask about your training" }),
+      ).toBeInTheDocument()
+
+      await ask("what is the leave policy?")
+
+      expect(
+        within(panel()).queryByRole("heading", { name: "Ask about your training" }),
+      ).not.toBeInTheDocument()
     })
 
     it("says so when there is nothing to show yet", async () => {

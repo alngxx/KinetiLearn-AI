@@ -1,4 +1,5 @@
 import { ArrowRightIcon, CheckIcon } from "lucide-react"
+import type { CSSProperties } from "react"
 import { Link } from "react-router-dom"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -6,7 +7,15 @@ import { cn } from "@/lib/utils"
 import type { TodayQuiz } from "@/modules/daily-quiz/queries"
 import { formatDay, formatRemaining } from "@/modules/learner-home/dates"
 
-export function QuizCard({ quiz }: { quiz: TodayQuiz }) {
+export function QuizCard({
+  quiz,
+  className,
+  style,
+}: {
+  quiz: TodayQuiz
+  className?: string
+  style?: CSSProperties
+}) {
   const count = quiz.questions.length
   // The API only returns quizzes that have not expired, so anything unanswered
   // is still open.
@@ -15,8 +24,9 @@ export function QuizCard({ quiz }: { quiz: TodayQuiz }) {
   return (
     <article
       data-available={available || undefined}
+      style={style}
       className={cn(
-        "flex flex-wrap items-center justify-between gap-4 rounded-xl border p-5",
+        "flex flex-wrap items-center justify-between gap-4 rounded-xl border p-5 shadow-raised",
         // Brass marks "the one that counts" throughout the app — the correct
         // option in a reviewed exam, the answer currently selected while taking
         // a quiz. An unanswered quiz is the single thing on this page asking to
@@ -24,6 +34,7 @@ export function QuizCard({ quiz }: { quiz: TodayQuiz }) {
         // back to the neutral card and says so with the green badge instead, so
         // the two states differ in colour, not just in wording.
         available ? "border-ring/40 bg-accent/40" : "border-border bg-card",
+        className,
       )}
     >
       <div className="flex min-w-0 flex-col gap-1.5">

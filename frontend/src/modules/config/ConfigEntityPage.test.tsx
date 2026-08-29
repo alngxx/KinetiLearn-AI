@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { render, screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
+import { clickRowAction } from "@/test/rowActions"
 import { http, HttpResponse } from "msw"
 import { Link, MemoryRouter, Route, Routes } from "react-router-dom"
 import { beforeEach, describe, expect, it } from "vitest"
@@ -126,7 +127,7 @@ describe("ConfigEntityPage — categories", () => {
     renderEntity("categories")
     await screen.findByText("Backend")
 
-    await userEvent.click(within(rowFor("Backend")).getByRole("button", { name: "Edit" }))
+    await clickRowAction(rowFor("Backend"), "Edit")
     const nameInput = screen.getByLabelText(/^Name/)
     await userEvent.clear(nameInput)
     await userEvent.type(nameInput, "Infra")
@@ -143,7 +144,7 @@ describe("ConfigEntityPage — categories", () => {
 
     // Inactive rows are hidden by default, so surface them first.
     await userEvent.click(screen.getByRole("button", { name: "Show inactive" }))
-    await userEvent.click(within(rowFor("Backend")).getByRole("button", { name: "Deactivate" }))
+    await clickRowAction(rowFor("Backend"), "Deactivate")
 
     // Deactivating asks first — nothing is sent until it is confirmed.
     const confirm = within(await screen.findByRole("alertdialog"))
@@ -158,7 +159,7 @@ describe("ConfigEntityPage — categories", () => {
     renderEntity("categories")
     await screen.findByText("Backend")
 
-    await userEvent.click(within(rowFor("Backend")).getByRole("button", { name: "Deactivate" }))
+    await clickRowAction(rowFor("Backend"), "Deactivate")
     const confirm = within(await screen.findByRole("alertdialog"))
     await userEvent.click(confirm.getByRole("button", { name: "Cancel" }))
 

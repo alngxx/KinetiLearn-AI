@@ -115,7 +115,7 @@ export function QuestionCard({
   const failure = outcomes.find((outcome) => outcome.status === "failed")
 
   return (
-    <li className="rounded-xl border border-border bg-card">
+    <li className="surface">
       <button
         type="button"
         aria-expanded={open}

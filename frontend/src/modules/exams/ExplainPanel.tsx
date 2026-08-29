@@ -31,7 +31,7 @@ export function ExplainPanel({ submissionId }: { submissionId: string }) {
 
   if (!explain.started) {
     return (
-      <div className="flex flex-col items-start gap-2 rounded-xl border border-border bg-card p-5">
+      <div className="flex flex-col items-start gap-2 surface p-5">
         <h2 className="text-sm font-semibold tracking-tight text-foreground">
           Go over what you missed
         </h2>
@@ -58,7 +58,7 @@ export function ExplainPanel({ submissionId }: { submissionId: string }) {
       ref={sectionRef}
       tabIndex={-1}
       aria-label="Explanation of your mistakes"
-      className="flex flex-col gap-4 rounded-xl border border-border bg-card p-5 outline-none"
+      className="flex flex-col gap-4 surface p-5 outline-none"
     >
       <h2 className="text-sm font-semibold tracking-tight text-foreground">
         Go over what you missed

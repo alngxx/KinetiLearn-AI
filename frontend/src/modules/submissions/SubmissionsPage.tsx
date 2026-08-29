@@ -10,6 +10,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { staggerStyle } from "@/lib/stagger"
 import { useUrlFilters } from "@/lib/useUrlFilters"
 import { formatMoment } from "@/modules/submissions/dates"
 import { useClasses, useExerciseDirectory, useLearners, useSubmissions } from "@/modules/submissions/queries"
@@ -111,7 +112,7 @@ export function SubmissionsPage() {
         </span>
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-border bg-card">
+      <div className="overflow-hidden surface">
         <Table>
           <TableHeader>
             <TableRow className="hover:bg-transparent">
@@ -167,10 +168,10 @@ export function SubmissionsPage() {
                 </TableCell>
               </TableRow>
             ) : (
-              rows.map((row) => {
+              rows.map((row, index) => {
                 const exercise = exerciseById.get(row.exercise_id)
                 return (
-                  <TableRow key={row.id}>
+                  <TableRow key={row.id} style={staggerStyle(index)} className="enter-stagger">
                     <TableCell>
                       {learnerById.get(row.user_id) ?? (
                         <span className="text-muted-foreground">Unknown</span>

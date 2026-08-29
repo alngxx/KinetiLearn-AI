@@ -22,11 +22,11 @@ export function SkillBandBar({
 
   return (
     <div aria-hidden="true" className="relative flex h-1.5 min-w-36 rounded-full bg-muted">
-      <div style={{ flexGrow: basicMax }} className="rounded-l-full bg-info" />
-      <div style={{ flexGrow: intermediateSpan }} className="bg-band-intermediate" />
+      <div style={{ flexGrow: basicMax }} className="rounded-l-full bg-info/30" />
+      <div style={{ flexGrow: intermediateSpan }} className="bg-band-intermediate/30" />
       <div
         style={{ flexGrow: advancedSpan }}
-        className="rounded-r-full bg-gradient-to-r from-ring to-ring/15"
+        className="rounded-r-full bg-gradient-to-r from-ring/30 to-ring/5"
       />
       <span
         aria-hidden="true"

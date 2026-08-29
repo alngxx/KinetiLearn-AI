@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { render, screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
+import { clickRowAction } from "@/test/rowActions"
 import { http, HttpResponse } from "msw"
 import { Toaster } from "sonner"
 import { MemoryRouter, Route, Routes } from "react-router-dom"
@@ -261,7 +262,7 @@ describe("DocumentsPage edit and delete", () => {
     renderWithToasts()
     await screen.findByRole("link", { name: "Safety handbook" })
 
-    await userEvent.click(within(rowFor("Safety handbook")).getByRole("button", { name: "Edit" }))
+    await clickRowAction(rowFor("Safety handbook"), "Edit")
 
     const dialog = within(await screen.findByRole("dialog"))
     const title = dialog.getByLabelText(/^Title/)
@@ -282,7 +283,7 @@ describe("DocumentsPage edit and delete", () => {
     renderWithToasts()
     await screen.findByRole("link", { name: "Safety handbook" })
 
-    await userEvent.click(within(rowFor("Safety handbook")).getByRole("button", { name: "Delete" }))
+    await clickRowAction(rowFor("Safety handbook"), "Delete")
 
     const confirm = within(await screen.findByRole("alertdialog"))
     // Worded as permanent, so it cannot be mistaken for the deactivate confirm.
@@ -298,7 +299,7 @@ describe("DocumentsPage edit and delete", () => {
     renderWithToasts()
     await screen.findByRole("link", { name: "Safety handbook" })
 
-    await userEvent.click(within(rowFor("Safety handbook")).getByRole("button", { name: "Delete" }))
+    await clickRowAction(rowFor("Safety handbook"), "Delete")
     const confirm = within(await screen.findByRole("alertdialog"))
     await userEvent.click(confirm.getByRole("button", { name: "Delete permanently" }))
 
@@ -315,7 +316,7 @@ describe("DocumentsPage edit and delete", () => {
     renderWithToasts()
     await screen.findByRole("link", { name: "Safety handbook" })
 
-    await userEvent.click(within(rowFor("Safety handbook")).getByRole("button", { name: "Delete" }))
+    await clickRowAction(rowFor("Safety handbook"), "Delete")
     const confirm = within(await screen.findByRole("alertdialog"))
     await userEvent.click(confirm.getByRole("button", { name: "Delete permanently" }))
 
@@ -332,7 +333,7 @@ describe("DocumentsPage edit and delete", () => {
     renderWithToasts()
     await screen.findByRole("link", { name: "Safety handbook" })
 
-    await userEvent.click(within(rowFor("Safety handbook")).getByRole("button", { name: "Delete" }))
+    await clickRowAction(rowFor("Safety handbook"), "Delete")
     await userEvent.click(
       within(await screen.findByRole("alertdialog")).getByRole("button", {
         name: "Delete permanently",

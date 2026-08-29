@@ -47,6 +47,9 @@
     --color-foreground: var(--foreground);
     --color-background: var(--background);
     --color-band-intermediate: var(--band-intermediate);
+    --shadow-raised: var(--elevation-raised);
+    --shadow-overlay: var(--elevation-overlay);
+    --shadow-floating: var(--elevation-floating);
     --radius-sm: calc(var(--radius) * 0.6);
     --radius-md: calc(var(--radius) * 0.8);
     --radius-lg: var(--radius);
@@ -96,6 +99,24 @@
     --sidebar-accent-foreground: oklch(0.235 0.03 256);
     --sidebar-border: oklch(0.915 0.006 252);
     --sidebar-ring: oklch(0.6 0.085 72);
+    /* Three steps, named for the job rather than a size: what sits on the
+       page, what floats over it, and what follows you down the page. */
+    --elevation-raised: 0 1px 2px -1px oklch(0.205 0.024 256 / 0.1),
+        0 2px 4px -2px oklch(0.205 0.024 256 / 0.06);
+    --elevation-overlay: 0 4px 12px -2px oklch(0.205 0.024 256 / 0.12),
+        0 2px 6px -2px oklch(0.205 0.024 256 / 0.08);
+    --elevation-floating: 0 8px 24px -4px oklch(0.205 0.024 256 / 0.16),
+        0 4px 8px -4px oklch(0.205 0.024 256 / 0.1);
+    /* Ambient light entering the frame, not a spotlight: two wide ellipses at
+       opposite corners, in the identity brass rather than a new hue. Softness
+       comes from the gradient extent — no blur filter, which on a fixed
+       full-viewport layer costs compositing on every scroll for no gain. */
+    --ambient-glow: radial-gradient(
+            55% 45% at 15% -10%,
+            oklch(0.6 0.085 72 / 0.05),
+            transparent 70%
+        ),
+        radial-gradient(55% 45% at 85% 110%, oklch(0.6 0.085 72 / 0.03), transparent 70%);
 }
 
 .dark {
@@ -134,6 +155,22 @@
     --sidebar-accent-foreground: oklch(0.96 0.004 250);
     --sidebar-border: oklch(1 0 0 / 11%);
     --sidebar-ring: oklch(0.68 0.095 74);
+    /* Same three roles, rebuilt for a dark ground: the highlight does the
+       work the shadow does in light mode. */
+    --elevation-raised: inset 0 1px 0 0 oklch(1 0 0 / 0.04),
+        0 1px 2px 0 oklch(0 0 0 / 0.4);
+    --elevation-overlay: inset 0 1px 0 0 oklch(1 0 0 / 0.05),
+        0 6px 16px -4px oklch(0 0 0 / 0.55);
+    --elevation-floating: inset 0 1px 0 0 oklch(1 0 0 / 0.06),
+        0 10px 30px -6px oklch(0 0 0 / 0.65);
+    /* A dark ground needs a little more to register at all, and tolerates it
+       without reading as a colour wash. */
+    --ambient-glow: radial-gradient(
+            55% 45% at 15% -10%,
+            oklch(0.74 0.105 74 / 0.07),
+            transparent 70%
+        ),
+        radial-gradient(55% 45% at 85% 110%, oklch(0.74 0.105 74 / 0.04), transparent 70%);
 }
 
 @layer base {
@@ -142,6 +179,18 @@
     }
   body {
     @apply bg-background text-foreground;
+    }
+  /* body's own background propagates to the canvas (html sets none), so it is
+     painted before this, and #root is an in-flow block child so it paints after
+     — which puts this layer exactly between the two. See AMBIENT-GLOW note in
+     the paint-order check. */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background-image: var(--ambient-glow);
     }
   html {
     @apply font-sans;
@@ -162,6 +211,37 @@
   .numeric {
     @apply font-mono tabular-nums;
     }
+  /* The one card treatment. Was hand-written as
+     `rounded-xl border border-border bg-card` in 42 places across both portals,
+     which left elevation with nowhere to live. */
+  .surface {
+    @apply rounded-xl border border-border bg-card;
+    box-shadow: var(--elevation-raised);
+    }
+}
+
+/* Lists settle in on first paint: each item rises a quarter-rem and fades, a
+   beat after the one above it. --enter-index is set inline per item and capped
+   by the caller, so a long table finishes arriving rather than trickling.
+
+   The whole rule lives inside no-preference rather than leaning on the reduce
+   block further down. That block zeroes animation-duration but NOT
+   animation-delay — a backwards-filled animation would still hold every row
+   invisible for its own delay and then snap in, which is both motion and
+   hidden content. Scoped this way, reduced motion gets no animation at all and
+   the inline delay is inert. */
+@media (prefers-reduced-motion: no-preference) {
+  .enter-stagger {
+    animation: enter-stagger 220ms ease-out backwards;
+    animation-delay: calc(var(--enter-index, 0) * var(--enter-step, 24ms));
+  }
+}
+
+@keyframes enter-stagger {
+  from {
+    opacity: 0;
+    transform: translateY(0.25rem);
+  }
 }
 
 /* Radix locks background scroll for the dialogs via react-remove-scroll. The

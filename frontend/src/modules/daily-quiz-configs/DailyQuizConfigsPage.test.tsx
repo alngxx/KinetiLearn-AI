@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { fireEvent, render, screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
+import { clickRowAction } from "@/test/rowActions"
 import { http, HttpResponse } from "msw"
 import { MemoryRouter } from "react-router-dom"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
@@ -226,7 +227,7 @@ describe("DailyQuizConfigsPage", () => {
     renderConfigs()
     await screen.findByText("Morning refresher")
 
-    await userEvent.click(within(rowFor("Morning refresher")).getByRole("button", { name: "Edit" }))
+    await clickRowAction(rowFor("Morning refresher"), "Edit")
     const dialog = within(await screen.findByRole("dialog"))
     const questionCount = dialog.getByLabelText(/^Question count/)
     await userEvent.clear(questionCount)
@@ -248,7 +249,7 @@ describe("DailyQuizConfigsPage", () => {
     renderConfigs()
     await screen.findByText("Morning refresher")
 
-    await userEvent.click(within(rowFor("Morning refresher")).getByRole("button", { name: "Edit" }))
+    await clickRowAction(rowFor("Morning refresher"), "Edit")
     const dialog = within(await screen.findByRole("dialog"))
     const tzSelect = dialog.getByLabelText(/^Timezone/) as HTMLSelectElement
 
@@ -292,7 +293,7 @@ describe("DailyQuizConfigsPage", () => {
     renderConfigs()
     await screen.findByText("Morning refresher")
 
-    await userEvent.click(within(rowFor("Morning refresher")).getByRole("button", { name: "Edit" }))
+    await clickRowAction(rowFor("Morning refresher"), "Edit")
     const dialog = within(await screen.findByRole("dialog"))
 
     const department = dialog.getByLabelText(/^Department/)
@@ -399,24 +400,20 @@ describe("DailyQuizConfigsPage", () => {
     expect(message).not.toHaveAttribute("title")
 
     // The row must still expose its actions with a long error present.
-    expect(within(row).getByRole("button", { name: "Edit" })).toBeInTheDocument()
+    expect(within(row).getByRole("button", { name: /^Actions for/ })).toBeInTheDocument()
   })
 
   it("deactivates a config only after confirmation, and reactivates without one", async () => {
     renderConfigs()
     await screen.findByText("Morning refresher")
 
-    await userEvent.click(
-      within(rowFor("Morning refresher")).getByRole("button", { name: "Deactivate" }),
-    )
+    await clickRowAction(rowFor("Morning refresher"), "Deactivate")
     expect(screen.queryByText(/deactivated/)).toBeNull()
     await userEvent.click(screen.getByRole("button", { name: "Deactivate" }))
     await expect.poll(() => requests.some((item) => item.url.endsWith("/deactivate"))).toBe(true)
 
     await userEvent.click(screen.getByRole("button", { name: "Show inactive" }))
-    await userEvent.click(
-      within(rowFor("Old cadence")).getByRole("button", { name: "Activate" }),
-    )
+    await clickRowAction(rowFor("Old cadence"), "Activate")
     await expect.poll(() => requests.some((item) => item.url.endsWith("cfg2/activate"))).toBe(
       true,
     )

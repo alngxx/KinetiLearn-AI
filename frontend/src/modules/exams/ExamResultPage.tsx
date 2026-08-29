@@ -51,7 +51,7 @@ function ResultView({ exerciseId, submissionId }: { exerciseId: string; submissi
       {submission.isPending || exam.isPending ? (
         loading
       ) : failed !== null ? (
-        <div className="rounded-xl border border-border bg-card py-10">
+        <div className="surface py-10">
           <QueryErrorState
             title="Could not load this result"
             error={failed.error}
@@ -103,7 +103,7 @@ function Result({
         description="What you answered, and how it was marked."
       />
 
-      <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-border bg-card p-5">
+      <div className="flex flex-wrap items-center justify-between gap-4 surface p-5">
         <div className="flex flex-col gap-1">
           <p className="flex items-baseline gap-2">
             <span className="numeric text-2xl font-semibold text-foreground">
@@ -141,7 +141,7 @@ function Result({
           return (
             <li
               key={question.id}
-              className="flex flex-col gap-2 rounded-xl border border-border bg-card p-5"
+              className="flex flex-col gap-2 surface p-5"
             >
               <p className="flex gap-2 text-sm font-medium break-words text-foreground">
                 <span className="label-micro shrink-0 pt-0.5">{index + 1}</span>

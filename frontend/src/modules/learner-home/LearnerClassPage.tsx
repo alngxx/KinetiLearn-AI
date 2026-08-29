@@ -59,7 +59,7 @@ function ClassView({ classId }: { classId: string }) {
           Loading…
         </p>
       ) : exercises.isError ? (
-        <div className="rounded-xl border border-border bg-card py-10">
+        <div className="surface py-10">
           <QueryErrorState
             title="Could not load these exercises"
             error={exercises.error}
@@ -97,7 +97,7 @@ function ExerciseCard({
   bestSubmissionId: string | undefined
 }) {
   return (
-    <article className="flex flex-col gap-3 rounded-xl border border-border bg-card p-5">
+    <article className="flex flex-col gap-3 surface p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex min-w-0 flex-col gap-1.5">
           <h3 className="font-medium break-words text-foreground">{exercise.title}</h3>
