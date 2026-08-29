@@ -1,0 +1,98 @@
+{
+  "pkg": "kinetilearn-frontend",
+  "globalName": "KinetiLearn",
+  "shape": "package",
+  "srcDir": "src",
+  "tsconfig": "tsconfig.app.json",
+  "cssEntry": "dist/assets/index-X6N_XN_D.css",
+  "extraFonts": [
+    "node_modules/@fontsource-variable/geist/index.css",
+    "node_modules/@fontsource-variable/geist-mono/index.css"
+  ],
+  "provider": {
+    "component": "DesignPreviewProvider"
+  },
+  "readmeHeader": ".design-sync/conventions.md",
+  "overrides": {
+    "Badge": {
+      "cardMode": "column"
+    },
+    "Button": {
+      "cardMode": "column"
+    },
+    "Card": {
+      "cardMode": "column"
+    },
+    "ConfirmDialog": {
+      "cardMode": "single",
+      "primaryStory": "Destructive",
+      "viewport": "760x520"
+    },
+    "EmptyState": {
+      "cardMode": "column"
+    },
+    "FieldRow": {
+      "cardMode": "column"
+    },
+    "Input": {
+      "cardMode": "column"
+    },
+    "Label": {
+      "cardMode": "column"
+    },
+    "PageHeader": {
+      "cardMode": "column"
+    },
+    "QueryErrorState": {
+      "cardMode": "column"
+    },
+    "Table": {
+      "cardMode": "column"
+    },
+    "Textarea": {
+      "cardMode": "column"
+    },
+    "Dialog": {
+      "cardMode": "single",
+      "viewport": "760x520"
+    },
+    "AlertDialog": {
+      "cardMode": "single",
+      "viewport": "760x520"
+    },
+    "DropdownMenu": {
+      "cardMode": "single",
+      "viewport": "760x480"
+    },
+    "Toaster": {
+      "cardMode": "single",
+      "viewport": "760x420"
+    },
+    "RowActions": {
+      "cardMode": "column"
+    }
+  },
+  "componentSrcMap": {
+    "AlertDialog": "src/components/ui/alert-dialog.tsx",
+    "Badge": "src/components/ui/badge.tsx",
+    "Button": "src/components/ui/button.tsx",
+    "Card": "src/components/ui/card.tsx",
+    "Dialog": "src/components/ui/dialog.tsx",
+    "DropdownMenu": "src/components/ui/dropdown-menu.tsx",
+    "Input": "src/components/ui/input.tsx",
+    "Label": "src/components/ui/label.tsx",
+    "Toaster": "src/components/ui/sonner.tsx",
+    "Table": "src/components/ui/table.tsx",
+    "Textarea": "src/components/ui/textarea.tsx",
+    "AnswerLine": "src/components/AnswerLine.tsx",
+    "ConfirmDialog": "src/components/ConfirmDialog.tsx",
+    "EmptyState": "src/components/EmptyState.tsx",
+    "PageHeader": "src/components/PageHeader.tsx",
+    "QueryErrorState": "src/components/QueryErrorState.tsx",
+    "ResultBadge": "src/components/ResultBadge.tsx",
+    "RowActions": "src/components/RowActions.tsx",
+    "StatusBadge": "src/components/StatusBadge.tsx",
+    "ThemeToggle": "src/components/ThemeToggle.tsx",
+    "FieldRow": "src/components/form/FieldRow.tsx"
+  }
+}
