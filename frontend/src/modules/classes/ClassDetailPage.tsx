@@ -126,7 +126,7 @@ function DetailView({ classId }: { classId: string }) {
           Loading…
         </p>
       ) : detail.isError ? (
-        <div className="rounded-xl border border-border bg-card py-10">
+        <div className="surface py-10">
           <QueryErrorState
             title="Could not load this class"
             error={detail.error}
@@ -145,7 +145,7 @@ function DetailView({ classId }: { classId: string }) {
 
           <section className="flex flex-col gap-3">
             <h2 className="label-micro">Members</h2>
-            <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-border bg-card p-5">
+            <div className="flex flex-wrap items-center justify-between gap-4 surface p-5">
               <div className="flex flex-col gap-1">
                 <p className="flex items-baseline gap-2">
                   <span className="numeric text-2xl font-semibold text-foreground">
@@ -184,7 +184,7 @@ function DetailView({ classId }: { classId: string }) {
               </div>
             </div>
 
-            <div className="overflow-hidden rounded-xl border border-border bg-card">
+            <div className="overflow-hidden surface">
               <Table>
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">

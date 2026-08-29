@@ -36,7 +36,7 @@ function PageView({ userId }: { userId: string }) {
           Loading…
         </p>
       ) : breakdown.isError ? (
-        <div className="rounded-xl border border-border bg-card py-10">
+        <div className="surface py-10">
           <QueryErrorState
             title="Could not load this learner's skills"
             error={breakdown.error}

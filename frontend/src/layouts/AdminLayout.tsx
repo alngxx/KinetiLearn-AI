@@ -26,7 +26,7 @@ export function AdminLayout() {
   const navigate = useNavigate()
 
   return (
-    <div className="flex min-h-svh bg-background">
+    <div className="flex min-h-svh">
       {/* First thing in the tab order: skips the whole sidebar. */}
       <a
         href="#main-content"

@@ -86,7 +86,7 @@ function TakeView({ quizId }: { quizId: string }) {
           Loading…
         </p>
       ) : quizzes.isError ? (
-        <div className="rounded-xl border border-border bg-card py-10">
+        <div className="surface py-10">
           <QueryErrorState
             title="Could not load this quiz"
             error={quizzes.error}
@@ -185,7 +185,7 @@ function QuestionField({
   // Block, not flex: a legend is laid out specially and does not behave as a
   // flex item consistently across browsers.
   return (
-    <fieldset className="rounded-xl border border-border bg-card p-5">
+    <fieldset className="surface p-5">
       <legend className="mb-3 flex gap-2 text-sm font-medium break-words text-foreground">
         <span className="label-micro shrink-0 pt-0.5">{index + 1}</span>
         {question.question_text}
@@ -221,7 +221,7 @@ function ResultView({ result }: { result: Result }) {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-border bg-card p-5">
+      <div className="flex flex-wrap items-center justify-between gap-4 surface p-5">
         <div className="flex flex-col gap-1">
           <p className="flex items-baseline gap-2">
             <span className="numeric text-2xl font-semibold text-foreground">
@@ -251,7 +251,7 @@ function ResultView({ result }: { result: Result }) {
           return (
             <li
               key={question.id}
-              className="flex flex-col gap-2 rounded-xl border border-border bg-card p-5"
+              className="flex flex-col gap-2 surface p-5"
             >
               <p className="flex gap-2 text-sm font-medium break-words text-foreground">
                 <span className="label-micro shrink-0 pt-0.5">{index + 1}</span>
@@ -275,7 +275,7 @@ function ResultView({ result }: { result: Result }) {
 
 function Fallback({ title, body }: { title: string; body: string }) {
   return (
-    <div className="rounded-xl border border-border bg-card px-5 py-12 text-center">
+    <div className="surface px-5 py-12 text-center">
       <p className="text-sm font-medium text-foreground">{title}</p>
       <p className="mx-auto mt-1 max-w-prose text-sm text-muted-foreground">{body}</p>
       <Button variant="outline" className="mt-4" asChild>

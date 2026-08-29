@@ -2,7 +2,6 @@ import { QueryClientProvider } from "@tanstack/react-query"
 import { lazy, Suspense } from "react"
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom"
 import { Toaster } from "@/components/ui/sonner"
-import { AdminLayout } from "@/layouts/AdminLayout"
 import { LearnerLayout } from "@/layouts/LearnerLayout"
 import { queryClient } from "@/lib/queryClient"
 import { AuthProvider } from "@/modules/auth/AuthContext"
@@ -11,32 +10,28 @@ import { ProtectedRoute } from "@/modules/auth/ProtectedRoute"
 import { RoleRoute } from "@/modules/auth/RoleRoute"
 import { homePathForRole } from "@/modules/auth/roles"
 import { useAuth } from "@/modules/auth/useAuth"
-import { ClassDetailPage } from "@/modules/classes/ClassDetailPage"
-import { ClassesPage } from "@/modules/classes/ClassesPage"
-import { ConfigEntityPage } from "@/modules/config/ConfigEntityPage"
 import { TakeQuizPage } from "@/modules/daily-quiz/TakeQuizPage"
-import { DailyQuizConfigsPage } from "@/modules/daily-quiz-configs/DailyQuizConfigsPage"
-import { DocumentDetailPage } from "@/modules/documents/DocumentDetailPage"
-import { DocumentsPage } from "@/modules/documents/DocumentsPage"
 import { ExamResultPage } from "@/modules/exams/ExamResultPage"
 import { ExamTakePage } from "@/modules/exams/ExamTakePage"
-import { ExerciseDetailPage } from "@/modules/exams/ExerciseDetailPage"
-import { GenerateExamPage } from "@/modules/exams/GenerateExamPage"
 import { LearnerClassPage } from "@/modules/learner-home/LearnerClassPage"
 import { LearnerHomePage } from "@/modules/learner-home/LearnerHomePage"
-import { UserSkillsPage } from "@/modules/scoring/UserSkillsPage"
-import { SubmissionDetailPage } from "@/modules/submissions/SubmissionDetailPage"
-import { SubmissionsPage } from "@/modules/submissions/SubmissionsPage"
 import { ThemeProvider } from "@/modules/theme/ThemeContext"
-import { UsersPage } from "@/modules/users/UsersPage"
 
-// The only split route in the app. Recharts and its dependency tree are roughly
-// as large as everything else put together, and one screen uses them — eagerly
-// importing it would put that weight on every page load in both portals.
+// Two split points, for the same reason: weight that only one audience needs.
+// Recharts and its dependency tree are roughly as large as everything else put
+// together, and one learner screen uses them.
 const SkillDashboardPage = lazy(() =>
   import("@/modules/scoring/SkillDashboardPage").then((module) => ({
     default: module.SkillDashboardPage,
   })),
+)
+
+// The whole admin console, split at the role gate rather than per screen. An
+// admin pays for it once on first entry and then has every screen; a learner
+// never pays at all. Splitting page-by-page would only add round trips for the
+// admin without saving the learner anything more.
+const AdminPortal = lazy(() =>
+  import("@/AdminPortal").then((module) => ({ default: module.AdminPortal })),
 )
 
 function HomeRedirect() {
@@ -56,29 +51,26 @@ export default function App() {
 
               <Route element={<ProtectedRoute />}>
                 <Route element={<RoleRoute role="admin" />}>
-                  <Route path="/admin" element={<AdminLayout />}>
-                    <Route index element={<Navigate to="/admin/users" replace />} />
-                    <Route path="users" element={<UsersPage />} />
-                    <Route path="classes" element={<ClassesPage />} />
-                    <Route path="classes/:classId" element={<ClassDetailPage />} />
-                    {/* An exercise belongs to a class and there is no global
-                        exam list to reach one from, so both live under it. */}
-                    <Route
-                      path="classes/:classId/exercises/new"
-                      element={<GenerateExamPage />}
-                    />
-                    <Route
-                      path="classes/:classId/exercises/:exerciseId"
-                      element={<ExerciseDetailPage />}
-                    />
-                    <Route path="documents" element={<DocumentsPage />} />
-                    <Route path="documents/:documentId" element={<DocumentDetailPage />} />
-                    <Route path="config/:entityKey" element={<ConfigEntityPage />} />
-                    <Route path="daily-quizzes" element={<DailyQuizConfigsPage />} />
-                    <Route path="submissions" element={<SubmissionsPage />} />
-                    <Route path="submissions/:submissionId" element={<SubmissionDetailPage />} />
-                    <Route path="users/:userId/skills" element={<UserSkillsPage />} />
-                  </Route>
+                  <Route
+                    path="/admin/*"
+                    element={
+                      // The console has no shell until its chunk lands, so this
+                      // fallback stands in for the whole page rather than for a
+                      // pending query the way the learner one does.
+                      <Suspense
+                        fallback={
+                          <p
+                            role="status"
+                            className="p-8 text-sm text-muted-foreground"
+                          >
+                            Loading…
+                          </p>
+                        }
+                      >
+                        <AdminPortal />
+                      </Suspense>
+                    }
+                  />
                 </Route>
                 <Route element={<RoleRoute role="learner" />}>
                   <Route path="/learner" element={<LearnerLayout />}>

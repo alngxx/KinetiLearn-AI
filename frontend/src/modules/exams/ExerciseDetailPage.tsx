@@ -167,7 +167,7 @@ function DetailView({ classId, exerciseId }: { classId: string; exerciseId: stri
           Loading…
         </p>
       ) : detail.isError ? (
-        <div className="rounded-xl border border-border bg-card py-10">
+        <div className="surface py-10">
           <QueryErrorState
             title="Could not load this exam"
             error={detail.error}
@@ -213,7 +213,7 @@ function DetailView({ classId, exerciseId }: { classId: string; exerciseId: stri
             </div>
 
             {questions.length === 0 ? (
-              <div className="rounded-xl border border-border bg-card py-12 text-center">
+              <div className="surface py-12 text-center">
                 <p className="text-sm font-medium text-foreground">No questions</p>
                 <p className="mt-1 text-sm text-muted-foreground">
                   An exam with no questions cannot be finalized. Delete this draft and

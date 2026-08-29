@@ -175,7 +175,7 @@ function DetailView({ documentId }: { documentId: string }) {
         // renders — the two would only ever collide, never coexist usefully.
         <p className="py-10 text-center text-sm text-muted-foreground">Loading…</p>
       ) : detail.isError ? (
-        <div className="rounded-xl border border-border bg-card py-10">
+        <div className="surface py-10">
           <QueryErrorState
             title="Could not load this document"
             error={detail.error}
@@ -244,7 +244,7 @@ function DetailView({ documentId }: { documentId: string }) {
               </span>
             </div>
 
-            <div className="overflow-hidden rounded-xl border border-border bg-card">
+            <div className="overflow-hidden surface">
               <Table>
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">

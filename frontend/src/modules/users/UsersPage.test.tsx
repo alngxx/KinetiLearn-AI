@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { render, screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
+import { clickRowAction } from "@/test/rowActions"
 import { http, HttpResponse } from "msw"
 import { MemoryRouter } from "react-router-dom"
 import { beforeEach, describe, expect, it } from "vitest"
@@ -151,7 +152,7 @@ describe("UsersPage", () => {
     renderUsers()
     await screen.findByText("Mai")
 
-    await userEvent.click(within(screen.getByRole("row", { name: /Mai/ })).getByRole("button", { name: "Edit" }))
+    await clickRowAction(screen.getByRole("row", { name: /Mai/ }), "Edit")
 
     const dialog = within(screen.getByRole("dialog"))
     expect(dialog.getByLabelText(/^Full name/)).toBeInTheDocument()
@@ -183,9 +184,7 @@ describe("UsersPage", () => {
     renderUsers()
     await screen.findByText("Mai")
 
-    await userEvent.click(
-      within(screen.getByRole("row", { name: /Mai/ })).getByRole("button", { name: "Deactivate" }),
-    )
+    await clickRowAction(screen.getByRole("row", { name: /Mai/ }), "Deactivate")
 
     // Deactivating asks first — nothing is sent until it is confirmed.
     const confirm = within(await screen.findByRole("alertdialog"))

@@ -6,6 +6,7 @@ import {
   RadarChart,
   ResponsiveContainer,
 } from "recharts"
+import { useReducedMotion } from "@/lib/useReducedMotion"
 import { BASIC_RING, INTERMEDIATE_RING, type RadarPoint } from "@/modules/scoring/skillRadar"
 
 type TickProps = {
@@ -48,6 +49,11 @@ function AxisTick({ x = 0, y = 0, textAnchor, payload }: TickProps) {
 // nothing — and the skill list beside it carries the same numbers as text, the
 // same call ThresholdLadder and SkillBandBar already make.
 export function SkillRadarChart({ points }: { points: RadarPoint[] }) {
+  // Recharts animates from JS, so the global prefers-reduced-motion rule in
+  // index.css cannot touch it — that rule only zeroes CSS durations. This is
+  // the one animation in the app that has to ask the media query itself.
+  const reducedMotion = useReducedMotion()
+
   return (
     <div aria-hidden="true">
       <ResponsiveContainer width="100%" height={340}>
@@ -78,8 +84,11 @@ export function SkillRadarChart({ points }: { points: RadarPoint[] }) {
             fill="var(--chart-1)"
             fillOpacity={0.18}
             dot={{ r: 3, fill: "var(--chart-1)", stroke: "none" }}
-            // Chart reveal animation is deferred to the project-wide motion pass.
-            isAnimationActive={false}
+            // The shape growing out from the centre is the one reveal worth
+            // paying for here: it reads as the score being plotted.
+            isAnimationActive={!reducedMotion}
+            animationDuration={600}
+            animationEasing="ease-out"
           />
         </RadarChart>
       </ResponsiveContainer>

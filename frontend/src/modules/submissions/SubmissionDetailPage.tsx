@@ -44,7 +44,7 @@ function DetailView({ submissionId }: { submissionId: string }) {
           Loading…
         </p>
       ) : detail.isError ? (
-        <div className="rounded-xl border border-border bg-card py-10">
+        <div className="surface py-10">
           <QueryErrorState
             title="Could not load this submission"
             error={detail.error}
@@ -68,7 +68,7 @@ function DetailView({ submissionId }: { submissionId: string }) {
             }
           />
 
-          <div className="flex flex-wrap gap-6 rounded-xl border border-border bg-card p-4">
+          <div className="flex flex-wrap gap-6 surface p-4">
             <div className="flex flex-col gap-1">
               <span className="label-micro">Score</span>
               <span className="numeric text-lg font-semibold text-foreground">
@@ -99,7 +99,7 @@ function DetailView({ submissionId }: { submissionId: string }) {
               Loading questions…
             </p>
           ) : exercise.isError ? (
-            <div className="rounded-xl border border-border bg-card py-10">
+            <div className="surface py-10">
               <QueryErrorState
                 title="Could not load the exam's questions"
                 error={exercise.error}
@@ -116,7 +116,7 @@ function DetailView({ submissionId }: { submissionId: string }) {
                   return (
                     <li
                       key={question.id}
-                      className="rounded-xl border border-border bg-card p-4"
+                      className="surface p-4"
                     >
                       <div className="flex items-start justify-between gap-4">
                         <p className="text-sm font-medium text-foreground">

@@ -1,6 +1,7 @@
 import { CalendarClockIcon, ChevronRightIcon, UsersIcon } from "lucide-react"
 import { Link } from "react-router-dom"
 import { EmptyState } from "@/components/EmptyState"
+import { staggerStyle } from "@/lib/stagger"
 import { PageHeader } from "@/components/PageHeader"
 import { QueryErrorState } from "@/components/QueryErrorState"
 import { cn } from "@/lib/utils"
@@ -28,7 +29,7 @@ export function LearnerHomePage() {
             Loading…
           </p>
         ) : quizzes.isError ? (
-          <div className="rounded-xl border border-border bg-card py-8">
+          <div className="surface py-8">
             <QueryErrorState
               title="Could not load your quizzes"
               error={quizzes.error}
@@ -44,8 +45,13 @@ export function LearnerHomePage() {
           />
         ) : (
           <div className="flex flex-col gap-3">
-            {quizzes.data.map((quiz) => (
-              <QuizCard key={quiz.id} quiz={quiz} />
+            {quizzes.data.map((quiz, index) => (
+              <QuizCard
+                key={quiz.id}
+                quiz={quiz}
+                className="enter-stagger"
+                style={staggerStyle(index, { step: "40ms" })}
+              />
             ))}
           </div>
         )}
@@ -58,7 +64,7 @@ export function LearnerHomePage() {
             Loading…
           </p>
         ) : classes.isError ? (
-          <div className="rounded-xl border border-border bg-card py-8">
+          <div className="surface py-8">
             <QueryErrorState
               title="Could not load your classes"
               error={classes.error}
@@ -74,8 +80,8 @@ export function LearnerHomePage() {
           />
         ) : (
           <div className="flex flex-col gap-3">
-            {classes.data.map((row) => (
-              <ClassCard key={row.id} row={row} />
+            {classes.data.map((row, index) => (
+              <ClassCard key={row.id} row={row} index={index} />
             ))}
           </div>
         )}
@@ -84,14 +90,15 @@ export function LearnerHomePage() {
   )
 }
 
-function ClassCard({ row }: { row: MyClass }) {
+function ClassCard({ row, index }: { row: MyClass; index: number }) {
   const total = row.exercise_count
   const done = row.completed_exercise_count
 
   return (
     <Link
       to={`/learner/classes/${row.id}`}
-      className="group flex flex-wrap items-center justify-between gap-4 rounded-xl border border-border bg-card p-5 transition-colors outline-none hover:border-ring/40 hover:bg-muted/40 focus-visible:ring-3 focus-visible:ring-ring/50"
+      style={staggerStyle(index, { step: "40ms" })}
+      className="enter-stagger group flex flex-wrap items-center justify-between gap-4 surface p-5 transition-colors outline-none hover:border-ring/40 hover:bg-muted/40 focus-visible:ring-3 focus-visible:ring-ring/50"
     >
       <div className="flex min-w-0 flex-col gap-1.5">
         <h3 className="font-medium text-foreground">{row.name}</h3>

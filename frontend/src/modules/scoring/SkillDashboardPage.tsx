@@ -24,7 +24,7 @@ export function SkillDashboardPage() {
           Loading…
         </p>
       ) : breakdown.isError ? (
-        <div className="rounded-xl border border-border bg-card py-10">
+        <div className="surface py-10">
           <QueryErrorState
             title="Could not load your skills"
             error={breakdown.error}
@@ -67,7 +67,7 @@ function Overview({ items }: { items: SkillBreakdownItem[] }) {
   if (items.length < MIN_RADAR_AXES) return null
 
   return (
-    <div className="flex flex-col gap-3 rounded-xl border border-border bg-card p-5">
+    <div className="flex flex-col gap-3 surface p-5">
       <SkillRadarChart points={toRadarPoints(items)} />
       {/* The rings are the only part of the chart carrying the thresholds, and
           an unlabelled ring means nothing on its own. "Cut point" and "ceiling"

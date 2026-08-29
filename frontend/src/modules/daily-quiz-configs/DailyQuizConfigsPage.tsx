@@ -1,9 +1,10 @@
-import { PlusIcon } from "lucide-react"
+import { CircleCheckIcon, CircleSlashIcon, PencilIcon, PlusIcon } from "lucide-react"
 import { useState } from "react"
 import { toast } from "sonner"
 import { ConfirmDialog } from "@/components/ConfirmDialog"
 import type { Option } from "@/components/form/types"
 import { PageHeader } from "@/components/PageHeader"
+import { RowActions } from "@/components/RowActions"
 import { QueryErrorState } from "@/components/QueryErrorState"
 import { StatusBadge } from "@/components/StatusBadge"
 import { Badge } from "@/components/ui/badge"
@@ -17,6 +18,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { isApiError } from "@/lib/errors"
+import { staggerStyle } from "@/lib/stagger"
 import { useUrlFilters } from "@/lib/useUrlFilters"
 import { documentBlockedReason, type DailyQuizConfigRow, type LookupRow } from "@/modules/daily-quiz-configs/api"
 import { DailyQuizConfigFormDialog, DEFAULT_TIMEZONE } from "@/modules/daily-quiz-configs/DailyQuizConfigFormDialog"
@@ -141,7 +143,7 @@ export function DailyQuizConfigsPage() {
         </span>
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-border bg-card">
+      <div className="overflow-hidden surface">
         <Table>
           <TableHeader>
             <TableRow className="hover:bg-transparent">
@@ -160,7 +162,7 @@ export function DailyQuizConfigsPage() {
               <TableHead className="w-56">
                 <span className="label-micro">Last run</span>
               </TableHead>
-              <TableHead className="w-40 text-right">
+              <TableHead className="w-12 text-right">
                 <span className="label-micro">Actions</span>
               </TableHead>
             </TableRow>
@@ -197,7 +199,7 @@ export function DailyQuizConfigsPage() {
                 </TableCell>
               </TableRow>
             ) : (
-              rows.map((row) => {
+              rows.map((row, index) => {
                 const tags = [
                   nameFor(targetLookups.departments, row.target_department_id),
                   nameFor(targetLookups.seniority_levels, row.target_seniority_id),
@@ -209,7 +211,11 @@ export function DailyQuizConfigsPage() {
                   row.last_run_status === null ? undefined : runStatuses[row.last_run_status]
 
                 return (
-                  <TableRow key={row.id} className={row.is_active ? "" : "opacity-60"}>
+                  <TableRow
+                    key={row.id}
+                    style={staggerStyle(index)}
+                    className={`enter-stagger ${row.is_active ? "" : "opacity-60"}`}
+                  >
                     <TableCell className="min-w-0 max-w-sm">
                       <span className="font-medium break-words">{row.name}</span>
                     </TableCell>
@@ -280,28 +286,26 @@ export function DailyQuizConfigsPage() {
                       )}
                     </TableCell>
                     <TableCell className="text-right">
-                      <div className="flex justify-end gap-1">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            setEditing(row)
-                            setDialogOpen(true)
-                          }}
-                        >
-                          Edit
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          disabled={setActive.isPending}
-                          onClick={() =>
-                            row.is_active ? setConfirming(row) : handleSetActive(row, true)
-                          }
-                        >
-                          {row.is_active ? "Deactivate" : "Activate"}
-                        </Button>
-                      </div>
+                      <RowActions
+                        label={row.name}
+                        actions={[
+                          {
+                            label: "Edit",
+                            icon: PencilIcon,
+                            onSelect: () => {
+                              setEditing(row)
+                              setDialogOpen(true)
+                            },
+                          },
+                          {
+                            label: row.is_active ? "Deactivate" : "Activate",
+                            icon: row.is_active ? CircleSlashIcon : CircleCheckIcon,
+                            disabled: setActive.isPending,
+                            onSelect: () =>
+                              row.is_active ? setConfirming(row) : handleSetActive(row, true),
+                          },
+                        ]}
+                      />
                     </TableCell>
                   </TableRow>
                 )

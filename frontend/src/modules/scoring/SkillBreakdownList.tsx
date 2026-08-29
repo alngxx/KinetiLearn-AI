@@ -1,4 +1,5 @@
 import { Badge } from "@/components/ui/badge"
+import { staggerStyle } from "@/lib/stagger"
 import type { SkillBreakdownItem } from "@/modules/scoring/api"
 import { SkillBandBar } from "@/modules/scoring/SkillBandBar"
 
@@ -51,10 +52,14 @@ function groupByCategory(items: SkillBreakdownItem[]): { category: string; items
 export function SkillBreakdownList({ items }: { items: SkillBreakdownItem[] }) {
   return (
     <div className="flex flex-col gap-6">
-      {groupByCategory(items).map((group) => (
-        <div key={group.category} className="flex flex-col gap-3">
+      {groupByCategory(items).map((group, index) => (
+        <div
+          key={group.category}
+          style={staggerStyle(index, { step: "40ms" })}
+          className="enter-stagger flex flex-col gap-3"
+        >
           <h2 className="label-micro">{group.category}</h2>
-          <div className="overflow-hidden rounded-xl border border-border bg-card">
+          <div className="overflow-hidden surface">
             <ul className="divide-y divide-border">
               {group.items.map((item) => {
                 const level = LEVEL_LABEL[item.current_level] ?? item.current_level

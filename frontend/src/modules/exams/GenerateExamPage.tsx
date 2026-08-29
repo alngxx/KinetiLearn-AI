@@ -299,7 +299,7 @@ function GenerationPanel({
     <div
       role="status"
       aria-busy="true"
-      className="flex max-w-2xl flex-col items-start gap-3 rounded-xl border border-border bg-card p-6"
+      className="flex max-w-2xl flex-col items-start gap-3 surface p-6"
     >
       <div className="flex items-center gap-2.5">
         <Loader2Icon
