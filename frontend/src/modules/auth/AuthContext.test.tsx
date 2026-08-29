@@ -1,6 +1,7 @@
 import { render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { getStoredChatSession, setStoredChatSession } from "@/lib/chatSessionStorage"
 import { queryClient } from "@/lib/queryClient"
 import { getToken, setToken } from "@/lib/tokenStorage"
 import { AuthProvider, readStoredToken, userFromToken } from "@/modules/auth/AuthContext"
@@ -132,5 +133,22 @@ describe("AuthProvider", () => {
     expect(screen.getByTestId("role")).toHaveTextContent("signed-out")
     expect(getToken()).toBeNull()
     expect(queryClient.getQueryData(["users"])).toBeUndefined()
+  })
+
+  // The chat panel reopens whatever id is stored, so a session left behind here
+  // would hand the next learner on this browser someone else's conversation.
+  it("clears the stored chat session on logout", async () => {
+    setToken(futureToken("learner"))
+    setStoredChatSession("s1")
+
+    render(
+      <AuthProvider>
+        <AuthProbe />
+      </AuthProvider>,
+    )
+
+    await userEvent.click(screen.getByRole("button", { name: "sign out" }))
+
+    expect(getStoredChatSession()).toBeNull()
   })
 })

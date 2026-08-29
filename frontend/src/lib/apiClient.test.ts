@@ -1,6 +1,7 @@
 import { http, HttpResponse } from "msw"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { api, buildLoginRedirect } from "@/lib/apiClient"
+import { getStoredChatSession, setStoredChatSession } from "@/lib/chatSessionStorage"
 import { queryClient } from "@/lib/queryClient"
 import { getToken, setToken } from "@/lib/tokenStorage"
 import { server } from "@/test/server"
@@ -62,6 +63,42 @@ describe("401 handling", () => {
     expect(getToken()).toBeNull()
     expect(queryClient.getQueryData(["users"])).toBeUndefined()
     expect(assign).toHaveBeenCalledWith("/login?next=%2Fadmin")
+  })
+
+  // An expired token ends the session just as logout does, so it has to drop the
+  // same things. Leaving the id behind points the next person on this browser at
+  // the previous one's conversation.
+  it("drops the stored chat session, the way logout does", async () => {
+    stubLocation("/learner", "")
+    setToken(TOKEN)
+    setStoredChatSession("s1")
+
+    server.use(
+      http.get(`${API}/api/v1/users/me`, () =>
+        HttpResponse.json({ detail: "Could not validate credentials" }, { status: 401 }),
+      ),
+    )
+
+    await expect(api.get("/api/v1/users/me")).rejects.toMatchObject({ status: 401 })
+
+    expect(getStoredChatSession()).toBeNull()
+  })
+
+  it("keeps the chat session when skipAuthRedirect spares the session", async () => {
+    stubLocation("/login", "")
+    setStoredChatSession("s1")
+
+    server.use(
+      http.post(`${API}/api/v1/auth/login`, () =>
+        HttpResponse.json({ detail: "Invalid credentials" }, { status: 401 }),
+      ),
+    )
+
+    await expect(
+      api.post("/api/v1/auth/login", { email: "a@b.c", password: "wrong" }, { skipAuthRedirect: true }),
+    ).rejects.toMatchObject({ status: 401 })
+
+    expect(getStoredChatSession()).toBe("s1")
   })
 
   it("does not redirect when the 401 arrives while already on /login", async () => {
