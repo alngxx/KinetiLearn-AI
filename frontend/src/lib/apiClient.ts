@@ -1,3 +1,4 @@
+import { clearStoredChatSession } from "@/lib/chatSessionStorage"
 import { networkError, normalizeError, type ApiError } from "@/lib/errors"
 import { queryClient } from "@/lib/queryClient"
 import { clearToken, getToken } from "@/lib/tokenStorage"
@@ -32,6 +33,9 @@ export function buildLoginRedirect(pathname: string, search: string): string | n
 export function handleUnauthorized(): void {
   clearToken()
   queryClient.clear()
+  // Same reason logout() does it: the stored id outlives the session that made
+  // it, and the chat panel would reopen it for whoever signs in next.
+  clearStoredChatSession()
   const target = buildLoginRedirect(window.location.pathname, window.location.search)
   if (target !== null) window.location.assign(target)
 }

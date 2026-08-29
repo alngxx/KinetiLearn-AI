@@ -1,5 +1,5 @@
 import path from 'node:path'
-import { defineConfig } from 'vitest/config'
+import { configDefaults, defineConfig } from 'vitest/config'
 import { loadEnv, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
@@ -37,5 +37,9 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./src/test/setup.ts'],
+    // The Playwright specs match vitest's default include and would otherwise be
+    // collected and run under jsdom. exclude replaces the defaults rather than
+    // extending them, so they have to be spread back in.
+    exclude: [...configDefaults.exclude, 'e2e/**'],
   },
 })
