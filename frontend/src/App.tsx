@@ -5,7 +5,7 @@ import { Toaster } from "@/components/ui/sonner"
 import { LearnerLayout } from "@/layouts/LearnerLayout"
 import { queryClient } from "@/lib/queryClient"
 import { AuthProvider } from "@/modules/auth/AuthContext"
-import { LoginPage } from "@/modules/auth/LoginPage"
+import { LoginLandingPage } from "@/modules/auth/LoginLandingPage"
 import { ProtectedRoute } from "@/modules/auth/ProtectedRoute"
 import { RoleRoute } from "@/modules/auth/RoleRoute"
 import { homePathForRole } from "@/modules/auth/roles"
@@ -47,7 +47,7 @@ export default function App() {
           <AuthProvider>
             <Routes>
               <Route path="/" element={<HomeRedirect />} />
-              <Route path="/login" element={<LoginPage />} />
+              <Route path="/login" element={<LoginLandingPage />} />
 
               <Route element={<ProtectedRoute />}>
                 <Route element={<RoleRoute role="admin" />}>

@@ -13,6 +13,23 @@
     --font-heading: var(--font-sans);
     --font-sans: 'Geist Variable', sans-serif;
     --font-mono: 'Geist Mono Variable', ui-monospace, monospace;
+    /* Login landing accents and surfaces. Scoped values live on
+       [data-kl-landing] further down; these only name the utilities. */
+    --color-kl-emerald: var(--kl-emerald);
+    --color-kl-cyan: var(--kl-cyan);
+    --color-kl-fg: var(--kl-page-fg);
+    --color-kl-dim: var(--kl-page-dim);
+    --color-kl-rule: var(--kl-rule);
+    --color-kl-card-line: var(--kl-card-line);
+    --color-kl-panel: var(--kl-panel-bg);
+    --color-kl-card: var(--kl-card-bg);
+    --color-kl-tile: var(--kl-tile-bg);
+    --color-kl-tile-line: var(--kl-tile-line);
+    --color-kl-wordmark: var(--kl-wordmark);
+    --color-kl-mgr-border: var(--kl-mgr-border);
+    --color-kl-mgr-top: var(--kl-mgr-top);
+    --color-kl-lrn-border: var(--kl-lrn-border);
+    --color-kl-lrn-top: var(--kl-lrn-top);
     --color-sidebar-ring: var(--sidebar-ring);
     --color-sidebar-border: var(--sidebar-border);
     --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -270,4 +287,234 @@
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+/* ---------------------------------------------------------------------------
+   Login landing (two doors)
+
+   The signed-out landing is the one screen that does not wear the app palette:
+   it is a marketing-weight surface with its own starfield, aurora bands and two
+   brand accents. Its tokens are namespaced --kl-* and scoped to the page so
+   nothing here can leak into the portals. Dark follows the app's .dark class,
+   so the header toggle drives ThemeContext and the rest of the app moves with it.
+--------------------------------------------------------------------------- */
+[data-kl-landing] {
+    --kl-emerald: #10b981;
+    --kl-cyan: #06b6d4;
+    --kl-page-bg: linear-gradient(
+        180deg,
+        rgba(237, 223, 255, 0.9),
+        rgba(248, 250, 252, 0.9) 45%,
+        rgba(214, 228, 255, 0.85)
+    );
+    --kl-page-fg: #0f172a;
+    --kl-page-dim: #44506b;
+    --kl-rule: rgba(192, 132, 252, 0.55);
+    --kl-card-line: rgba(192, 132, 252, 0.5);
+    --kl-edge: rgba(255, 255, 255, 0.95);
+    --kl-panel-bg: rgba(255, 255, 255, 0.8);
+    --kl-card-bg: rgba(255, 255, 255, 0.85);
+    --kl-tile-bg: #ffffff;
+    --kl-tile-line: rgba(228, 228, 231, 0.8);
+    --kl-tile-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+    --kl-glyph: #0f172a;
+    --kl-glyph-2: #0f172a;
+    --kl-wordmark: #09090b;
+    --kl-mgr-bg: linear-gradient(
+        135deg,
+        rgba(236, 253, 245, 0.9),
+        rgba(255, 255, 255, 0.86) 55%,
+        rgba(250, 245, 255, 0.85)
+    );
+    --kl-mgr-border: rgba(192, 132, 252, 0.6);
+    --kl-mgr-top: rgba(52, 211, 153, 0.6);
+    --kl-lrn-bg: linear-gradient(
+        135deg,
+        rgba(236, 254, 255, 0.9),
+        rgba(255, 255, 255, 0.86) 55%,
+        rgba(240, 249, 255, 0.85)
+    );
+    --kl-lrn-border: rgba(103, 232, 249, 0.6);
+    --kl-lrn-top: rgba(34, 211, 238, 0.6);
+    --kl-panel-shadow: 0 20px 44px -22px rgba(88, 28, 135, 0.18);
+    --kl-nebula: radial-gradient(
+        ellipse 700px 52% at 50% 50%,
+        rgba(216, 180, 254, 0.5),
+        rgba(199, 210, 254, 0.3) 55%,
+        transparent 80%
+    );
+    --kl-star-a: rgba(126, 34, 206, 0.65);
+    --kl-star-b: rgba(55, 48, 163, 0.62);
+    --kl-star-c: rgba(71, 85, 105, 0.5);
+    --kl-banner-top: linear-gradient(
+        180deg,
+        rgba(167, 243, 208, 0.55),
+        rgba(204, 251, 241, 0.3) 45%,
+        transparent
+    );
+    --kl-banner-bot: linear-gradient(
+        0deg,
+        rgba(165, 243, 252, 0.6),
+        rgba(224, 242, 254, 0.35) 45%,
+        transparent
+    );
+    --kl-corner: radial-gradient(46% 46% at 0% 0%, rgba(233, 213, 255, 0.9), transparent 70%),
+        radial-gradient(46% 46% at 100% 100%, rgba(186, 242, 255, 0.85), transparent 70%);
+}
+
+.dark [data-kl-landing] {
+    --kl-page-bg: linear-gradient(180deg, #05070a, #05070a);
+    --kl-page-fg: #e8eef4;
+    --kl-page-dim: #93a3b4;
+    --kl-rule: rgba(255, 255, 255, 0.1);
+    --kl-card-line: rgba(255, 255, 255, 0.1);
+    --kl-edge: rgba(255, 255, 255, 0.12);
+    --kl-panel-bg: rgba(9, 9, 11, 0.55);
+    --kl-card-bg: rgba(9, 9, 11, 0.72);
+    --kl-tile-bg: rgba(24, 24, 27, 0.9);
+    --kl-tile-line: rgba(255, 255, 255, 0.15);
+    --kl-tile-shadow: none;
+    --kl-glyph: #ffffff;
+    --kl-glyph-2: #94a3b8;
+    --kl-wordmark: #ffffff;
+    --kl-mgr-bg: linear-gradient(
+        135deg,
+        rgba(2, 44, 34, 0.6),
+        rgba(24, 24, 27, 0.8) 55%,
+        rgba(9, 9, 11, 0.9)
+    );
+    --kl-mgr-border: rgba(16, 185, 129, 0.35);
+    --kl-mgr-top: rgba(52, 211, 153, 0.5);
+    --kl-lrn-bg: linear-gradient(
+        135deg,
+        rgba(8, 51, 68, 0.6),
+        rgba(24, 24, 27, 0.8) 55%,
+        rgba(9, 9, 11, 0.9)
+    );
+    --kl-lrn-border: rgba(6, 182, 212, 0.35);
+    --kl-lrn-top: rgba(34, 211, 238, 0.5);
+    --kl-panel-shadow: 0 0 rgba(0, 0, 0, 0);
+    --kl-nebula: radial-gradient(
+        ellipse 60% 50% at 50% 50%,
+        rgba(88, 28, 135, 0.25),
+        rgba(30, 27, 75, 0.15) 55%,
+        transparent 80%
+    );
+    --kl-star-a: rgba(255, 255, 255, 0.75);
+    --kl-star-b: rgba(226, 240, 255, 0.5);
+    --kl-star-c: rgba(255, 255, 255, 0.34);
+    --kl-banner-top: linear-gradient(
+        180deg,
+        rgba(16, 185, 129, 0.38),
+        rgba(4, 120, 87, 0.16) 45%,
+        transparent
+    );
+    --kl-banner-bot: linear-gradient(
+        0deg,
+        rgba(6, 182, 212, 0.32),
+        rgba(37, 99, 235, 0.16) 45%,
+        transparent
+    );
+    --kl-corner: radial-gradient(40% 40% at 0% 0%, rgba(16, 185, 129, 0.11), transparent 70%),
+        radial-gradient(40% 40% at 100% 100%, rgba(6, 182, 212, 0.11), transparent 70%);
+}
+
+@keyframes kl-kinetic {
+    0%,
+    100% {
+        filter: drop-shadow(0 0 0 rgba(16, 185, 129, 0));
+    }
+    50% {
+        filter: drop-shadow(0 0 9px rgba(16, 185, 129, 0.6));
+    }
+}
+
+@keyframes kl-rise {
+    from {
+        opacity: 0;
+        transform: translateY(6px);
+    }
+}
+
+@keyframes kl-twinkle {
+    0%,
+    100% {
+        opacity: 0.72;
+    }
+    50% {
+        opacity: 1;
+    }
+}
+
+@keyframes kl-pulse {
+    0%,
+    100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.45;
+    }
+}
+
+@keyframes kl-ping {
+    0% {
+        transform: scale(1);
+        opacity: 0.65;
+    }
+    75%,
+    100% {
+        transform: scale(2.4);
+        opacity: 0;
+    }
+}
+
+/* The two doors read as one object: pointing at either dims the other. Written
+   here rather than as group-hover utilities because the winning state is
+   "hovered self beats hovered parent", which needs the two selectors in one
+   place instead of an !important on the child. :focus-within mirrors it so a
+   keyboard reaches the same emphasis a mouse does. */
+[data-kl-doors] > section {
+    box-shadow: var(--kl-panel-shadow);
+    transition:
+        opacity 0.3s ease,
+        transform 0.3s ease,
+        box-shadow 0.3s ease,
+        border-color 0.3s ease;
+}
+
+[data-kl-doors]:hover > section,
+[data-kl-doors]:focus-within > section {
+    opacity: 0.5;
+    transform: scale(0.99);
+}
+
+[data-kl-doors] > section:hover,
+[data-kl-doors] > section:focus-within {
+    opacity: 1;
+    transform: scale(1);
+}
+
+[data-kl-door="admin"]:hover,
+[data-kl-door="admin"]:focus-within {
+    border-color: #34d399;
+    box-shadow:
+        0 0 40px rgba(16, 185, 129, 0.35),
+        var(--kl-panel-shadow);
+}
+
+[data-kl-door="learner"]:hover,
+[data-kl-door="learner"]:focus-within {
+    border-color: #22d3ee;
+    box-shadow:
+        0 0 40px rgba(6, 182, 212, 0.35),
+        var(--kl-panel-shadow);
+}
+
+/* Scale and translate are the only motion here that is not decorative texture:
+   they move content a reader may be tracking. */
+@media (prefers-reduced-motion: reduce) {
+    [data-kl-doors]:hover > section,
+    [data-kl-doors]:focus-within > section {
+        transform: none;
+    }
 }
