@@ -53,6 +53,10 @@ export const test = base.extend<{ runId: string }>({
 export { expect }
 
 export async function signIn(page: Page, who: { email: string; password: string }) {
+  // The landing opens on the two doors. Either one leads to this same form and
+  // to the same endpoint, so the specs go through the manager door and let the
+  // token's role claim decide where they land.
+  await page.getByRole("button", { name: "Log in as admins" }).click()
   await page.getByLabel("Email").fill(who.email)
   await page.getByLabel("Password").fill(who.password)
   await page.getByRole("button", { name: "Sign in" }).click()

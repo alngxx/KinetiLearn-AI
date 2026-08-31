@@ -9,6 +9,7 @@ node_modules/
 dist/
 .DS_Store
 KinetiLearn HTML/
+design_handoff_login_landing/
 kinetilearn_schema_spec.md
 pyrightconfig.json
 .vscode/
