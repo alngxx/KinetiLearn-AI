@@ -98,7 +98,7 @@ function ClassCard({ row, index }: { row: MyClass; index: number }) {
     <Link
       to={`/learner/classes/${row.id}`}
       style={staggerStyle(index, { step: "40ms" })}
-      className="enter-stagger group flex flex-wrap items-center justify-between gap-4 surface p-5 transition-colors outline-none hover:border-ring/40 hover:bg-muted/40 focus-visible:ring-3 focus-visible:ring-ring/50"
+      className="enter-stagger group flex flex-wrap items-center justify-between gap-4 surface p-5 transition-colors outline-none hover:border-ring/40 hover:bg-muted/40 focus-visible:ring-3 focus-visible:ring-ring/75"
     >
       <div className="flex min-w-0 flex-col gap-1.5">
         <h3 className="font-medium text-foreground">{row.name}</h3>

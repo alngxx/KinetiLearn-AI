@@ -120,7 +120,7 @@ export function QuestionCard({
         type="button"
         aria-expanded={open}
         onClick={() => (open ? reset() : setOpen(true))}
-        className="flex w-full items-start gap-3 rounded-xl p-4 text-left transition-colors outline-none hover:bg-muted/40 focus-visible:ring-3 focus-visible:ring-ring/50"
+        className="flex w-full items-start gap-3 rounded-xl p-4 text-left transition-colors outline-none hover:bg-muted/40 focus-visible:ring-3 focus-visible:ring-ring/75"
       >
         <span className="numeric mt-0.5 shrink-0 text-sm text-muted-foreground">
           {index + 1}
@@ -169,7 +169,7 @@ export function QuestionCard({
                         id={`option-${option.id}`}
                         checked={draft.correctOptionId === option.id}
                         onChange={() => edit({ correctOptionId: option.id })}
-                        className="size-4 shrink-0 accent-[var(--ring)] outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+                        className="size-4 shrink-0 accent-[var(--ring)] outline-none focus-visible:ring-3 focus-visible:ring-ring/75"
                       />
                       <Label
                         htmlFor={`option-${option.id}`}

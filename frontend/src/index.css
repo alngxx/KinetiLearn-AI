@@ -64,6 +64,7 @@
     --color-foreground: var(--foreground);
     --color-background: var(--background);
     --color-band-intermediate: var(--band-intermediate);
+    --color-band-advanced: var(--band-advanced);
     --shadow-raised: var(--elevation-raised);
     --shadow-overlay: var(--elevation-overlay);
     --shadow-floating: var(--elevation-floating);
@@ -76,9 +77,10 @@
     --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-/* Palette: cool ink-slate structure with one warm brass accent. The brass is
-   rationed — focus rings, the active nav marker, and the skill threshold
-   ladder — so it stays a signal instead of decoration. */
+/* Palette: cool ink-slate structure with one indigo accent. The indigo is
+   rationed — focus rings and the active nav marker — so it stays a signal
+   instead of decoration. The threshold ladder keeps its own warm end in
+   --band-advanced rather than borrowing the identity colour. */
 :root {
     color-scheme: light;
     --background: oklch(0.993 0.0025 250);
@@ -93,16 +95,21 @@
     --secondary-foreground: oklch(0.275 0.03 256);
     --muted: oklch(0.966 0.005 250);
     --muted-foreground: oklch(0.505 0.017 254);
-    --accent: oklch(0.945 0.028 78);
-    --accent-foreground: oklch(0.33 0.06 68);
+    --accent: oklch(0.945 0.025 265);
+    --accent-foreground: oklch(0.33 0.09 265);
     --destructive: oklch(0.55 0.2 27);
     --success: oklch(0.52 0.15 148);
     --info: oklch(0.48 0.1 235);
     --border: oklch(0.915 0.006 252);
     --input: oklch(0.9 0.007 252);
-    --ring: oklch(0.6 0.085 72);
+    --ring: oklch(0.54 0.16 265);
     --band-intermediate: oklch(0.55 0.12 305);
-    --chart-1: oklch(0.63 0.115 72);
+    /* The advanced band of the threshold ladder. Holds the brass the identity
+       accent used to be: the ladder needs a warm end to its cool-to-warm ramp,
+       and hue 265 would sit between info and intermediate rather than past
+       them. Deliberately not tied to --ring any more. */
+    --band-advanced: oklch(0.6 0.085 72);
+    --chart-1: oklch(0.58 0.16 265);
     --chart-2: oklch(0.45 0.065 235);
     --chart-3: oklch(0.315 0.055 258);
     --chart-4: oklch(0.72 0.085 88);
@@ -115,7 +122,7 @@
     --sidebar-accent: oklch(0.945 0.012 252);
     --sidebar-accent-foreground: oklch(0.235 0.03 256);
     --sidebar-border: oklch(0.915 0.006 252);
-    --sidebar-ring: oklch(0.6 0.085 72);
+    --sidebar-ring: oklch(0.54 0.16 265);
     /* Three steps, named for the job rather than a size: what sits on the
        page, what floats over it, and what follows you down the page. */
     --elevation-raised: 0 1px 2px -1px oklch(0.205 0.024 256 / 0.1),
@@ -125,15 +132,15 @@
     --elevation-floating: 0 8px 24px -4px oklch(0.205 0.024 256 / 0.16),
         0 4px 8px -4px oklch(0.205 0.024 256 / 0.1);
     /* Ambient light entering the frame, not a spotlight: two wide ellipses at
-       opposite corners, in the identity brass rather than a new hue. Softness
+       opposite corners, in the identity indigo rather than a new hue. Softness
        comes from the gradient extent — no blur filter, which on a fixed
        full-viewport layer costs compositing on every scroll for no gain. */
     --ambient-glow: radial-gradient(
             55% 45% at 15% -10%,
-            oklch(0.6 0.085 72 / 0.05),
+            oklch(0.54 0.16 265 / 0.05),
             transparent 70%
         ),
-        radial-gradient(55% 45% at 85% 110%, oklch(0.6 0.085 72 / 0.03), transparent 70%);
+        radial-gradient(55% 45% at 85% 110%, oklch(0.54 0.16 265 / 0.03), transparent 70%);
 }
 
 .dark {
@@ -144,34 +151,35 @@
     --card-foreground: oklch(0.955 0.004 250);
     --popover: oklch(0.225 0.021 256);
     --popover-foreground: oklch(0.955 0.004 250);
-    --primary: oklch(0.74 0.105 74);
-    --primary-foreground: oklch(0.2 0.03 70);
+    --primary: oklch(0.72 0.13 265);
+    --primary-foreground: oklch(0.19 0.04 265);
     --secondary: oklch(0.285 0.022 256);
     --secondary-foreground: oklch(0.95 0.004 250);
     --muted: oklch(0.285 0.022 256);
     --muted-foreground: oklch(0.7 0.014 252);
     --accent: oklch(0.3 0.03 256);
-    --accent-foreground: oklch(0.9 0.045 78);
+    --accent-foreground: oklch(0.9 0.04 265);
     --destructive: oklch(0.7 0.17 22);
     --success: oklch(0.72 0.15 150);
     --info: oklch(0.75 0.12 235);
     --border: oklch(1 0 0 / 11%);
     --input: oklch(1 0 0 / 15%);
-    --ring: oklch(0.68 0.095 74);
+    --ring: oklch(0.70 0.13 265);
     --band-intermediate: oklch(0.7 0.13 305);
-    --chart-1: oklch(0.74 0.105 74);
+    --band-advanced: oklch(0.68 0.095 74);
+    --chart-1: oklch(0.72 0.13 265);
     --chart-2: oklch(0.62 0.075 235);
     --chart-3: oklch(0.82 0.055 88);
     --chart-4: oklch(0.5 0.06 240);
     --chart-5: oklch(0.68 0.04 220);
     --sidebar: oklch(0.205 0.02 256);
     --sidebar-foreground: oklch(0.9 0.006 250);
-    --sidebar-primary: oklch(0.74 0.105 74);
-    --sidebar-primary-foreground: oklch(0.2 0.03 70);
+    --sidebar-primary: oklch(0.72 0.13 265);
+    --sidebar-primary-foreground: oklch(0.19 0.04 265);
     --sidebar-accent: oklch(0.275 0.024 256);
     --sidebar-accent-foreground: oklch(0.96 0.004 250);
     --sidebar-border: oklch(1 0 0 / 11%);
-    --sidebar-ring: oklch(0.68 0.095 74);
+    --sidebar-ring: oklch(0.70 0.13 265);
     /* Same three roles, rebuilt for a dark ground: the highlight does the
        work the shadow does in light mode. */
     --elevation-raised: inset 0 1px 0 0 oklch(1 0 0 / 0.04),
@@ -184,15 +192,15 @@
        without reading as a colour wash. */
     --ambient-glow: radial-gradient(
             55% 45% at 15% -10%,
-            oklch(0.74 0.105 74 / 0.07),
+            oklch(0.72 0.13 265 / 0.07),
             transparent 70%
         ),
-        radial-gradient(55% 45% at 85% 110%, oklch(0.74 0.105 74 / 0.04), transparent 70%);
+        radial-gradient(55% 45% at 85% 110%, oklch(0.72 0.13 265 / 0.04), transparent 70%);
 }
 
 @layer base {
   * {
-    @apply border-border outline-ring/50;
+    @apply border-border outline-ring/75;
     }
   body {
     @apply bg-background text-foreground;
@@ -211,10 +219,22 @@
     }
   html {
     @apply font-sans;
-    /* The learner shell has a sticky top bar. Without this, tabbing to an
-       element just above the viewport scrolls it flush to the top and under
-       that bar, leaving the focused control hidden. */
-    scroll-padding-top: 4.5rem;
+    /* The learner shell's sticky top bar. Two things need this number — the
+       scroll padding below, and the chat panel, which sits sticky underneath
+       the bar at the remaining viewport height — so it is declared once here
+       rather than written out at both sites and left to drift.
+
+       A declared constant, not a measurement, so it has to be at least as tall
+       as the bar actually is — the header applies it as a min-height, which
+       only binds if it exceeds the natural height (measured 74.5px, hence
+       4.75rem). The safe-area inset is added because the header adds it to its
+       own padding-top; without it the panel would slide under the bar by
+       exactly the notch on a device that has one. */
+    --header-h: calc(4.75rem + env(safe-area-inset-top));
+    /* Without this, tabbing to an element just above the viewport scrolls it
+       flush to the top and under that bar, leaving the focused control
+       hidden. */
+    scroll-padding-top: var(--header-h);
     }
 }
 

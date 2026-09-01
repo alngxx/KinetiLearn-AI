@@ -39,7 +39,7 @@ export function SkillDashboardPage() {
       ) : (
         <>
           <Overview items={breakdown.data} />
-          <SkillBreakdownList items={breakdown.data} />
+          <SkillBreakdownList items={breakdown.data} layout="grid" />
         </>
       )}
     </div>

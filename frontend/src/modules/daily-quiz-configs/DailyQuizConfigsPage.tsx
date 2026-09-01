@@ -132,7 +132,7 @@ export function DailyQuizConfigsPage() {
           variant="outline"
           aria-pressed={includeInactive}
           onClick={() => setFilter("inactive", includeInactive ? "" : "1")}
-          className="aria-pressed:border-ring aria-pressed:bg-accent aria-pressed:text-accent-foreground"
+          className="aria-pressed:border-ring/40 aria-pressed:bg-accent/40 aria-pressed:text-accent-foreground"
         >
           Show inactive
         </Button>

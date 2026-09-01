@@ -72,7 +72,7 @@ export function ExplainPanel({ submissionId }: { submissionId: string }) {
         ref={listRef}
         tabIndex={0}
         aria-label="The explanation"
-        className="flex max-h-[32rem] flex-col gap-4 overflow-y-auto overscroll-contain outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+        className="flex max-h-[32rem] flex-col gap-4 overflow-y-auto overscroll-contain outline-none focus-visible:ring-3 focus-visible:ring-ring/75"
       >
         {explain.messages.map((message) => (
           <Bubble key={message.id} message={message} />

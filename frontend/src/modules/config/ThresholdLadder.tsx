@@ -22,15 +22,17 @@ export function ThresholdLadder({
       </span>
 
       {/* Cool-to-warm progression: info blue at the foundational end, warming
-          through violet, landing on the identity brass at mastery — three
-          distinct hues so the bands read apart in both themes, not just as
-          shades of one color the way primary/ring do in dark mode. */}
+          through violet, landing on the warm --band-advanced at mastery — three
+          distinct hues so the bands read apart in both themes. That last band
+          has its own token rather than borrowing the identity accent: the
+          accent is indigo, which would sit between info and violet instead of
+          past them and collapse the ramp. */}
       <div aria-hidden="true" className="flex h-1.5 overflow-hidden rounded-full bg-muted">
         <div style={{ flexGrow: basicMax }} className="bg-info" />
         <div style={{ flexGrow: intermediateSpan }} className="bg-band-intermediate" />
         <div
           style={{ flexGrow: advancedSpan }}
-          className="bg-gradient-to-r from-ring to-ring/15"
+          className="bg-gradient-to-r from-band-advanced to-band-advanced/15"
         />
       </div>
       <div

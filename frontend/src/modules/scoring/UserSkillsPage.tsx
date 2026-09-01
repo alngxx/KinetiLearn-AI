@@ -19,7 +19,7 @@ function PageView({ userId }: { userId: string }) {
     <div className="flex flex-col gap-6">
       <Link
         to="/admin/users"
-        className="-mb-2 flex w-fit items-center gap-1 text-sm text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:rounded-sm focus-visible:ring-3 focus-visible:ring-ring/50"
+        className="-mb-2 flex w-fit items-center gap-1 text-sm text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:rounded-sm focus-visible:ring-3 focus-visible:ring-ring/75"
       >
         <ChevronLeftIcon className="size-4" />
         Back to users
@@ -49,7 +49,9 @@ function PageView({ userId }: { userId: string }) {
           There are no active skills to score against.
         </p>
       ) : (
-        <SkillBreakdownList items={breakdown.data} />
+        // A deliberate preservation of current behaviour, not an oversight —
+        // the admin per-learner view keeps the row list.
+        <SkillBreakdownList items={breakdown.data} layout="list" />
       )}
     </div>
   )

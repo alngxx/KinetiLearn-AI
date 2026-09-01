@@ -8,7 +8,7 @@ export function Citations({ citations }: { citations: Citation[] }) {
 
   return (
     <details className="mt-2 rounded-lg border border-border bg-background/60">
-      <summary className="cursor-pointer rounded-lg px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50">
+      <summary className="cursor-pointer rounded-lg px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/75">
         {citations.length === 1 ? "1 source" : `${citations.length} sources`}
       </summary>
       <ul className="flex flex-col gap-3 px-2.5 pt-1 pb-2.5">

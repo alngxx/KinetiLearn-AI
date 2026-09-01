@@ -2,7 +2,7 @@ import type { LucideIcon } from "lucide-react"
 
 // A section with nothing in it, sized to its content: one left-aligned row that
 // lines up with the cards it replaces, rather than a tall centred void. The icon
-// stays muted on purpose — brass is reserved for things worth acting on, and an
+// stays muted on purpose — the accent is reserved for things worth acting on, and an
 // empty section is the opposite of that.
 export function EmptyState({
   icon: Icon,
