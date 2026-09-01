@@ -51,12 +51,12 @@ export function RecentChats({
               <li key={session.id}>
                 <button
                   type="button"
-                  // The brass inset marks "this one" in both portals — same
+                  // The indigo inset marks "this one" in both portals — same
                   // marker the layout's nav uses for the current page.
                   aria-current={active ? "true" : undefined}
                   onClick={() => onSelect(session.id)}
                   className={cn(
-                    "flex w-full flex-col items-start gap-0.5 rounded-lg px-2.5 py-2 text-left transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                    "flex w-full flex-col items-start gap-0.5 rounded-lg px-2.5 py-2 text-left transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/75 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
                     active &&
                       "bg-sidebar-accent text-sidebar-accent-foreground shadow-[inset_0_-2px_0_0_var(--sidebar-ring)]",
                   )}

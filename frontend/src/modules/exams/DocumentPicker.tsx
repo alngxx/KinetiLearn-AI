@@ -61,7 +61,7 @@ export function DocumentPicker({
                         blocked === null ? undefined : `blocked-${row.document_id}`
                       }
                       onChange={() => onToggle(row.document_id)}
-                      className="mt-0.5 size-4 shrink-0 accent-[var(--ring)] outline-none focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none"
+                      className="mt-0.5 size-4 shrink-0 accent-[var(--ring)] outline-none focus-visible:ring-3 focus-visible:ring-ring/75 disabled:pointer-events-none"
                     />
                     <span className="flex min-w-0 flex-col gap-0.5">
                       <span className="text-sm break-words text-foreground">{row.title}</span>

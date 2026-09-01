@@ -38,7 +38,7 @@ function ClassView({ classId }: { classId: string }) {
     <div className="flex flex-col gap-6">
       <Link
         to="/learner"
-        className="-mb-2 flex w-fit items-center gap-1 text-sm text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:rounded-sm focus-visible:ring-3 focus-visible:ring-ring/50"
+        className="-mb-2 flex w-fit items-center gap-1 text-sm text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:rounded-sm focus-visible:ring-3 focus-visible:ring-ring/75"
       >
         <ChevronLeftIcon className="size-4" />
         Home
@@ -135,7 +135,7 @@ function ExerciseCard({
         {bestSubmissionId !== undefined && (
           <Link
             to={`/learner/exams/${exercise.id}/result/${bestSubmissionId}`}
-            className="text-sm text-muted-foreground underline-offset-4 transition-colors outline-none hover:text-foreground hover:underline focus-visible:rounded-sm focus-visible:ring-3 focus-visible:ring-ring/50"
+            className="text-sm text-muted-foreground underline-offset-4 transition-colors outline-none hover:text-foreground hover:underline focus-visible:rounded-sm focus-visible:ring-3 focus-visible:ring-ring/75"
           >
             See your best attempt
           </Link>

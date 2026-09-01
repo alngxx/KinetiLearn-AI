@@ -26,7 +26,7 @@ export function SkillBandBar({
       <div style={{ flexGrow: intermediateSpan }} className="bg-band-intermediate/30" />
       <div
         style={{ flexGrow: advancedSpan }}
-        className="rounded-r-full bg-gradient-to-r from-ring/30 to-ring/5"
+        className="rounded-r-full bg-gradient-to-r from-band-advanced/30 to-band-advanced/5"
       />
       <span
         aria-hidden="true"

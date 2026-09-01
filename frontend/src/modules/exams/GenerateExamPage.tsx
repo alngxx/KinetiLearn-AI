@@ -173,7 +173,7 @@ function GenerateView({ classId }: { classId: string }) {
     <div className="flex flex-col gap-6">
       <Link
         to={`/admin/classes/${classId}`}
-        className="-mb-2 flex w-fit items-center gap-1 text-sm text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:rounded-sm focus-visible:ring-3 focus-visible:ring-ring/50"
+        className="-mb-2 flex w-fit items-center gap-1 text-sm text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:rounded-sm focus-visible:ring-3 focus-visible:ring-ring/75"
       >
         <ChevronLeftIcon className="size-4" />
         Back to class

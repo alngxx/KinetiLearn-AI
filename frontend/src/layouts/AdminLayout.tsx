@@ -9,17 +9,21 @@ import {
 import { NavLink, Outlet, useNavigate } from "react-router-dom"
 import { ThemeToggle } from "@/components/ThemeToggle"
 import { Button } from "@/components/ui/button"
+import { Logo } from "@/components/Logo"
 import { cn } from "@/lib/utils"
 import { configEntities } from "@/modules/config/descriptors"
 import { useAuth } from "@/modules/auth/useAuth"
 
 const navLinkClasses =
-  "flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+  "flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/75 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
 
-// The active item carries the brass marker — the same accent the threshold
-// ladder uses, so the colour means "this one" throughout the console.
+// The active item carries the identity indigo, so the colour means "this one"
+// throughout the console. Blended toward transparent via color-mix rather than
+// a Tailwind opacity modifier, since a box-shadow colour can't take a "/"
+// suffix; 20% is the most it can give away and still clear 3:1 against the
+// active row.
 const activeClasses =
-  "bg-sidebar-accent font-medium text-sidebar-accent-foreground shadow-[inset_2px_0_0_0_var(--sidebar-ring)]"
+  "bg-sidebar-accent font-medium text-sidebar-accent-foreground shadow-[inset_2px_0_0_0_color-mix(in_oklch,var(--sidebar-ring),transparent_20%)]"
 
 export function AdminLayout() {
   const { logout } = useAuth()
@@ -37,9 +41,7 @@ export function AdminLayout() {
 
       <aside className="sticky top-0 flex h-svh w-60 shrink-0 flex-col gap-6 border-r border-sidebar-border bg-sidebar px-3 py-5">
         <div className="px-2.5">
-          <span className="text-sm font-semibold tracking-tight text-sidebar-foreground">
-            KinetiLearn
-          </span>
+          <Logo />
           <p className="label-micro mt-0.5">Admin</p>
         </div>
 

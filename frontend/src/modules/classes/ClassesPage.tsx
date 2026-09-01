@@ -100,7 +100,7 @@ export function ClassesPage() {
           variant="outline"
           aria-pressed={includeInactive}
           onClick={() => setFilter("inactive", includeInactive ? "" : "1")}
-          className="aria-pressed:border-ring aria-pressed:bg-accent aria-pressed:text-accent-foreground"
+          className="aria-pressed:border-ring/40 aria-pressed:bg-accent/40 aria-pressed:text-accent-foreground"
         >
           Show inactive
         </Button>
@@ -171,7 +171,7 @@ export function ClassesPage() {
                     <div className="flex min-w-0 flex-col">
                       <Link
                         to={`/admin/classes/${row.id}`}
-                        className="w-fit font-medium break-words underline-offset-4 transition-colors outline-none hover:text-ring hover:underline focus-visible:rounded-sm focus-visible:ring-3 focus-visible:ring-ring/50"
+                        className="w-fit font-medium break-words underline-offset-4 transition-colors outline-none hover:text-ring hover:underline focus-visible:rounded-sm focus-visible:ring-3 focus-visible:ring-ring/75"
                       >
                         {row.name}
                       </Link>

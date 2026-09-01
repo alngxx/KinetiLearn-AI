@@ -16,7 +16,7 @@ import { formatMoment } from "@/modules/submissions/dates"
 import { useClasses, useExerciseDirectory, useLearners, useSubmissions } from "@/modules/submissions/queries"
 
 const selectClasses =
-  "h-8 w-48 appearance-none rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm text-foreground transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30"
+  "h-8 w-48 appearance-none rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm text-foreground transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/75 dark:bg-input/30"
 
 const FILTER_KEYS = ["class_id", "user_id", "exercise_id"] as const
 
@@ -181,7 +181,7 @@ export function SubmissionsPage() {
                       <div className="flex min-w-0 flex-col">
                         <Link
                           to={`/admin/submissions/${row.id}`}
-                          className="w-fit font-medium break-words underline-offset-4 transition-colors outline-none hover:text-ring hover:underline focus-visible:rounded-sm focus-visible:ring-3 focus-visible:ring-ring/50"
+                          className="w-fit font-medium break-words underline-offset-4 transition-colors outline-none hover:text-ring hover:underline focus-visible:rounded-sm focus-visible:ring-3 focus-visible:ring-ring/75"
                         >
                           {exercise?.title ?? "Exam"}
                         </Link>

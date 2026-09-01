@@ -24,7 +24,7 @@ const FILTERS: { name: keyof EnrollFilters; label: string; from: LookupName }[] 
 ]
 
 const selectClasses =
-  "h-8 w-full appearance-none rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm text-foreground transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30"
+  "h-8 w-full appearance-none rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm text-foreground transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/75 dark:bg-input/30"
 
 export function BulkEnrollDialog({
   classId,

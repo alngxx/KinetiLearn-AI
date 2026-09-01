@@ -1,6 +1,7 @@
 import { ChartSplineIcon, HouseIcon, LogOutIcon, MessageCircleIcon, XIcon } from "lucide-react"
 import { useRef, useState } from "react"
 import { NavLink, Outlet, useNavigate } from "react-router-dom"
+import { Logo } from "@/components/Logo"
 import { ThemeToggle } from "@/components/ThemeToggle"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -9,9 +10,9 @@ import { ChatPanel } from "@/modules/chat/ChatPanel"
 import { useChat } from "@/modules/chat/useChat"
 
 const navLinkClasses =
-  "flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+  "flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/75 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
 
-// Same brass marker the admin console uses for the active item, so the colour
+// Same indigo marker the admin console uses for the active item, so the colour
 // means "this one" in both portals.
 const activeClasses =
   "bg-sidebar-accent font-medium text-sidebar-accent-foreground shadow-[inset_0_-2px_0_0_var(--sidebar-ring)]"
@@ -52,14 +53,12 @@ export function LearnerLayout() {
         Skip to content
       </a>
 
-      <header className="sticky top-0 z-10 flex flex-wrap items-center gap-x-6 gap-y-3 border-b border-sidebar-border bg-sidebar px-6 pt-[calc(0.75rem+env(safe-area-inset-top))] pb-3">
+      {/* min-h rather than h: --header-h is what the chat panel offsets itself
+          by, so the bar has to actually be that tall — but this row wraps on a
+          narrow window, and a fixed height would clip the second line. */}
+      <header className="sticky top-0 z-10 flex min-h-[var(--header-h)] flex-wrap items-center gap-x-6 gap-y-3 border-b border-sidebar-border bg-sidebar px-6 pt-[calc(0.75rem+env(safe-area-inset-top))] pb-3">
         <div>
-          <span
-            translate="no"
-            className="text-sm font-semibold tracking-tight text-sidebar-foreground"
-          >
-            KinetiLearn
-          </span>
+          <Logo />
           <p className="label-micro mt-0.5">Learner</p>
         </div>
 

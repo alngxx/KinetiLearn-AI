@@ -67,7 +67,7 @@ function DetailView({ classId }: { classId: string }) {
     <div className="flex flex-col gap-6">
       <Link
         to="/admin/classes"
-        className="-mb-2 flex w-fit items-center gap-1 text-sm text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:rounded-sm focus-visible:ring-3 focus-visible:ring-ring/50"
+        className="-mb-2 flex w-fit items-center gap-1 text-sm text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:rounded-sm focus-visible:ring-3 focus-visible:ring-ring/75"
       >
         <ChevronLeftIcon className="size-4" />
         Classes
@@ -218,7 +218,7 @@ function DetailView({ classId }: { classId: string }) {
                         <TableCell className="min-w-0 max-w-md break-words">
                           <Link
                             to={`/admin/classes/${classId}/exercises/${exercise.id}`}
-                            className="font-medium underline-offset-4 transition-colors outline-none hover:text-ring hover:underline focus-visible:rounded-sm focus-visible:ring-3 focus-visible:ring-ring/50"
+                            className="font-medium underline-offset-4 transition-colors outline-none hover:text-ring hover:underline focus-visible:rounded-sm focus-visible:ring-3 focus-visible:ring-ring/75"
                           >
                             {exercise.title}
                           </Link>

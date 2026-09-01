@@ -137,7 +137,7 @@ function DetailView({ documentId }: { documentId: string }) {
     <div className="flex flex-col gap-6">
       <Link
         to="/admin/documents"
-        className="-mb-2 flex w-fit items-center gap-1 text-sm text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:rounded-sm focus-visible:ring-3 focus-visible:ring-ring/50"
+        className="-mb-2 flex w-fit items-center gap-1 text-sm text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:rounded-sm focus-visible:ring-3 focus-visible:ring-ring/75"
       >
         <ChevronLeftIcon className="size-4" />
         Documents
@@ -201,7 +201,7 @@ function DetailView({ documentId }: { documentId: string }) {
                       disabled={setSkill.isPending}
                       aria-label={`Remove ${skill.name}`}
                       onClick={() => handleSkill(skill.id, false)}
-                      className="ml-0.5 rounded-full p-0.5 transition-colors outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50"
+                      className="ml-0.5 rounded-full p-0.5 transition-colors outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/75 disabled:pointer-events-none disabled:opacity-50"
                     >
                       <XIcon className="size-3" />
                     </button>
@@ -220,7 +220,7 @@ function DetailView({ documentId }: { documentId: string }) {
                   onChange={(event) => {
                     if (event.target.value !== "") handleSkill(event.target.value, true)
                   }}
-                  className="h-8 w-48 appearance-none rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm text-foreground transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 dark:bg-input/30"
+                  className="h-8 w-48 appearance-none rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm text-foreground transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/75 disabled:pointer-events-none disabled:opacity-50 dark:bg-input/30"
                 >
                   <option value="">
                     {availableSkills.length === 0 ? "All skills added" : "Add skill…"}
@@ -283,7 +283,7 @@ function DetailView({ documentId }: { documentId: string }) {
 
                     return (
                       <TableRow key={version.version_number}>
-                        {/* The brass left edge is the same "this one" marker the
+                        {/* The indigo left edge is the same "this one" marker the
                             sidebar uses for the active nav item. */}
                         <TableCell
                           className={`border-l-2 ${isLive ? "border-ring" : "border-transparent"}`}

@@ -1,5 +1,4 @@
 # KinetiLearn
-
 AI-powered corporate training platform. Two portals: Admin (training managers)
 and Learner (employees). Core features: RAG chatbot, AI exam generator,
 daily quiz engine, skill scoring engine.
@@ -20,9 +19,10 @@ backend/worker/tasks.py         ← Celery async tasks
 - Routers handle HTTP only. Services handle logic. Models handle DB only.
 - Never hardcode secrets — use settings from core/config.py
 - All errors return: `{"detail": "message"}`
-- Write code as a competent Year 2 CS student: correct logic,
+- Write code as a competent Year 3 CS student: correct logic,
   minimal comments, practical variable names, no over-engineering
 - Always generate code with spaces around every "=" (e.g., `x = 5`, not `x=5`)
+- Never commit and push yourself, always let user commit and push!
 
 ## Commands
 - Run server: `uvicorn app.main:app --reload`
@@ -31,7 +31,7 @@ backend/worker/tasks.py         ← Celery async tasks
 - Migrations: `alembic upgrade head`
 
 
-# CLAUDE.md
+# Andrej Karpathy's Claude Code Guidelines
 
 Behavioral guidelines to reduce common LLM coding mistakes. Merge with project-specific instructions as needed.
 
@@ -125,36 +125,17 @@ fixes; on those, this rule's default (no extra passes) still holds.
   narrowing, or transforming it.
 - Finish the whole task. Stop short of actions clearly beyond what was asked.
 
-## Frontend Visual Quality (Phase 3 onward)
-- Use the `frontend-design` skill for aesthetic direction and the
-  `web-design-guidelines` skill for a correctness/accessibility audit, on
-  every screen. This baseline applies every task, not deferred.
-- Baseline interactivity — hover/focus states, transition-colors on
-  interactive elements, prefers-reduced-motion-respecting spinners — is
-  mandatory every task.
-- A signature/bespoke design element (like ThresholdLadder — something that
-  encodes real data, not decoration) is optional per task: add one only
-  when a screen's data genuinely earns it. Most screens won't need one.
-- Heavier motion (framer-motion sequences, scroll-reveal, staggered list
-  entrances, animated chart/number reveals) is intentionally deferred to
-  Task 43's single consistency pass across all screens, not built
-  piecemeal per task.
-- Headings and buttons use sentence case, not Title Case, project-wide —
-  settled in Task 34, do not re-litigate.
-
-## Frontend Consistency Passes (Phase 3)
-- Mid-point consistency pass (ran at Task 37-38, after the admin portal
-  completed, before the learner portal began): done. Admin screens were
-  reviewed together for drift in motion, spacing, and accumulated deferred
-  items (dark mode, URL-synced filters, virtualization, focus-first-error).
-  Cheap cross-cutting fixes were applied; the rest was re-deferred to the
-  final pass below.
-- The final pass (Task 42, "Polish") remains the complete pass: heavier
-  motion (framer-motion sequences, scroll-reveal, staggered entrances), full
-  accessibility re-audit, and E2E smoke tests across both portals.
-- This does not change per-task scope otherwise — baseline design quality
-  (typography, palette, hover/focus states, accessibility) stays mandatory
-  every task, same as before.
+## Frontend Visual Quality
+- IMPORTANT: use the `frontend-design` skill for aesthetic direction and
+  the `web-design-guidelines` skill for a correctness/accessibility audit
+  on every screen you touch - including backend-integration work, not
+  just new screens. Do not skip this because it's referenced here rather
+  than stated in the task prompt.
+- Baseline interactivity (hover/focus states, transition-colors on
+  interactive elements, prefers-reduced-motion-respecting spinners) is
+  mandatory on every screen you touch.
+- Headings and buttons use sentence case, not Title Case, project-wide.
+  Don't re-litigate this.
 
 ---
 

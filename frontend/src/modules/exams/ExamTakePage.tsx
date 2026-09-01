@@ -61,7 +61,7 @@ function TakeView({ exerciseId }: { exerciseId: string }) {
     <div className="flex flex-col gap-6">
       <Link
         to={exam.data === undefined ? "/learner" : `/learner/classes/${exam.data.class_id}`}
-        className="-mb-2 flex w-fit items-center gap-1 text-sm text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:rounded-sm focus-visible:ring-3 focus-visible:ring-ring/50"
+        className="-mb-2 flex w-fit items-center gap-1 text-sm text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:rounded-sm focus-visible:ring-3 focus-visible:ring-ring/75"
       >
         <ChevronLeftIcon className="size-4" />
         Back
@@ -287,7 +287,7 @@ function QuestionField({
         {question.options.map((option) => (
           <label
             key={option.id}
-            className="flex cursor-pointer items-start gap-3 rounded-lg border border-border px-3 py-2 text-sm transition-colors has-checked:border-ring/40 has-checked:bg-accent/40 has-focus-visible:ring-3 has-focus-visible:ring-ring/50 hover:bg-accent/20"
+            className="flex cursor-pointer items-start gap-3 rounded-lg border border-border px-3 py-2 text-sm transition-colors has-checked:border-ring/40 has-checked:bg-accent/40 has-focus-visible:ring-3 has-focus-visible:ring-ring/75 hover:bg-accent/20"
           >
             <input
               type="radio"

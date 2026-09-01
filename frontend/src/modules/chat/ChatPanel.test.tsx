@@ -126,6 +126,11 @@ describe("ChatPanel", () => {
   beforeEach(() => {
     stream = controllableStream()
     server.use(
+      // The panel names the learner's classes in its suggestions, so opening it
+      // is now a request too. Empty by default: enrollment is incidental to
+      // almost every test here, and it keeps the generic suggestions on screen.
+      // Tests about the generated ones override this.
+      http.get(`${API}/api/v1/classes/me`, () => HttpResponse.json([])),
       http.get(`${API}/api/v1/chat/sessions`, () => HttpResponse.json(SESSIONS)),
       http.get(`${API}/api/v1/chat/sessions/:id/messages`, () => HttpResponse.json([])),
       http.post(`${API}/api/v1/chat/sessions`, () =>
@@ -416,7 +421,7 @@ describe("ChatPanel", () => {
       // Picking a conversation returns to it, rather than leaving the learner
       // on the list to find their own way back.
       expect(await within(panel()).findByText("Raise a ticket with your lead.")).toBeInTheDocument()
-      expect(within(panel()).getByRole("heading", { name: "Ask" })).toBeInTheDocument()
+      expect(within(panel()).getByRole("heading", { name: "Pace" })).toBeInTheDocument()
     })
 
     it("marks the conversation that is currently open", async () => {
@@ -452,7 +457,7 @@ describe("ChatPanel", () => {
 
       expect(within(panel()).queryByText("20 days.")).not.toBeInTheDocument()
       expect(
-        within(panel()).getByRole("heading", { name: "Ask about your training" }),
+        within(panel()).getByRole("heading", { name: "Hi, I’m Pace" }),
       ).toBeInTheDocument()
       // Nothing to restore, so the composer is there straight away.
       expect(composer()).toBeEnabled()
@@ -471,22 +476,86 @@ describe("ChatPanel", () => {
       // Filling is not asking — the learner may want to edit it first, so the
       // empty state is still on screen and nothing is streaming.
       expect(
-        within(panel()).getByRole("heading", { name: "Ask about your training" }),
+        within(panel()).getByRole("heading", { name: "Hi, I’m Pace" }),
       ).toBeInTheDocument()
       expect(within(panel()).queryByRole("button", { name: "Stop" })).not.toBeInTheDocument()
+    })
+
+    // The suggestions are built from the learner's own classes, so the panel
+    // has to be showing their names rather than the generic set the rest of
+    // this file runs against.
+    it("names the learner's own classes in the suggestions", async () => {
+      server.use(
+        http.get(`${API}/api/v1/classes/me`, () =>
+          HttpResponse.json([
+            {
+              id: "c1",
+              name: "Fire safety",
+              description: null,
+              start_date: null,
+              end_date: null,
+              enrolled_at: "2026-01-01T00:00:00Z",
+              exercise_count: 2,
+              completed_exercise_count: 0,
+            },
+          ]),
+        ),
+      )
+      renderLayout()
+      await openPanel()
+
+      expect(
+        await within(panel()).findByRole("button", { name: "What does Fire safety cover?" }),
+      ).toBeInTheDocument()
+      expect(
+        within(panel()).getByRole("button", { name: "What should I revise for Fire safety?" }),
+      ).toBeInTheDocument()
+      expect(
+        within(panel()).queryByRole("button", { name: "What topics does my training cover?" }),
+      ).not.toBeInTheDocument()
+    })
+
+    // Nothing assigned means there is no exercise to revise for, so the class is
+    // still named but that suggestion must not be offered.
+    it("does not offer to revise for a class with no exercises", async () => {
+      server.use(
+        http.get(`${API}/api/v1/classes/me`, () =>
+          HttpResponse.json([
+            {
+              id: "c1",
+              name: "Fire safety",
+              description: null,
+              start_date: null,
+              end_date: null,
+              enrolled_at: "2026-01-01T00:00:00Z",
+              exercise_count: 0,
+              completed_exercise_count: 0,
+            },
+          ]),
+        ),
+      )
+      renderLayout()
+      await openPanel()
+
+      expect(
+        await within(panel()).findByRole("button", { name: "What does Fire safety cover?" }),
+      ).toBeInTheDocument()
+      expect(
+        within(panel()).queryByRole("button", { name: "What should I revise for Fire safety?" }),
+      ).not.toBeInTheDocument()
     })
 
     it("drops the suggestions once the conversation has started", async () => {
       renderLayout()
       await openPanel()
       expect(
-        within(panel()).getByRole("heading", { name: "Ask about your training" }),
+        within(panel()).getByRole("heading", { name: "Hi, I’m Pace" }),
       ).toBeInTheDocument()
 
       await ask("what is the leave policy?")
 
       expect(
-        within(panel()).queryByRole("heading", { name: "Ask about your training" }),
+        within(panel()).queryByRole("heading", { name: "Hi, I’m Pace" }),
       ).not.toBeInTheDocument()
     })
 
@@ -540,7 +609,7 @@ describe("ChatPanel", () => {
       )
 
       // Autofocus is suppressed on a phone, so the hand-off has to hold.
-      expect(within(panel()).getByRole("heading", { name: "Ask" })).toHaveFocus()
+      expect(within(panel()).getByRole("heading", { name: "Pace" })).toHaveFocus()
     })
   })
 

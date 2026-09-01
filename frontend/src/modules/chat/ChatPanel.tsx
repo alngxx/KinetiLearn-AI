@@ -1,18 +1,14 @@
 import { ArrowLeftIcon, ArrowUpIcon, HistoryIcon, SquareIcon, XIcon } from "lucide-react"
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { QueryErrorState } from "@/components/QueryErrorState"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Bubble } from "@/modules/chat/Bubble"
 import { ChatStatusLine } from "@/modules/chat/ChatStatusLine"
 import { RecentChats } from "@/modules/chat/RecentChats"
+import { suggestionsFor } from "@/modules/chat/suggestions"
 import type { ChatMessage, ChatStatus } from "@/modules/chat/useChat"
-
-const SUGGESTIONS = [
-  "What topics does my training cover?",
-  "Summarise the key points I should remember",
-  "What should I revise before my next exercise?",
-]
+import { useMyClasses } from "@/modules/learner-home/queries"
 
 export function ChatPanel({
   messages,
@@ -51,6 +47,12 @@ export function ChatPanel({
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
   const headingRef = useRef<HTMLHeadingElement>(null)
+
+  // Lives here rather than in the layout so it is only fetched once the panel
+  // is open — the same reason useChat is gated on chatOpen. On every learner
+  // route but /learner/skills this is already warm under the same query key.
+  const classes = useMyClasses()
+  const suggestions = useMemo(() => suggestionsFor(classes.data), [classes.data])
 
   // Desktop only. On a phone this is a full-screen overlay the learner has only
   // just opened, and focusing the composer throws the keyboard up over it before
@@ -118,7 +120,14 @@ export function ChatPanel({
       // Being full-bleed, it owns the safe-area insets itself — without them the
       // Close button sits under the notch and the composer under the home
       // indicator. Reset from md up, where the layout root handles them.
-      className="fixed inset-0 z-20 flex flex-col border-border bg-sidebar pt-[env(safe-area-inset-top)] pr-[env(safe-area-inset-right)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] md:static md:z-auto md:w-96 md:shrink-0 md:border-l md:p-0"
+      //
+      // From md up it is sticky at viewport height rather than a plain column:
+      // md:static drops inset-0, and without a height it stretches to a page
+      // that is far taller than the screen, which pushes the header off the top
+      // and the composer past the bottom. self-start is load-bearing — a sticky
+      // flex item still stretches to the row without it, and the height cap
+      // would do nothing.
+      className="fixed inset-0 z-20 flex flex-col border-border bg-sidebar pt-[env(safe-area-inset-top)] pr-[env(safe-area-inset-right)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] md:sticky md:inset-auto md:top-[var(--header-h)] md:z-auto md:h-[calc(100svh-var(--header-h))] md:w-96 md:shrink-0 md:self-start md:border-l md:p-0"
     >
       <div className="flex items-center gap-2 border-b border-border px-4 py-3">
         <Button
@@ -135,7 +144,7 @@ export function ChatPanel({
           tabIndex={-1}
           className="text-sm font-semibold tracking-tight text-sidebar-foreground outline-none"
         >
-          {history ? "Recent chats" : "Ask"}
+          {history ? "Recent chats" : <span translate="no">Pace</span>}
         </h2>
         {/* On a phone the panel is a full-screen overlay covering the Ask FAB,
             so that toggle is unreachable and Escape needs a keyboard — this
@@ -178,13 +187,15 @@ export function ChatPanel({
                 {/* h3, not h2: the panel header's h2 is the focus target when
                     views swap, and two headings competing for the same job in
                     one panel reads as two panels. */}
-                <h3 className="text-sm font-medium text-foreground">Ask about your training</h3>
+                <h3 className="text-sm font-medium text-foreground">
+                  Hi, I&rsquo;m <span translate="no">Pace</span>
+                </h3>
                 <p className="text-sm text-muted-foreground">
-                  Answers come from the documents your organisation has uploaded, and every
-                  answer shows its sources.
+                  I answer from the documents your organisation has uploaded, and I show my
+                  sources every time.
                 </p>
                 <div className="flex flex-col items-start gap-2">
-                  {SUGGESTIONS.map((question) => (
+                  {suggestions.map((question) => (
                     <Button
                       key={question}
                       variant="outline"
