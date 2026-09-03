@@ -6,7 +6,7 @@ import {
   LogOutIcon,
   UsersIcon,
 } from "lucide-react"
-import { NavLink, Outlet, useNavigate } from "react-router-dom"
+import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom"
 import { ThemeToggle } from "@/components/ThemeToggle"
 import { Button } from "@/components/ui/button"
 import { Logo } from "@/components/Logo"
@@ -25,9 +25,32 @@ const navLinkClasses =
 const activeClasses =
   "bg-sidebar-accent font-medium text-sidebar-accent-foreground shadow-[inset_2px_0_0_0_color-mix(in_oklch,var(--sidebar-ring),transparent_20%)]"
 
+// Top-level destinations get the band, mirroring LearnerLayout's
+// horizonRoutes: it reads as arriving somewhere rather than as wallpaper
+// on every drill-down. Exact match on the array (not startsWith) is what
+// keeps /admin/classes/:classId and /admin/users/:userId/skills off it —
+// only the config entity route is a genuine prefix match, since its 6
+// variants all live under one path shape.
+const bandRoutes = [
+  "/admin/users",
+  "/admin/classes",
+  "/admin/documents",
+  "/admin/daily-quizzes",
+  "/admin/submissions",
+]
+
+// Vertical analogue of the learner header's horizon rule: same lit-line
+// construction (dim at the ends, brightest at centre, --ring-lift falls
+// back to --ring), turned 90deg to run down the sidebar's edge instead of
+// across the top of a sky band.
+const sidebarRule =
+  "linear-gradient(180deg, transparent, color-mix(in oklab, var(--ring) 55%, transparent) 22%, color-mix(in oklab, var(--ring-lift, var(--ring)) 70%, transparent) 50%, color-mix(in oklab, var(--ring) 55%, transparent) 78%, transparent)"
+
 export function AdminLayout() {
   const { logout } = useAuth()
   const navigate = useNavigate()
+  const { pathname } = useLocation()
+  const showBand = bandRoutes.includes(pathname) || pathname.startsWith("/admin/config/")
 
   return (
     <div className="flex min-h-svh">
@@ -40,6 +63,15 @@ export function AdminLayout() {
       </a>
 
       <aside className="sticky top-0 flex h-svh w-60 shrink-0 flex-col gap-6 border-r border-sidebar-border bg-sidebar px-3 py-5">
+        {/* Lights the existing border rather than replacing it: the
+            gradient fades to transparent at both ends, and in dark mode
+            --sidebar sits only 0.02 lightness from --background, so a
+            gradient alone would leave the edge invisible top and bottom. */}
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-y-0 right-0 w-px"
+          style={{ background: sidebarRule }}
+        />
         <div className="px-2.5">
           <Logo />
           <p className="label-micro mt-0.5">Admin</p>
@@ -78,7 +110,7 @@ export function AdminLayout() {
               className={({ isActive }) => cn(navLinkClasses, isActive && activeClasses)}
             >
               <CalendarClockIcon className="size-4" />
-              Daily quizzes
+              Daily Quiz
             </NavLink>
           </div>
 
@@ -89,7 +121,7 @@ export function AdminLayout() {
               className={({ isActive }) => cn(navLinkClasses, isActive && activeClasses)}
             >
               <ClipboardCheckIcon className="size-4" />
-              Submissions
+              Submission
             </NavLink>
           </div>
 
@@ -125,8 +157,45 @@ export function AdminLayout() {
         </div>
       </aside>
 
-      <main id="main-content" tabIndex={-1} className="min-w-0 flex-1 px-8 py-8 outline-none">
-        <div className="mx-auto max-w-6xl">
+      {/* relative anchors the band below to this column rather than the
+          viewport, so its bloom centres on content and not on the browser
+          window. isolate confines the band's -z-10 to this subtree so it
+          can't fall behind the page's --ambient-glow layer (body::before).
+          If the band ever moves into the sidebar instead, it will render
+          invisible there — the aside is sticky with no stacking context of
+          its own, so bg-sidebar paints over anything at -z-10 inside it. */}
+      <main
+        id="main-content"
+        tabIndex={-1}
+        className="relative isolate min-w-0 flex-1 px-8 py-8 outline-none"
+      >
+        {showBand && (
+          // Same technique as the learner sky band, minus the horizontal
+          // rule and separate glow ellipse: admin's PageHeader already
+          // supplies its own border-b, so nothing needs to land in a gap
+          // and the band doesn't need a height coupled to any rhythm.
+          // Masked rather than left to end in a flat colour — the sky's
+          // foot is darker than --background in dark mode, and a mask
+          // fades to nothing instead of leaving a seam.
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[220px] overflow-hidden"
+            style={{
+              maskImage: "linear-gradient(180deg, #000 0%, #000 45%, transparent 100%)",
+              WebkitMaskImage: "linear-gradient(180deg, #000 0%, #000 45%, transparent 100%)",
+            }}
+          >
+            <div className="absolute inset-0" style={{ background: "var(--sky)" }} />
+            <div
+              className="absolute top-0 left-1/2 h-[430px] w-[1100px] -translate-x-1/2 -translate-y-40 blur-[60px]"
+              style={{ background: "radial-gradient(ellipse at 50% 50%, var(--bloom), transparent 70%)" }}
+            />
+            <div className="sky-star sky-star-1" />
+            <div className="sky-star sky-star-2" />
+            <div className="sky-star sky-star-3" />
+          </div>
+        )}
+        <div key={pathname} className="enter-rise mx-auto max-w-6xl">
           <Outlet />
         </div>
       </main>

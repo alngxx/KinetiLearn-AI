@@ -103,8 +103,8 @@ export function DailyQuizConfigsPage() {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        eyebrow="Daily quiz"
-        title="Daily quiz configs"
+        eyebrow="Content"
+        title="Daily Quiz"
         description="What each daily quiz covers, when it's pushed, and which learners it reaches."
         actions={
           <Button

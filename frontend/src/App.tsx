@@ -15,16 +15,8 @@ import { ExamResultPage } from "@/modules/exams/ExamResultPage"
 import { ExamTakePage } from "@/modules/exams/ExamTakePage"
 import { LearnerClassPage } from "@/modules/learner-home/LearnerClassPage"
 import { LearnerHomePage } from "@/modules/learner-home/LearnerHomePage"
+import { LearnerSkillsPage } from "@/modules/learner-skills/LearnerSkillsPage"
 import { ThemeProvider } from "@/modules/theme/ThemeContext"
-
-// Two split points, for the same reason: weight that only one audience needs.
-// Recharts and its dependency tree are roughly as large as everything else put
-// together, and one learner screen uses them.
-const SkillDashboardPage = lazy(() =>
-  import("@/modules/scoring/SkillDashboardPage").then((module) => ({
-    default: module.SkillDashboardPage,
-  })),
-)
 
 // The whole admin console, split at the role gate rather than per screen. An
 // admin pays for it once on first entry and then has every screen; a learner
@@ -76,26 +68,7 @@ export default function App() {
                   <Route path="/learner" element={<LearnerLayout />}>
                     <Route index element={<LearnerHomePage />} />
                     <Route path="classes/:classId" element={<LearnerClassPage />} />
-                    <Route
-                      path="skills"
-                      element={
-                        // Matches the loading line every page in this portal
-                        // shows while its query is pending, so the chunk
-                        // arriving looks like the data arriving.
-                        <Suspense
-                          fallback={
-                            <p
-                              role="status"
-                              className="py-10 text-center text-sm text-muted-foreground"
-                            >
-                              Loading…
-                            </p>
-                          }
-                        >
-                          <SkillDashboardPage />
-                        </Suspense>
-                      }
-                    />
+                    <Route path="skills" element={<LearnerSkillsPage />} />
                     <Route path="quiz/:quizId" element={<TakeQuizPage />} />
                     <Route path="exams/:exerciseId/take" element={<ExamTakePage />} />
                     <Route

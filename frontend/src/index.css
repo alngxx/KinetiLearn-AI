@@ -141,6 +141,29 @@
             transparent 70%
         ),
         radial-gradient(55% 45% at 85% 110%, oklch(0.54 0.16 265 / 0.03), transparent 70%);
+    /* Horizon — the learner home's sky band. The gradient resolves into
+       --background at its foot so the band ends without a seam, and everything
+       atmospheric (stars, bloom, glow) is confined above the horizon rule: the
+       work area below stays flat, because a card is easier to read on a plain
+       ground. --band-h is declared once here and consumed by both the band and
+       the rule that closes it, so the two cannot drift apart. */
+    --sky: linear-gradient(
+        180deg,
+        oklch(95% 0.022 268),
+        oklch(97.5% 0.01 262) 55%,
+        oklch(98.6% 0.004 258)
+    );
+    --glow: oklch(55% 0.14 268 / 0.18);
+    --star: oklch(48% 0.09 265 / 0.5);
+    --star-2: oklch(56% 0.07 270 / 0.32);
+    --bloom: oklch(70% 0.12 272 / 0.32);
+    /* The mock's number, adopted with the mock's hero rhythm: the rule has to
+       land in the gap between the hero and the first section, so the learner
+       shell now leads with the same generous top padding the mock uses rather
+       than shrinking the band to fit a tighter one. Coupled to that hero, which
+       is why the band is md-and-up only: below md the description wraps and no
+       fixed number clears every wrap state. */
+    --band-h: 292px;
 }
 
 .dark {
@@ -196,6 +219,19 @@
             transparent 70%
         ),
         radial-gradient(55% 45% at 85% 110%, oklch(0.72 0.13 265 / 0.04), transparent 70%);
+    /* The dark sky is where this treatment earns its keep: stars are legible,
+       the bloom reads as light rather than haze. --band-h is not repeated —
+       the height is a layout constant, not a themed value. */
+    --sky: linear-gradient(
+        180deg,
+        oklch(20.5% 0.036 266),
+        oklch(17.5% 0.024 260) 55%,
+        oklch(16.5% 0.018 256)
+    );
+    --glow: oklch(62% 0.16 272 / 0.4);
+    --star: oklch(96% 0.01 260 / 0.92);
+    --star-2: oklch(84% 0.06 270 / 0.6);
+    --bloom: oklch(54% 0.16 274 / 0.34);
 }
 
 @layer base {
@@ -230,7 +266,7 @@
        4.75rem). The safe-area inset is added because the header adds it to its
        own padding-top; without it the panel would slide under the bar by
        exactly the notch on a device that has one. */
-    --header-h: calc(4.75rem + env(safe-area-inset-top));
+    --header-h: calc(3.75rem + env(safe-area-inset-top));
     /* Without this, tabbing to an element just above the viewport scrolls it
        flush to the top and under that bar, leaving the focused control
        hidden. */
@@ -278,6 +314,121 @@
   from {
     opacity: 0;
     transform: translateY(0.25rem);
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Horizon atmosphere (learner home)
+
+   kl-rise and kl-twinkle are already defined further down for the login
+   landing and are reused verbatim rather than duplicated — they are global
+   @keyframes, not scoped to that page.
+--------------------------------------------------------------------------- */
+
+/* The mock animates box-shadow directly. That repaints the card on every frame
+   of an infinite loop, so the glow moves to an overlay that is painted once and
+   only faded — opacity is compositor-only. The card keeps its own
+   shadow-raised underneath, untouched. */
+@keyframes kl-breathe {
+  0%,
+  100% {
+    opacity: 0;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.quiz-breathe {
+  position: relative;
+}
+
+.quiz-breathe::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow: 0 0 30px -4px var(--glow);
+  /* Starts invisible, so reduced motion — which never runs the animation —
+     gets no glow at all rather than a glow frozen at full strength. The border
+     tint and accent fill still mark the card. */
+  opacity: 0;
+}
+
+/* Three tiled layers at different scales rather than one grid: a single tile
+   repeats visibly at this size and reads as wallpaper. Tile sizes, dot
+   positions and radii are the mock's, copied rather than reinvented so Home
+   and Skills read as the same sky.
+
+   The field is static. An earlier pass had it twinkling; the mock this was
+   re-derived from does not, and a sky that pulses behind every learner screen
+   is motion nobody asked for. */
+.sky-star {
+  position: absolute;
+  inset: 0;
+  background-repeat: repeat;
+}
+
+.sky-star-1 {
+  background-size: 196px 214px;
+  background-image: radial-gradient(1.2px 1.2px at 18px 26px, var(--star) 50%, transparent 100%),
+    radial-gradient(1px 1px at 88px 52px, var(--star-2) 50%, transparent 100%),
+    radial-gradient(1.3px 1.3px at 148px 18px, var(--star) 50%, transparent 100%),
+    radial-gradient(1px 1px at 42px 92px, var(--star-2) 50%, transparent 100%),
+    radial-gradient(1.2px 1.2px at 122px 108px, var(--star) 50%, transparent 100%),
+    radial-gradient(1px 1px at 176px 78px, var(--star-2) 50%, transparent 100%),
+    radial-gradient(1.3px 1.3px at 66px 148px, var(--star) 50%, transparent 100%),
+    radial-gradient(1px 1px at 136px 170px, var(--star-2) 50%, transparent 100%),
+    radial-gradient(1.1px 1.1px at 8px 186px, var(--star) 50%, transparent 100%),
+    radial-gradient(1px 1px at 186px 200px, var(--star-2) 50%, transparent 100%);
+}
+
+.sky-star-2 {
+  background-size: 318px 352px;
+  background-image: radial-gradient(1.6px 1.6px at 34px 44px, var(--star) 48%, transparent 100%),
+    radial-gradient(1.2px 1.2px at 152px 92px, var(--star-2) 50%, transparent 100%),
+    radial-gradient(1.7px 1.7px at 258px 32px, var(--star) 48%, transparent 100%),
+    radial-gradient(1.1px 1.1px at 96px 176px, var(--star-2) 50%, transparent 100%),
+    radial-gradient(1.5px 1.5px at 206px 148px, var(--star) 50%, transparent 100%),
+    radial-gradient(1.2px 1.2px at 298px 214px, var(--star-2) 50%, transparent 100%),
+    radial-gradient(1.6px 1.6px at 62px 266px, var(--star) 48%, transparent 100%),
+    radial-gradient(1.1px 1.1px at 176px 306px, var(--star-2) 50%, transparent 100%),
+    radial-gradient(1.4px 1.4px at 272px 332px, var(--star) 50%, transparent 100%);
+}
+
+.sky-star-3 {
+  background-size: 472px 508px;
+  background-image: radial-gradient(2.1px 2.1px at 74px 88px, var(--star) 46%, transparent 100%),
+    radial-gradient(1.7px 1.7px at 246px 58px, var(--star-2) 50%, transparent 100%),
+    radial-gradient(2px 2px at 392px 162px, var(--star) 46%, transparent 100%),
+    radial-gradient(1.5px 1.5px at 138px 248px, var(--star-2) 50%, transparent 100%),
+    radial-gradient(2.2px 2.2px at 314px 348px, var(--star) 46%, transparent 100%),
+    radial-gradient(1.6px 1.6px at 56px 424px, var(--star-2) 50%, transparent 100%),
+    radial-gradient(1.9px 1.9px at 436px 468px, var(--star) 48%, transparent 100%);
+}
+
+/* Scoped to no-preference rather than leaning on the reduce block below: these
+   set fill modes and an infinite count, and zeroing duration alone would still
+   leave a held frame. Reduced motion gets a static sky and a card that is
+   simply there. */
+@media (prefers-reduced-motion: no-preference) {
+  .enter-rise {
+    animation: kl-rise 0.35s ease both;
+  }
+  /* Not decoration: this fires only while a quiz is actually waiting, so the
+     movement is the affordance. See QuizCard. A 6s cycle read as inert — by
+     the time it peaked, nobody was still looking at the card — so this runs
+     fast enough to register as a pulse within a glance. */
+  .quiz-breathe::after {
+    animation: kl-breathe 2.4s ease-in-out infinite;
+  }
+  /* The ring behind the Ask Pace dot — the same expanding-ring idiom the login
+     landing uses for its door indicators, so "there is something live here"
+     looks the same in both places. Slower than the login's 1.8s: this one sits
+     on every learner screen, where a quicker pulse would nag. */
+  .pace-ping {
+    animation: kl-ping 2.2s ease-out infinite;
   }
 }
 

@@ -5,7 +5,7 @@
   "shape": "package",
   "srcDir": "src",
   "tsconfig": "tsconfig.app.json",
-  "cssEntry": "dist/assets/index-X6N_XN_D.css",
+  "cssEntry": "dist/assets/index-rzm_dzK1.css",
   "extraFonts": [
     "node_modules/@fontsource-variable/geist/index.css",
     "node_modules/@fontsource-variable/geist-mono/index.css"
@@ -103,5 +103,8 @@
     "Toaster": "  id?: string;\n  invert?: boolean;\n  theme?: \"light\" | \"dark\" | \"system\";\n  position?: \"top-left\" | \"top-right\" | \"bottom-left\" | \"bottom-right\" | \"top-center\" | \"bottom-center\";\n  hotkey?: string[];\n  richColors?: boolean;\n  expand?: boolean;\n  duration?: number;\n  gap?: number;\n  visibleToasts?: number;\n  closeButton?: boolean;\n  toastOptions?: Record<string, unknown>;\n  className?: string;\n  style?: React.CSSProperties;\n  offset?: string | number | { top?: string | number; right?: string | number; bottom?: string | number; left?: string | number; };\n  mobileOffset?: string | number | { top?: string | number; right?: string | number; bottom?: string | number; left?: string | number; };\n  dir?: \"ltr\" | \"rtl\" | \"auto\";\n  swipeDirections?: (\"top\" | \"right\" | \"bottom\" | \"left\")[];\n  icons?: Record<string, React.ReactNode>;\n  customAriaLabel?: string;\n  containerAriaLabel?: string;"
   },
   "entry": "./.design-sync/ds-entry.tsx",
-  "buildCmd": "npx tsc -p tsconfig.app.json --declaration --emitDeclarationOnly --noEmit false --outDir dist/types && node .design-sync/gen-dts-barrel.mjs"
+  "buildCmd": "npx tsc -p tsconfig.app.json --declaration --emitDeclarationOnly --noEmit false --outDir dist/types && node .design-sync/gen-dts-barrel.mjs",
+  "libOverrides": {
+    "css.mjs": "drop @font-face rules whose local url()s all fail to resolve (Vite cssEntry ships root-absolute /assets/*.woff2)"
+  }
 }

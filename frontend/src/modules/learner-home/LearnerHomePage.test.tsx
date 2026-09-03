@@ -66,7 +66,9 @@ function renderHome() {
 }
 
 function section(name: RegExp) {
-  return screen.getByRole("heading", { name }).parentElement as HTMLElement
+  // closest() rather than parentElement: the label sits in a flex row with its
+  // trailing rule, so the heading's parent is that row, not the section.
+  return screen.getByRole("heading", { name }).closest("section") as HTMLElement
 }
 
 describe("LearnerHomePage", () => {

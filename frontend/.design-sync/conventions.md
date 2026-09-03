@@ -60,8 +60,35 @@ values** — ranks, thresholds, counts read as instrument readouts, not sentence
 `styles.css` is a **compiled Tailwind v4 subset** — it contains only the
 utilities the KinetiLearn app itself uses. The components are unaffected (every
 class they need ships), but a utility the app never used is **not in the
-stylesheet and will silently do nothing**. Verified absent, for example:
-`gap-7`, `font-mono`, `tabular-nums`, `mt-0`, `text-3xl`.
+stylesheet and will silently do nothing**. Verified absent at this sync, for
+example: `gap-16`, `p-14`, `text-5xl`, `tracking-tighter`, `rounded-3xl`,
+`leading-loose`.
+
+Half-step spacing is the other common miss: the app uses whole steps almost
+everywhere, so `gap-3.5`, `pt-4.5` and `size-1.5` do **not** ship even though
+their whole-step neighbours do. Check before reaching for a fractional step.
+
+**Skill-band colours.** The three band tokens are defined for both themes.
+Most — not all — of their utilities compiled:
+
+| Want | Use |
+|---|---|
+| basic band | `bg-info`, `text-info` (also `bg-info/10`, `bg-info/30`). `border-info` does **not** ship — use `var(--info)` |
+| intermediate band | `bg-band-intermediate` (also `/30`). `text-` and `border-` do **not** ship — use `var(--band-intermediate)` |
+| advanced band | `bg-band-advanced`, `text-band-advanced`, `border-band-advanced` all ship. Gradients: `from-band-advanced` and `from-band-advanced/30` ship; of the `to-` end only `to-band-advanced/5` and `/15` do |
+
+Opacity modifiers are compiled per value, not generated on demand: `bg-info/30`
+ships because the app uses exactly that, and `bg-info/40` does not. When in
+doubt, `var(--<token>)` in a `style` prop always works.
+
+`--band-advanced` is the brass/gold end of the threshold ladder. Green is
+reserved for status/active indicators (`--success`, `StatusBadge`), so never
+reach for it to mean "advanced".
+
+**Horizon atmosphere.** `--sky`, `--glow`, `--star`, `--star-2`, `--bloom` (all
+themed) and `--band-h` (a light-scope layout constant, 292px) ship as of this
+sync. The learner shell paints its sky band from them — use the tokens rather
+than hard-coding oklch values into an artboard.
 
 So for your own layout glue, stay inside the families tabled above, or reach for
 the tokens directly: `style={{ gap: 'var(--spacing)' }}`,
