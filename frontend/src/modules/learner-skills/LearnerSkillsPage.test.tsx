@@ -3,7 +3,7 @@ import { render, screen, within } from "@testing-library/react"
 import { http, HttpResponse } from "msw"
 import { MemoryRouter } from "react-router-dom"
 import { describe, expect, it } from "vitest"
-import { SkillDashboardPage } from "@/modules/scoring/SkillDashboardPage"
+import { LearnerSkillsPage } from "@/modules/learner-skills/LearnerSkillsPage"
 import { server } from "@/test/server"
 
 const API = "http://localhost:8000"
@@ -16,7 +16,7 @@ function renderPage() {
   return render(
     <QueryClientProvider client={queryClient}>
       <MemoryRouter initialEntries={["/learner/skills"]}>
-        <SkillDashboardPage />
+        <LearnerSkillsPage />
       </MemoryRouter>
     </QueryClientProvider>,
   )
@@ -46,7 +46,7 @@ const unscored = scored.map((item) =>
   row(item.skill_name, 0, "basic", null),
 )
 
-describe("SkillDashboardPage", () => {
+describe("LearnerSkillsPage", () => {
   it("lists every skill with its score, level and update line", async () => {
     server.use(http.get(PATH, () => HttpResponse.json(scored)))
     renderPage()
@@ -59,7 +59,7 @@ describe("SkillDashboardPage", () => {
     const python = screen.getByText("Python Programming").closest("li")!
     expect(within(python).getByText("300")).toBeInTheDocument()
     expect(within(python).getByText("Intermediate")).toBeInTheDocument()
-    expect(within(python).getByText(/Updated/)).toBeInTheDocument()
+    expect(within(python).getByText(/Last scored/)).toBeInTheDocument()
 
     const design = screen.getByText("System Design").closest("li")!
     expect(within(design).getByText("Advanced")).toBeInTheDocument()
@@ -77,22 +77,21 @@ describe("SkillDashboardPage", () => {
     expect(within(comms).getByText("Not yet scored")).toBeInTheDocument()
   })
 
-  it("shows the chart caption once there is something to plot", async () => {
+  it("keeps the nothing-scored panel away once anything has a score", async () => {
     server.use(http.get(PATH, () => HttpResponse.json(scored)))
     renderPage()
 
-    expect(await screen.findByText(/two inner rings/)).toBeInTheDocument()
+    expect(await screen.findByText("Technical")).toBeInTheDocument()
     expect(screen.queryByText("Nothing scored yet")).not.toBeInTheDocument()
   })
 
-  // A radar collapsed to a dot at the centre reads as broken, so it is replaced
-  // rather than drawn — but the skills themselves still have to be visible.
-  it("replaces the chart with an empty panel when nothing has been scored", async () => {
+  // Every skill is still listed at zero — the panel explains the emptiness
+  // rather than replacing the content.
+  it("explains an all-zero page without hiding the skills", async () => {
     server.use(http.get(PATH, () => HttpResponse.json(unscored)))
     renderPage()
 
     expect(await screen.findByText("Nothing scored yet")).toBeInTheDocument()
-    expect(screen.queryByText(/two inner rings/)).not.toBeInTheDocument()
 
     for (const name of ["Python Programming", "System Design", "Communication"]) {
       const item = screen.getByText(name).closest("li")!
@@ -122,5 +121,22 @@ describe("SkillDashboardPage", () => {
     expect(await screen.findByText("Could not load your skills")).toBeInTheDocument()
     expect(screen.getByRole("alert")).toHaveTextContent("Skill service unavailable.")
     expect(screen.getByRole("button", { name: "Try again" })).toBeInTheDocument()
+  })
+  // The mock's legend prints its thresholds because its skills all share them.
+  // Ours are per-skill, so the numbers only appear when they are true of every
+  // card under the legend.
+  it("prints the band ranges only when every skill shares them", async () => {
+    server.use(http.get(PATH, () => HttpResponse.json(scored)))
+    const { unmount } = renderPage()
+
+    expect(await screen.findByText(/Intermediate 201–500/)).toBeInTheDocument()
+    unmount()
+
+    const mixed = [scored[0], { ...scored[1], basic_max: 10, intermediate_max: 20 }]
+    server.use(http.get(PATH, () => HttpResponse.json(mixed)))
+    renderPage()
+
+    expect(await screen.findByText("Technical")).toBeInTheDocument()
+    expect(screen.queryByText(/Intermediate 201–500/)).not.toBeInTheDocument()
   })
 })

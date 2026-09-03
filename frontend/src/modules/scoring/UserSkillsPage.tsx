@@ -51,7 +51,7 @@ function PageView({ userId }: { userId: string }) {
       ) : (
         // A deliberate preservation of current behaviour, not an oversight —
         // the admin per-learner view keeps the row list.
-        <SkillBreakdownList items={breakdown.data} layout="list" />
+        <SkillBreakdownList items={breakdown.data} />
       )}
     </div>
   )

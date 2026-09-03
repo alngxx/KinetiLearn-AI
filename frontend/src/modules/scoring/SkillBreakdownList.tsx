@@ -1,4 +1,3 @@
-import { GaugeIcon } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { staggerStyle } from "@/lib/stagger"
 import type { SkillBreakdownItem } from "@/modules/scoring/api"
@@ -58,20 +57,10 @@ function srSentence(item: SkillBreakdownItem, label: string) {
   return `${item.cumulative_score} points, ${label.toLowerCase()}. Basic up to ${item.basic_max}, intermediate up to ${item.intermediate_max}, advanced above ${item.intermediate_max}.`
 }
 
-// The same data for both readers: the admin looking at one learner, and the
-// learner looking at themselves. It is also the accessible form of the radar
-// chart on the learner page, which is why it carries the exact numbers rather
-// than only the bars. `layout` picks the presentation per caller — the admin
-// view keeps the original row list, the learner dashboard gets cards — while
-// both stay one <ul> of <li>s underneath, so a category still reads as one
-// list to assistive tech and to a test asking for the closest "li".
-export function SkillBreakdownList({
-  items,
-  layout,
-}: {
-  items: SkillBreakdownItem[]
-  layout: "grid" | "list"
-}) {
+// The admin's view of one learner's skills: every band and both cut points
+// spelled out, because this is the screen a training manager reasons about
+// thresholds on. The learner's own screen draws the same data its own way.
+export function SkillBreakdownList({ items }: { items: SkillBreakdownItem[] }) {
   return (
     <div className="flex flex-col gap-6">
       {groupByCategory(items).map((group, index) => (
@@ -81,21 +70,13 @@ export function SkillBreakdownList({
           className="enter-stagger flex flex-col gap-3"
         >
           <h2 className="label-micro">{group.category}</h2>
-          {layout === "grid" ? (
-            <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="overflow-hidden surface">
+            <ul className="divide-y divide-border">
               {group.items.map((item) => (
-                <GridCard key={item.skill_id} item={item} />
+                <ListRow key={item.skill_id} item={item} />
               ))}
             </ul>
-          ) : (
-            <div className="overflow-hidden surface">
-              <ul className="divide-y divide-border">
-                {group.items.map((item) => (
-                  <ListRow key={item.skill_id} item={item} />
-                ))}
-              </ul>
-            </div>
-          )}
+          </div>
         </div>
       ))}
     </div>
@@ -127,43 +108,6 @@ function ListRow({ item }: { item: SkillBreakdownItem }) {
       <Badge variant={variant} className="shrink-0">
         {label}
       </Badge>
-    </li>
-  )
-}
-
-// Cards rather than rows for a scannable grid. tabIndex on an otherwise
-// static card is deliberate: nothing inside is independently focusable, so
-// without it a keyboard user would have no way to land on a card at all and
-// get the same highlight a mouse gets on hover.
-function GridCard({ item }: { item: SkillBreakdownItem }) {
-  const label = LEVEL_LABEL[item.current_level] ?? item.current_level
-  const variant = LEVEL_VARIANT[item.current_level] ?? "outline"
-
-  return (
-    <li
-      tabIndex={0}
-      className="surface flex flex-col gap-3 p-4 outline-none transition-colors hover:border-ring/40 hover:bg-accent/40 focus-visible:border-ring/40 focus-visible:bg-accent/40 focus-visible:ring-3 focus-visible:ring-ring/75"
-    >
-      <div className="flex items-start justify-between gap-2">
-        <GaugeIcon aria-hidden="true" className="size-5 text-muted-foreground" />
-        <Badge variant={variant} className="shrink-0">
-          {label}
-        </Badge>
-      </div>
-
-      <div className="flex flex-col gap-0.5">
-        <span className="text-sm font-medium break-words text-foreground">{item.skill_name}</span>
-        <span className="text-xs text-muted-foreground">{updatedLine(item)}</span>
-      </div>
-
-      <SkillBandBar
-        score={item.cumulative_score}
-        basicMax={item.basic_max}
-        intermediateMax={item.intermediate_max}
-      />
-      <span className="sr-only">{srSentence(item, label)}</span>
-
-      <span className="numeric text-sm text-foreground">{item.cumulative_score}</span>
     </li>
   )
 }

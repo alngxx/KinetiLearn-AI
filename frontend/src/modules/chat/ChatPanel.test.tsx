@@ -75,7 +75,7 @@ function panel() {
 }
 
 async function openPanel() {
-  await userEvent.click(screen.getByRole("button", { name: "Ask" }))
+  await userEvent.click(screen.getByRole("button", { name: "Ask Pace" }))
 }
 
 async function ask(text: string) {
@@ -354,7 +354,7 @@ describe("ChatPanel", () => {
 
   it("returns focus to the Ask toggle on close", async () => {
     renderLayout()
-    const ask = screen.getByRole("button", { name: "Ask" })
+    const ask = screen.getByRole("button", { name: "Ask Pace" })
 
     await openPanel()
     expect(within(panel()).getByLabelText("Your question")).toHaveFocus()
@@ -365,7 +365,7 @@ describe("ChatPanel", () => {
 
   it("returns focus to the Ask toggle when closed with Escape", async () => {
     renderLayout()
-    const ask = screen.getByRole("button", { name: "Ask" })
+    const ask = screen.getByRole("button", { name: "Ask Pace" })
 
     await openPanel()
     await userEvent.keyboard("{Escape}")
@@ -374,9 +374,9 @@ describe("ChatPanel", () => {
   })
 
   // One control for both directions, so it has to say which one it is doing.
-  it("swaps the Ask toggle to Close while the panel is open, and back", async () => {
+  it("swaps the Ask Pace toggle to Close while the panel is open, and back", async () => {
     renderLayout()
-    const toggle = screen.getByRole("button", { name: "Ask" })
+    const toggle = screen.getByRole("button", { name: "Ask Pace" })
     expect(toggle).toHaveAttribute("aria-expanded", "false")
 
     await openPanel()
@@ -385,7 +385,7 @@ describe("ChatPanel", () => {
 
     await userEvent.click(toggle)
     expect(screen.queryByRole("complementary")).not.toBeInTheDocument()
-    expect(toggle).toHaveAccessibleName("Ask")
+    expect(toggle).toHaveAccessibleName("Ask Pace")
     expect(toggle).toHaveAttribute("aria-expanded", "false")
   })
 
