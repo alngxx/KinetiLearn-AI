@@ -44,7 +44,7 @@ export function SubmissionsPage() {
     <div className="flex flex-col gap-6">
       <PageHeader
         eyebrow="Review"
-        title="Submissions"
+        title="Submission"
         description="Exam submissions across every class, with the option to correct a score by hand. Daily quiz attempts have no admin review yet."
       />
 
