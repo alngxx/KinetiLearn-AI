@@ -121,7 +121,7 @@ export function AdminLayout() {
               className={({ isActive }) => cn(navLinkClasses, isActive && activeClasses)}
             >
               <ClipboardCheckIcon className="size-4" />
-              Submission
+              Submissions
             </NavLink>
           </div>
 

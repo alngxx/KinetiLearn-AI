@@ -591,12 +591,16 @@
 }
 
 @keyframes kl-kinetic {
+    /* Both ends use the same color-mix(...) form, differing only in the ring
+       percentage — mixing that with a bare `transparent` keyword at one end
+       made the browser snap between two incompatible color types instead of
+       easing the glow in and out. */
     0%,
     100% {
-        filter: drop-shadow(0 0 0 rgba(16, 185, 129, 0));
+        filter: drop-shadow(0 0 0 color-mix(in oklab, var(--ring) 0%, transparent));
     }
     50% {
-        filter: drop-shadow(0 0 9px rgba(16, 185, 129, 0.6));
+        filter: drop-shadow(0 0 9px color-mix(in oklab, var(--ring) 60%, transparent));
     }
 }
 

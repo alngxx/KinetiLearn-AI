@@ -104,7 +104,7 @@ export function DailyQuizConfigsPage() {
     <div className="flex flex-col gap-6">
       <PageHeader
         eyebrow="Content"
-        title="Daily Quiz"
+        title="Daily quiz configs"
         description="What each daily quiz covers, when it's pushed, and which learners it reaches."
         actions={
           <Button

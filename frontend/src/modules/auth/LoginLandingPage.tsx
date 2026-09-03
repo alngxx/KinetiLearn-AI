@@ -103,7 +103,20 @@ function ThemeSwitch() {
       onClick={() => setTheme(next)}
       className={`inline-flex touch-manipulation items-center gap-2 rounded-[5px] border border-kl-rule bg-kl-panel px-[11px] py-1.5 text-[10.5px] tracking-[0.13em] backdrop-blur-[6px] transition-colors hover:border-kl-emerald hover:text-kl-fg focus-visible:border-kl-emerald focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kl-emerald ${MICRO_CAPS}`}
     >
-      <span aria-hidden="true" className={`size-2 rounded-full ${ACCENT.admin.dot}`} />
+      {/* The identity indigo, matching the learner shell's "Ask Pace" dot,
+          rather than the admin/learner door accents — this switch isn't tied
+          to either door. Same "live-looking, not live" idiom as the door
+          eyebrow dots below: a ring pulses behind a steady centre. */}
+      <span aria-hidden="true" className="relative inline-flex size-2">
+        <span
+          className="absolute inset-0 rounded-full bg-ring"
+          style={{ animation: "kl-ping 1.8s cubic-bezier(0,0,.2,1) infinite" }}
+        />
+        <span
+          className="relative size-2 rounded-full bg-ring shadow-[0_0_8px_color-mix(in_oklab,var(--ring)_80%,transparent)]"
+          style={{ animation: "kl-pulse 1.8s ease-in-out infinite" }}
+        />
+      </span>
       {resolvedTheme === "dark" ? "Dark" : "Light"}
       <span className="sr-only">theme, switch to {next}</span>
     </button>
