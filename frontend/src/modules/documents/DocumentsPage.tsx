@@ -209,7 +209,7 @@ export function DocumentsPage() {
                 <TableCell colSpan={6} className="py-12 text-center">
                   <p className="text-sm font-medium text-foreground">Nothing here yet</p>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    Upload a PDF or DOCX to give the chatbot something to read.
+                    Upload a PDF, DOCX, or Markdown file to give the chatbot something to read.
                   </p>
                 </TableCell>
               </TableRow>
@@ -267,8 +267,8 @@ export function DocumentsPage() {
                     <TableCell className="text-right">
                       <RowActions
                         label={row.title}
+                        inlineAction={{ label: "Edit", icon: PencilIcon, onSelect: () => setEditing(row) }}
                         actions={[
-                          { label: "Edit", icon: PencilIcon, onSelect: () => setEditing(row) },
                           {
                             label: row.is_active ? "Deactivate" : "Activate",
                             icon: row.is_active ? CircleSlashIcon : CircleCheckIcon,

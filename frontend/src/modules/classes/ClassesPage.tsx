@@ -193,15 +193,15 @@ export function ClassesPage() {
                   <TableCell className="text-right">
                     <RowActions
                       label={row.name}
-                      actions={[
-                        {
-                          label: "Edit",
-                          icon: PencilIcon,
-                          onSelect: () => {
-                            setEditing(row)
-                            setDialogOpen(true)
-                          },
+                      inlineAction={{
+                        label: "Edit",
+                        icon: PencilIcon,
+                        onSelect: () => {
+                          setEditing(row)
+                          setDialogOpen(true)
                         },
+                      }}
+                      actions={[
                         {
                           label: row.is_active ? "Deactivate" : "Activate",
                           icon: row.is_active ? CircleSlashIcon : CircleCheckIcon,

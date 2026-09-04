@@ -14,23 +14,27 @@ export function ThemeToggle() {
   const { theme, setTheme } = useTheme()
 
   return (
-    <div role="group" aria-label="Theme" className="flex gap-0.5 rounded-lg border border-sidebar-border p-0.5">
+    <div
+      role="group"
+      aria-label="Theme"
+      className="inline-flex w-fit items-center gap-1 rounded-xl border border-sidebar-border p-1 bg-sidebar/50"
+    >
       {options.map(({ value, label, Icon }) => (
         <Button
           key={value}
           type="button"
           variant="ghost"
-          size="icon-sm"
+          size="icon"
           aria-pressed={theme === value}
           aria-label={label}
           title={label}
           onClick={() => setTheme(value)}
           className={cn(
-            "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground",
-            theme === value && "bg-sidebar-accent text-sidebar-accent-foreground",
+            "size-8 rounded-lg text-sidebar-foreground/70 transition-all hover:bg-sidebar-accent hover:text-sidebar-foreground",
+            theme === value && "bg-sidebar-accent text-sidebar-accent-foreground shadow-xs",
           )}
         >
-          <Icon className="size-3.5" />
+          <Icon className="size-4.5" />
         </Button>
       ))}
     </div>

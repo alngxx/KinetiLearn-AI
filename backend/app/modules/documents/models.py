@@ -118,7 +118,8 @@ class DocumentVersion(Base):
         CheckConstraint(
             "mime_type IN ("
             "'application/pdf', "
-            "'application/vnd.openxmlformats-officedocument.wordprocessingml.document'"
+            "'application/vnd.openxmlformats-officedocument.wordprocessingml.document', "
+            "'text/markdown'"
             ")",
             name="ck_document_versions_mime_type_valid",
         ),

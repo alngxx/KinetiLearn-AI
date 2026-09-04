@@ -22,12 +22,15 @@ export type LookupRow = {
 }
 
 // Mirrors the server exactly: the endpoint gates on the multipart part's
-// Content-Type (service.py MIME_EXT), the document_versions CHECK constraint
-// allows the same two, and the worker's extract_text handles only these.
+// Content-Type (service.py MIME_EXT) — except for .md, which the server trusts
+// by filename since browsers report its Content-Type inconsistently — and the
+// document_versions CHECK constraint and the worker's extract_text allow the
+// same three.
 export const PDF_MIME = "application/pdf"
 export const DOCX_MIME =
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-export const ALLOWED_MIME_TYPES: string[] = [PDF_MIME, DOCX_MIME]
+export const MD_MIME = "text/markdown"
+export const ALLOWED_MIME_TYPES: string[] = [PDF_MIME, DOCX_MIME, MD_MIME]
 
 // 20 * 1024 * 1024, matching MAX_FILE_SIZE in service.py. Using 20_000_000
 // here would let a 20.5 MB file through the form and fail at the server.

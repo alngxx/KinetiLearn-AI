@@ -36,13 +36,24 @@ const FIELDS: FormField[] = [
   },
 ]
 
-const ACCEPT = [".pdf", ".docx", ...ALLOWED_MIME_TYPES].join(",")
+const ACCEPT = [".pdf", ".docx", ".md", ...ALLOWED_MIME_TYPES].join(",")
 
-// The same two rules the server applies, worded the same way, so the message
-// does not change depending on which side caught it.
+// Strips only the extension — everything in front of it, including "-" and
+// "_", is left exactly as the filename has it.
+export function titleFromFilename(filename: string): string {
+  return filename.replace(/\.[^./\\]+$/, "")
+}
+
+// The same rules the server applies, worded the same way, so the message does
+// not change depending on which side caught it. A .md filename passes
+// regardless of file.type, matching the server's filename-based check —
+// browsers report .md's Content-Type inconsistently.
 export function validateFile(file: File | null): string | undefined {
-  if (file === null) return "Choose a PDF or DOCX file."
-  if (!ALLOWED_MIME_TYPES.includes(file.type)) return "File must be a PDF or DOCX"
+  if (file === null) return "Choose a PDF, DOCX, or Markdown file."
+  const isMarkdown = file.name.toLowerCase().endsWith(".md")
+  if (!isMarkdown && !ALLOWED_MIME_TYPES.includes(file.type)) {
+    return "File must be a PDF, DOCX, or Markdown file"
+  }
   if (file.size > MAX_FILE_SIZE) return "File exceeds the 20 MB limit"
   return undefined
 }
@@ -60,6 +71,10 @@ export function UploadDialog({
 }) {
   const [file, setFile] = useState<File | null>(null)
   const [fileError, setFileError] = useState<string | undefined>(undefined)
+  // Once the admin edits Title themselves, their text wins over any future
+  // file selection — this only tracks edits made through the field itself, so
+  // the auto-fill below (which calls setValue directly) never trips it.
+  const [titleTouched, setTitleTouched] = useState(false)
 
   const form = useEntityForm({
     fields: FIELDS,
@@ -99,8 +114,7 @@ export function UploadDialog({
         <DialogHeader>
           <DialogTitle>Upload document</DialogTitle>
           <DialogDescription>
-            PDF or DOCX, up to 20 MB. If the title and category match a document that
-            already exists, this becomes its next version.
+            PDF, DOCX, or Markdown, up to 20 MB. If the title and category match a document that already exists, this becomes its next version.
           </DialogDescription>
         </DialogHeader>
 
@@ -128,6 +142,9 @@ export function UploadDialog({
                 const chosen = event.target.files?.[0] ?? null
                 setFile(chosen)
                 setFileError(undefined)
+                if (chosen !== null && !titleTouched) {
+                  form.setValue("title", titleFromFilename(chosen.name))
+                }
               }}
             />
             {fileError !== undefined && (
@@ -144,7 +161,10 @@ export function UploadDialog({
               value={form.values[field.name] ?? ""}
               error={form.errors[field.name]}
               options={field.optionsFrom === undefined ? undefined : options[field.optionsFrom]}
-              onChange={(value) => form.setValue(field.name, value)}
+              onChange={(value) => {
+                if (field.name === "title") setTitleTouched(true)
+                form.setValue(field.name, value)
+              }}
             />
           ))}
 
