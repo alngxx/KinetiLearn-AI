@@ -41,6 +41,7 @@ MAX_FILE_SIZE = 20 * 1024 * 1024  # 20 MB
 MIME_EXT = {
     "application/pdf": "pdf",
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
+    "text/markdown": "md",
 }
 
 
@@ -58,11 +59,20 @@ class DocumentService:
         file: UploadFile,
         uploader_id: UUID,
     ) -> DocumentUploadResponse:
-        # 1. Validate mime type — reject before touching R2 or the DB.
-        if file.content_type not in MIME_EXT:
+        # 1. Validate mime type — reject before touching R2 or the DB. Browsers
+        #    report .md inconsistently (text/markdown, text/plain,
+        #    application/octet-stream, or empty), so a .md filename is trusted
+        #    over whatever content_type it arrived with; PDF and DOCX still go
+        #    by content_type alone.
+        content_type: str = (
+            "text/markdown"
+            if file.filename is not None and file.filename.lower().endswith(".md")
+            else file.content_type or ""
+        )
+        if content_type not in MIME_EXT:
             raise HTTPException(
                 status_code = 422,
-                detail = "File must be a PDF or DOCX",
+                detail = "File must be a PDF, DOCX, or Markdown file",
             )
 
         # 2. Read the file and validate size.
@@ -102,13 +112,13 @@ class DocumentService:
             version_number = max_version.scalar_one() + 1
             is_new_document = False
 
-        ext = MIME_EXT[file.content_type]
+        ext = MIME_EXT[content_type]
         key = f"documents/{document_id}/v{version_number}.{ext}"
 
         # 5. Upload to R2 — only after all validation has passed.
         storage = R2Storage()
         try:
-            storage.upload(key, content, file.content_type)
+            storage.upload(key, content, content_type)
         except StorageError:
             raise HTTPException(
                 status_code = 502,
@@ -135,7 +145,7 @@ class DocumentService:
                 file_url = key,
                 file_name = file.filename,
                 file_size_bytes = len(content),
-                mime_type = file.content_type,
+                mime_type = content_type,
                 change_note = change_note,
                 uploaded_by = uploader_id,
             )

@@ -14,6 +14,7 @@ CHUNK_OVERLAP_TOKENS = 50
 
 PDF_MIME = "application/pdf"
 DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+MD_MIME = "text/markdown"
 
 _encoding = tiktoken.encoding_for_model(EMBED_MODEL)
 
@@ -38,6 +39,8 @@ def extract_text(mime_type: str, data: bytes) -> str:
     if mime_type == DOCX_MIME:
         doc = DocxDocument(BytesIO(data))
         return "\n".join(p.text for p in doc.paragraphs)
+    if mime_type == MD_MIME:
+        return data.decode("utf-8", errors = "replace")
     raise ValueError(f"Unsupported mime type: {mime_type}")
 
 

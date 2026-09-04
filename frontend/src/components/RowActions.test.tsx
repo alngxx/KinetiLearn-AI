@@ -84,4 +84,53 @@ describe("RowActions", () => {
     const menu = await screen.findByRole("menu")
     expect(within(menu).getByRole("menuitem")).toHaveAttribute("href", "/admin/users/u1/skills")
   })
+
+  it("renders an inline action as its own button and runs it on click", async () => {
+    const onEdit = vi.fn()
+    render(
+      <MemoryRouter>
+        <RowActions
+          label="Q1 onboarding"
+          actions={[{ label: "Delete", icon: Trash2Icon, destructive: true, onSelect: vi.fn() }]}
+          inlineAction={{ label: "Edit", icon: PencilIcon, onSelect: onEdit }}
+        />
+      </MemoryRouter>,
+    )
+    const edit = screen.getByRole("button", { name: "Edit Q1 onboarding" })
+    await userEvent.click(edit)
+    expect(onEdit).toHaveBeenCalledOnce()
+  })
+
+  it("does not duplicate the inline action inside the menu", async () => {
+    render(
+      <MemoryRouter>
+        <RowActions
+          label="Q1 onboarding"
+          actions={[{ label: "Delete", icon: Trash2Icon, destructive: true, onSelect: vi.fn() }]}
+          inlineAction={{ label: "Edit", icon: PencilIcon, onSelect: vi.fn() }}
+        />
+      </MemoryRouter>,
+    )
+    await userEvent.click(screen.getByRole("button", { name: /^Actions for/ }))
+    const items = await screen.findAllByRole("menuitem")
+    expect(items).toHaveLength(1)
+    expect(items[0]).toHaveTextContent("Delete")
+  })
+
+  it("keeps a disabled inline action from firing", async () => {
+    const onEdit = vi.fn()
+    render(
+      <MemoryRouter>
+        <RowActions
+          label="Locked"
+          actions={[]}
+          inlineAction={{ label: "Edit", icon: PencilIcon, disabled: true, onSelect: onEdit }}
+        />
+      </MemoryRouter>,
+    )
+    const edit = screen.getByRole("button", { name: "Edit Locked" })
+    expect(edit).toBeDisabled()
+    await userEvent.click(edit)
+    expect(onEdit).not.toHaveBeenCalled()
+  })
 })

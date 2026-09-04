@@ -121,7 +121,7 @@ export function AdminLayout() {
               className={({ isActive }) => cn(navLinkClasses, isActive && activeClasses)}
             >
               <ClipboardCheckIcon className="size-4" />
-              Submissions
+              Submission
             </NavLink>
           </div>
 
@@ -139,13 +139,13 @@ export function AdminLayout() {
           </div>
         </nav>
 
-        <div className="mt-auto flex flex-col gap-2">
+        <div className="mt-auto flex items-center justify-between gap-2 border-t border-sidebar-border pt-3">
           <ThemeToggle />
 
           <Button
             variant="ghost"
             size="sm"
-            className="justify-start"
+            className="justify-start px-2"
             onClick={() => {
               logout()
               navigate("/login", { replace: true })

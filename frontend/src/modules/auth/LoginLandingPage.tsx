@@ -360,9 +360,15 @@ export function LoginLandingPage() {
                 )}
               </form>
 
-              <p className="border-t border-kl-rule pt-4 text-xs/[1.6] text-pretty text-kl-dim">
-                One sign-in serves everyone.
-              </p>
+              <div className="border-t border-kl-rule pt-4 text-xs/[1.6] text-pretty text-kl-dim">
+                <button
+                  type="button"
+                  onClick={() => alert("Password reset functionality is for demonstration purposes only.")}
+                  className="cursor-pointer transition-colors hover:text-kl-fg focus-visible:outline-none"
+                >
+                  Forgot password?
+                </button>
+              </div>
             </div>
           </div>
         )}

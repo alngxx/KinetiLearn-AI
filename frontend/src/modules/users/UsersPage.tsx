@@ -91,7 +91,7 @@ export function UsersPage() {
       <PageHeader
         eyebrow="People"
         title="Users"
-        description="Everyone with access to the platform, admins and learners alike."
+        description="Manage platform access, roles, and profiles for admins and learners."
         actions={
           <Button
             onClick={() => {
@@ -230,19 +230,19 @@ export function UsersPage() {
                     <TableCell className="text-right">
                       <RowActions
                         label={row.full_name}
+                        inlineAction={{
+                          label: "Edit",
+                          icon: PencilIcon,
+                          onSelect: () => {
+                            setEditing(row)
+                            setDialogOpen(true)
+                          },
+                        }}
                         actions={[
                           {
                             label: "Skills",
                             icon: ChartSplineIcon,
                             to: `/admin/users/${row.id}/skills`,
-                          },
-                          {
-                            label: "Edit",
-                            icon: PencilIcon,
-                            onSelect: () => {
-                              setEditing(row)
-                              setDialogOpen(true)
-                            },
                           },
                           {
                             label: row.is_active ? "Deactivate" : "Activate",

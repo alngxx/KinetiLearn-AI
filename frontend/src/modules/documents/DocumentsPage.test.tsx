@@ -168,8 +168,26 @@ describe("DocumentsPage", () => {
     const dialog = within(await screen.findByRole("dialog"))
     await userEvent.click(screen.getByRole("button", { name: "Upload" }))
 
-    expect(await dialog.findByText("Choose a PDF or DOCX file.")).toBeInTheDocument()
+    expect(await dialog.findByText("Choose a PDF, DOCX, or Markdown file.")).toBeInTheDocument()
     expect(dialog.getByLabelText(/^Title/)).toHaveFocus()
+  })
+
+  it("fills Title from the chosen filename until the admin edits it themselves", async () => {
+    renderDocuments()
+    await screen.findByRole("link", { name: "Safety handbook" })
+
+    await userEvent.click(screen.getByRole("button", { name: /Upload document/ }))
+    const dialog = within(screen.getByRole("dialog"))
+    await userEvent.upload(dialog.getByLabelText(/^File/), pdf("Claude-101-Training.pdf"))
+
+    expect(dialog.getByLabelText(/^Title/)).toHaveValue("Claude-101-Training")
+
+    // Once the admin types their own title, a later file pick must not clobber it.
+    await userEvent.clear(dialog.getByLabelText(/^Title/))
+    await userEvent.type(dialog.getByLabelText(/^Title/), "My own title")
+    await userEvent.upload(dialog.getByLabelText(/^File/), pdf("Different-File.pdf"))
+
+    expect(dialog.getByLabelText(/^Title/)).toHaveValue("My own title")
   })
 
   it("explains a failed load and recovers when retried", async () => {

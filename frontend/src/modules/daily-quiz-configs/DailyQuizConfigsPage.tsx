@@ -104,7 +104,7 @@ export function DailyQuizConfigsPage() {
     <div className="flex flex-col gap-6">
       <PageHeader
         eyebrow="Content"
-        title="Daily quiz configs"
+        title="Daily Quiz"
         description="What each daily quiz covers, when it's pushed, and which learners it reaches."
         actions={
           <Button
@@ -288,15 +288,15 @@ export function DailyQuizConfigsPage() {
                     <TableCell className="text-right">
                       <RowActions
                         label={row.name}
-                        actions={[
-                          {
-                            label: "Edit",
-                            icon: PencilIcon,
-                            onSelect: () => {
-                              setEditing(row)
-                              setDialogOpen(true)
-                            },
+                        inlineAction={{
+                          label: "Edit",
+                          icon: PencilIcon,
+                          onSelect: () => {
+                            setEditing(row)
+                            setDialogOpen(true)
                           },
+                        }}
+                        actions={[
                           {
                             label: row.is_active ? "Deactivate" : "Activate",
                             icon: row.is_active ? CircleSlashIcon : CircleCheckIcon,

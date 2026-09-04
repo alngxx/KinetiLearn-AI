@@ -232,8 +232,8 @@ function EntityView({ descriptorKey }: { descriptorKey: string }) {
                   <TableCell className="text-right">
                     <RowActions
                       label={row.name}
+                      inlineAction={{ label: "Edit", icon: PencilIcon, onSelect: () => openEdit(row) }}
                       actions={[
-                        { label: "Edit", icon: PencilIcon, onSelect: () => openEdit(row) },
                         {
                           label: row.is_active ? "Deactivate" : "Activate",
                           icon: row.is_active ? CircleSlashIcon : CircleCheckIcon,

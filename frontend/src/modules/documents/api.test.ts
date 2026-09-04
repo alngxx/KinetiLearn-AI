@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 import { MAX_FILE_SIZE, buildUploadForm } from "@/modules/documents/api"
-import { validateFile } from "@/modules/documents/UploadDialog"
+import { titleFromFilename, validateFile } from "@/modules/documents/UploadDialog"
 
 const PDF_MIME = "application/pdf"
 const DOCX_MIME =
@@ -44,15 +44,29 @@ describe("buildUploadForm", () => {
 })
 
 describe("validateFile", () => {
-  it("accepts the two types the server allows", () => {
+  it("accepts the types the server allows", () => {
     expect(validateFile(file("a.pdf", PDF_MIME))).toBeUndefined()
     expect(validateFile(file("a.docx", DOCX_MIME))).toBeUndefined()
+    expect(validateFile(file("notes.md", "text/markdown"))).toBeUndefined()
+  })
+
+  // Browsers report .md's Content-Type inconsistently (text/plain,
+  // application/octet-stream, or empty), so the filename decides — same rule
+  // the server applies.
+  it("accepts a .md file regardless of its reported type", () => {
+    expect(validateFile(file("notes.md", ""))).toBeUndefined()
+    expect(validateFile(file("notes.md", "text/plain"))).toBeUndefined()
+    expect(validateFile(file("NOTES.MD", ""))).toBeUndefined()
   })
 
   it("rejects any other type, in the server's own words", () => {
-    expect(validateFile(file("notes.txt", "text/plain"))).toBe("File must be a PDF or DOCX")
+    expect(validateFile(file("notes.txt", "text/plain"))).toBe(
+      "File must be a PDF, DOCX, or Markdown file",
+    )
     // Some systems report no type at all; the server would reject it too.
-    expect(validateFile(file("mystery", ""))).toBe("File must be a PDF or DOCX")
+    expect(validateFile(file("mystery", ""))).toBe(
+      "File must be a PDF, DOCX, or Markdown file",
+    )
   })
 
   // MAX_FILE_SIZE is 20 MiB, so a file between 20,000,000 and 20,971,520 bytes
@@ -67,6 +81,23 @@ describe("validateFile", () => {
   })
 
   it("asks for a file when none was chosen", () => {
-    expect(validateFile(null)).toBe("Choose a PDF or DOCX file.")
+    expect(validateFile(null)).toBe("Choose a PDF, DOCX, or Markdown file.")
+  })
+})
+
+describe("titleFromFilename", () => {
+  it("strips the extension and leaves everything else untouched", () => {
+    expect(titleFromFilename("NguyenAnLoc_Resume (CCAs).pdf")).toBe(
+      "NguyenAnLoc_Resume (CCAs)",
+    )
+  })
+
+  it("does not touch separators or casing", () => {
+    expect(titleFromFilename("Claude-101-Training.pdf")).toBe("Claude-101-Training")
+    expect(titleFromFilename("SAFETY_handbook.docx")).toBe("SAFETY_handbook")
+  })
+
+  it("only strips the final extension", () => {
+    expect(titleFromFilename("v1.2-notes.md")).toBe("v1.2-notes")
   })
 })

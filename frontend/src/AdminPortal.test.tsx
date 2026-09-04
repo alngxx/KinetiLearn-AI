@@ -65,8 +65,8 @@ describe("AdminPortal routing", () => {
     ["/admin/users", "Users"],
     ["/admin/classes", "Classes"],
     ["/admin/documents", "Documents"],
-    ["/admin/daily-quizzes", "Daily quiz configs"],
-    ["/admin/submissions", "Submissions"],
+    ["/admin/daily-quizzes", "Daily Quiz"],
+    ["/admin/submissions", "Submission"],
     ["/admin/config/categories", "Categories"],
     ["/admin/config/employee-levels", "Employee levels"],
   ])("resolves %s", async (path, heading) => {
@@ -78,6 +78,6 @@ describe("AdminPortal routing", () => {
     renderAt("/admin/users")
     // The sidebar comes from AdminLayout, which is a pathless layout route here
     // — if that nesting broke, the page would render without its nav.
-    expect(await screen.findByRole("link", { name: /Submissions/ })).toBeInTheDocument()
+    expect(await screen.findByRole("link", { name: /Submission/ })).toBeInTheDocument()
   })
 })
