@@ -68,7 +68,7 @@ describe("AdminPortal routing", () => {
     ["/admin/daily-quizzes", "Daily Quiz"],
     ["/admin/submissions", "Submission"],
     ["/admin/config/categories", "Categories"],
-    ["/admin/config/employee-levels", "Employee levels"],
+    ["/admin/config/employee-levels", "Employee Levels"],
   ])("resolves %s", async (path, heading) => {
     renderAt(path)
     expect(await screen.findByRole("heading", { name: heading, level: 1 })).toBeInTheDocument()
