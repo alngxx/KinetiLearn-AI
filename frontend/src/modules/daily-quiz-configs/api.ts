@@ -3,6 +3,8 @@ import type { components } from "@/types/api"
 
 export type DailyQuizConfigRow = components["schemas"]["DailyQuizConfigResponse"]
 
+export type DailyQuizConfigDeleteResult = components["schemas"]["DailyQuizConfigDeleteResponse"]
+
 type DocumentRow = components["schemas"]["DocumentResponse"]
 
 export type { DocumentRow }
@@ -46,6 +48,12 @@ export function setConfigActive(id: string, active: boolean) {
   return api.patch<DailyQuizConfigRow>(
     `/api/v1/daily-quiz-configs/${id}/${active ? "activate" : "deactivate"}`,
   )
+}
+
+// Permanent. Deletes the config's own generated quizzes along with it; refused
+// with a 409 if any learner has submitted one of them.
+export function deleteConfig(id: string) {
+  return api.delete<DailyQuizConfigDeleteResult>(`/api/v1/daily-quiz-configs/${id}`)
 }
 
 export function listLookup(name: LookupName) {

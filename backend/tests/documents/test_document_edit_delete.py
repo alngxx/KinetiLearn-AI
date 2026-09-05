@@ -294,7 +294,7 @@ async def test_delete_unknown_document_404(client, db_session, mock_cleanup):
 
 
 # --------------------------------------------------------------------------
-# DELETE /documents/{id} — the three guards
+# DELETE /documents/{id} — the two guards
 # --------------------------------------------------------------------------
 
 async def test_delete_blocked_by_exam(client, db_session, mock_cleanup):
@@ -325,17 +325,34 @@ async def test_delete_blocked_by_daily_quiz_config(client, db_session, mock_clea
     assert await db_session.get(Document, doc.id) is not None
 
 
-async def test_delete_blocked_by_chat_citation(client, db_session, mock_cleanup):
+async def test_delete_cascades_chat_citations(client, db_session, mock_cleanup):
     doc = await _seed_document(db_session)
-    await _seed_citation(db_session, doc)
+    chunk = await _seed_citation(db_session, doc)
+
+    # _seed_citation only hands back the chunk, so look up the message it
+    # belongs to the same way a real citation would be found: by its chunk.
+    message_id = (
+        await db_session.scalar(
+            select(ChatMessageCitation.chat_message_id).where(
+                ChatMessageCitation.document_chunk_id == chunk.id
+            )
+        )
+    )
 
     resp = await client.delete(f"{BASE}/{doc.id}")
 
-    assert resp.status_code == 409
-    assert resp.json()["detail"] == (
-        "Cannot delete a document that has been cited in a chat answer."
-    )
-    assert await db_session.get(Document, doc.id) is not None
+    assert resp.status_code == 200
+    assert await db_session.get(Document, doc.id) is None
+    # The citation row is gone (cascaded from document_chunks), but the chat
+    # message it belonged to is untouched — the old answer keeps its text.
+    assert (
+        await db_session.scalar(
+            select(func.count()).select_from(ChatMessageCitation).where(
+                ChatMessageCitation.document_chunk_id == chunk.id
+            )
+        )
+    ) == 0
+    assert await db_session.get(ChatMessage, message_id) is not None
 
 
 # --------------------------------------------------------------------------

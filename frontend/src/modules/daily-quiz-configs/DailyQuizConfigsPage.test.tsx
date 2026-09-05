@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event"
 import { clickRowAction } from "@/test/rowActions"
 import { http, HttpResponse } from "msw"
 import { MemoryRouter } from "react-router-dom"
+import { Toaster } from "sonner"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { DailyQuizConfigsPage } from "@/modules/daily-quiz-configs/DailyQuizConfigsPage"
 import { server } from "@/test/server"
@@ -59,6 +60,9 @@ function doc(id: string, title: string, extra: Record<string, unknown> = {}): Do
   }
 }
 
+// A blocked delete says why only through a toast, so a Toaster is mounted
+// alongside the page for every test — same as DocumentsPage.test.tsx's
+// renderWithToasts.
 function renderConfigs(initialEntries = ["/admin/daily-quiz-configs"]) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
@@ -68,6 +72,7 @@ function renderConfigs(initialEntries = ["/admin/daily-quiz-configs"]) {
       <MemoryRouter initialEntries={initialEntries}>
         <DailyQuizConfigsPage />
       </MemoryRouter>
+      <Toaster />
     </QueryClientProvider>,
   )
 }
@@ -92,6 +97,8 @@ const TIMEZONES_WITHOUT_HCM = ["UTC", "Asia/Saigon", "Asia/Bangkok", "America/Ne
 describe("DailyQuizConfigsPage", () => {
   let configs: Row[]
   let requests: { method: string; url: string; body: unknown }[]
+  let deleteStatus: number
+  let deleteDetail: string
 
   beforeEach(() => {
     vi.spyOn(Intl, "supportedValuesOf").mockReturnValue(TIMEZONES_WITHOUT_HCM)
@@ -101,6 +108,8 @@ describe("DailyQuizConfigsPage", () => {
       config("cfg2", "Old cadence", { is_active: false, start_date: "2025-01-01" }),
     ]
     requests = []
+    deleteStatus = 200
+    deleteDetail = ""
 
     const documents: DocRow[] = [
       doc("doc1", "Onboarding handbook"),
@@ -143,6 +152,14 @@ describe("DailyQuizConfigsPage", () => {
         const target = configs.find((item) => item.id === params.id)!
         target.is_active = true
         return HttpResponse.json(target)
+      }),
+      http.delete(`${API}/api/v1/daily-quiz-configs/:id`, ({ request, params }) => {
+        requests.push({ method: "DELETE", url: request.url, body: null })
+        if (deleteStatus !== 200) {
+          return HttpResponse.json({ detail: deleteDetail }, { status: deleteStatus })
+        }
+        configs = configs.filter((item) => item.id !== params.id)
+        return HttpResponse.json({ deleted: 1, quizzes_deleted: 0 })
       }),
       http.get(`${API}/api/v1/documents`, () => HttpResponse.json(documents)),
       http.get(`${API}/api/v1/config/departments`, () =>
@@ -417,5 +434,46 @@ describe("DailyQuizConfigsPage", () => {
     await expect.poll(() => requests.some((item) => item.url.endsWith("cfg2/activate"))).toBe(
       true,
     )
+  })
+
+  it("does not delete until the permanent confirmation is accepted", async () => {
+    renderConfigs()
+    await screen.findByText("Morning refresher")
+
+    await clickRowAction(rowFor("Morning refresher"), "Delete")
+    const confirm = within(await screen.findByRole("alertdialog"))
+    expect(confirm.getByText(/cannot be undone/)).toBeInTheDocument()
+    expect(requests.some((item) => item.method === "DELETE")).toBe(false)
+
+    await userEvent.click(confirm.getByRole("button", { name: "Cancel" }))
+    expect(requests.some((item) => item.method === "DELETE")).toBe(false)
+    expect(screen.getByText("Morning refresher")).toBeInTheDocument()
+  })
+
+  it("removes the config from the list once the delete is confirmed", async () => {
+    renderConfigs()
+    await screen.findByText("Morning refresher")
+
+    await clickRowAction(rowFor("Morning refresher"), "Delete")
+    const confirm = within(await screen.findByRole("alertdialog"))
+    await userEvent.click(confirm.getByRole("button", { name: "Delete permanently" }))
+
+    await expect.poll(() => screen.queryByText("Morning refresher")).toBeNull()
+    expect(requests.some((item) => item.url.endsWith("/daily-quiz-configs/cfg1"))).toBe(true)
+  })
+
+  it("keeps the config and shows the server's reason when a delete is blocked", async () => {
+    deleteStatus = 409
+    deleteDetail = "Cannot delete a config whose quizzes have submissions."
+
+    renderConfigs()
+    await screen.findByText("Morning refresher")
+
+    await clickRowAction(rowFor("Morning refresher"), "Delete")
+    const confirm = within(await screen.findByRole("alertdialog"))
+    await userEvent.click(confirm.getByRole("button", { name: "Delete permanently" }))
+
+    expect(await screen.findByText(deleteDetail)).toBeInTheDocument()
+    expect(screen.getByText("Morning refresher")).toBeInTheDocument()
   })
 })

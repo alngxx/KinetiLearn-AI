@@ -86,9 +86,9 @@ export function DocumentsPage() {
       { id: row.document_id },
       {
         onSuccess: () => toast.success(`${row.title} deleted`),
-        // A 409 names what still points at this document — an exam, a daily
-        // quiz config, or a chat answer that cited it. That sentence is the
-        // whole answer, so it is shown as the server wrote it.
+        // A 409 names what still points at this document — an exam or a daily
+        // quiz config. That sentence is the whole answer, so it is shown as
+        // the server wrote it.
         onError: (err) =>
           toast.error(isApiError(err) ? err.message : "Could not delete the document."),
       },
@@ -322,7 +322,7 @@ export function DocumentsPage() {
           if (!open) setDeleting(null)
         }}
         title={`Delete ${deleting?.title} permanently?`}
-        description="This removes the document, every version of it, and the stored files and search index behind them. It cannot be undone — re-uploading is the only way back. If an exam, a daily quiz config or a chat answer still refers to it, the delete is refused and nothing changes."
+        description="This removes the document, every version of it, and the stored files and search index behind them. It cannot be undone — re-uploading is the only way back. If an exam or a daily quiz config still refers to it, the delete is refused and nothing changes. Chat answers that cited it keep their text but lose their source link."
         confirmLabel="Delete permanently"
         confirmVariant="destructive"
         onConfirm={() => {

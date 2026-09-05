@@ -130,7 +130,7 @@ class ChatMessageCitation(Base):
     )
     document_chunk_id = Column(
         UUID(as_uuid=True),
-        ForeignKey("document_chunks.id", ondelete="RESTRICT"),
+        ForeignKey("document_chunks.id", ondelete="CASCADE"),
         primary_key=True,
         nullable=False,
     )

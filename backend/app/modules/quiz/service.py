@@ -8,12 +8,13 @@ from uuid import UUID
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from fastapi import HTTPException
+from sqlalchemy import delete as sa_delete
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session, selectinload
 
-from app.core.crud import get_or_404
+from app.core.crud import assert_no_dependents, get_or_404
 from app.core.llm import generate_quiz
 from app.modules.auth.models import User
 from app.modules.config.models import (
@@ -33,6 +34,7 @@ from app.modules.quiz.models import (
 )
 from app.modules.quiz.schemas import (
     DailyQuizConfigCreate,
+    DailyQuizConfigDeleteResponse,
     DailyQuizConfigResponse,
     DailyQuizConfigUpdate,
     DailyQuizOptionOut,
@@ -164,6 +166,34 @@ class DailyQuizConfigService:
 
     async def deactivate(self, config_id: UUID) -> DailyQuizConfigResponse:
         return await self._set_active(config_id, False)
+
+    async def delete(self, config_id: UUID) -> DailyQuizConfigDeleteResponse:
+        await get_or_404(self.db, DailyQuizConfig, config_id, NOT_FOUND)
+
+        # daily_quiz_submissions.daily_quiz_id is RESTRICT, so without this the
+        # delete below aborts as a raw 500 instead of a clean 409.
+        await assert_no_dependents(
+            self.db,
+            select(DailyQuizSubmission.id).join(
+                DailyQuiz, DailyQuiz.id == DailyQuizSubmission.daily_quiz_id
+            ).where(DailyQuiz.config_id == config_id),
+            "Cannot delete a config whose quizzes have submissions.",
+        )
+
+        # daily_quizzes.config_id is RESTRICT too, so its rows have to go first.
+        # Questions and options follow by ON DELETE CASCADE.
+        quizzes_deleted = (
+            await self.db.execute(
+                sa_delete(DailyQuiz).where(DailyQuiz.config_id == config_id)
+            )
+        ).rowcount
+        await self.db.execute(
+            sa_delete(DailyQuizConfig).where(DailyQuizConfig.id == config_id)
+        )
+        await self.db.commit()
+        return DailyQuizConfigDeleteResponse(
+            deleted = 1, quizzes_deleted = quizzes_deleted
+        )
 
     async def _set_active(
         self, config_id: UUID, is_active: bool

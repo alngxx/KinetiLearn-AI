@@ -344,9 +344,9 @@ describe("DocumentsPage edit and delete", () => {
     expect(screen.getByRole("link", { name: "Safety handbook" })).toBeInTheDocument()
   })
 
-  it("passes a daily quiz and chat citation block through just as verbatim", async () => {
+  it("passes a daily quiz config block through just as verbatim", async () => {
     deleteStatus = 409
-    deleteDetail = "Cannot delete a document that has been cited in a chat answer."
+    deleteDetail = "Cannot delete a document used by a daily quiz config. Delete the config first."
 
     renderWithToasts()
     await screen.findByRole("link", { name: "Safety handbook" })

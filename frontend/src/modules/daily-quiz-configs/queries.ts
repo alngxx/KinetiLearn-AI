@@ -1,6 +1,7 @@
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query"
 import {
   createConfig,
+  deleteConfig,
   listConfigs,
   listDocuments,
   listLookup,
@@ -70,4 +71,8 @@ export function useSetConfigActive() {
   return useConfigMutation((input: { id: string; active: boolean }) =>
     setConfigActive(input.id, input.active),
   )
+}
+
+export function useDeleteConfig() {
+  return useConfigMutation((input: { id: string }) => deleteConfig(input.id))
 }

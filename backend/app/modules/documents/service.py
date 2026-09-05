@@ -13,11 +13,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core import vectorstore
 from app.core.crud import assert_no_dependents, get_by_id, get_or_404
 from app.core.storage import R2Storage, StorageError
-from app.modules.chat.models import ChatMessageCitation, ChatSession
+from app.modules.chat.models import ChatSession
 from app.modules.config.models import Category, Skill
 from app.modules.documents.models import (
     Document,
-    DocumentChunk,
     DocumentSkill,
     DocumentVersion,
 )
@@ -374,8 +373,10 @@ class DocumentService:
 
         # exercise_documents cascades rather than restricting, so the DB would
         # let this through and silently drop the exam's only link back to its
-        # source material. The other two are real RESTRICT FKs that would
-        # otherwise surface as a 500.
+        # source material. The other is a real RESTRICT FK that would otherwise
+        # surface as a 500. chat_message_citations used to be a third check here,
+        # but its FK now cascades — a cited document deletes cleanly and the old
+        # answer just loses its source chip (see _stored_citations).
         await assert_no_dependents(
             self.db,
             select(ExerciseDocument.exercise_id).where(
@@ -390,14 +391,6 @@ class DocumentService:
             ),
             "Cannot delete a document used by a daily quiz config. "
             "Delete the config first.",
-        )
-        await assert_no_dependents(
-            self.db,
-            select(ChatMessageCitation.chat_message_id).join(
-                DocumentChunk,
-                DocumentChunk.id == ChatMessageCitation.document_chunk_id,
-            ).where(DocumentChunk.document_id == document_id),
-            "Cannot delete a document that has been cited in a chat answer.",
         )
 
         # Read before the delete — the cascade takes the version rows with it.

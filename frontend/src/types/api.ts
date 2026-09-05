@@ -1145,7 +1145,8 @@ export interface paths {
         /** Update Config */
         put: operations["update_config_api_v1_daily_quiz_configs__config_id__put"];
         post?: never;
-        delete?: never;
+        /** Delete Config */
+        delete: operations["delete_config_api_v1_daily_quiz_configs__config_id__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -1607,6 +1608,13 @@ export interface components {
              * @default 5
              */
             question_count: number;
+        };
+        /** DailyQuizConfigDeleteResponse */
+        DailyQuizConfigDeleteResponse: {
+            /** Deleted */
+            deleted: number;
+            /** Quizzes Deleted */
+            quizzes_deleted: number;
         };
         /** DailyQuizConfigResponse */
         DailyQuizConfigResponse: {
@@ -5571,6 +5579,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DailyQuizConfigResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_config_api_v1_daily_quiz_configs__config_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                config_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DailyQuizConfigDeleteResponse"];
                 };
             };
             /** @description Validation Error */
