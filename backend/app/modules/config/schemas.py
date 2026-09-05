@@ -8,7 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 # Payload accepted on POST /categories — only fields a client can set on creation.
 class CategoryCreate(BaseModel):
     # Display name, must be unique across all categories (DB enforces).
-    name: str = Field(..., min_length = 1, max_length = 100, pattern = r"^[a-zA-Z0-9]+$")
+    name: str = Field(..., min_length = 1, max_length = 100, pattern = r"^[A-Za-z0-9][A-Za-z0-9 &()/'.\-]*$")
     # Optional free-text description shown in the admin UI.
     description: Optional[str] = None
 
@@ -16,7 +16,7 @@ class CategoryCreate(BaseModel):
 # Payload accepted on PATCH /categories/{id} — every field optional for partial updates.
 class CategoryUpdate(BaseModel):
     # New display name; uniqueness still enforced by the DB.
-    name: Optional[str] = Field(default = None, min_length = 1, max_length = 100, pattern = r"^[a-zA-Z0-9]+$")
+    name: Optional[str] = Field(default = None, min_length = 1, max_length = 100, pattern = r"^[A-Za-z0-9][A-Za-z0-9 &()/'.\-]*$")
     # New description, or null to clear it.
     description: Optional[str] = None
 
@@ -44,7 +44,7 @@ class CategoryResponse(BaseModel):
 # Payload accepted on POST /skills.
 class SkillCreate(BaseModel):
     category_id: UUID
-    name: str = Field(..., min_length = 1, max_length = 100, pattern = r"^[a-zA-Z0-9]+$")
+    name: str = Field(..., min_length = 1, max_length = 100, pattern = r"^[A-Za-z0-9][A-Za-z0-9 &()/'.\-]*$")
     description: Optional[str] = None
     basic_max: int = Field(..., ge = 0)
     intermediate_max: int = Field(..., ge = 0)
@@ -59,7 +59,7 @@ class SkillCreate(BaseModel):
 # Payload accepted on PATCH /skills/{id}. Any subset of fields may be sent.
 class SkillUpdate(BaseModel):
     category_id: Optional[UUID] = None
-    name: Optional[str] = Field(default = None, min_length = 1, max_length = 100, pattern = r"^[a-zA-Z0-9]+$")
+    name: Optional[str] = Field(default = None, min_length = 1, max_length = 100, pattern = r"^[A-Za-z0-9][A-Za-z0-9 &()/'.\-]*$")
     description: Optional[str] = None
     basic_max: Optional[int] = Field(default = None, ge = 0)
     intermediate_max: Optional[int] = Field(default = None, ge = 0)
@@ -89,7 +89,7 @@ class SkillResponse(BaseModel):
 # Payload accepted on POST /departments — only fields a client can set on creation.
 class DepartmentCreate(BaseModel):
     # Display name, must be unique across all departments (DB enforces).
-    name: str = Field(..., min_length = 1, max_length = 100, pattern = r"^[a-zA-Z0-9]+$")
+    name: str = Field(..., min_length = 1, max_length = 100, pattern = r"^[A-Za-z0-9][A-Za-z0-9 &()/'.\-]*$")
     # Optional free-text description shown in the admin UI.
     description: Optional[str] = None
 
@@ -97,7 +97,7 @@ class DepartmentCreate(BaseModel):
 # Payload accepted on PATCH /departments/{id} — every field optional for partial updates.
 class DepartmentUpdate(BaseModel):
     # New display name; uniqueness still enforced by the DB.
-    name: Optional[str] = Field(default = None, min_length = 1, max_length = 100, pattern = r"^[a-zA-Z0-9]+$")
+    name: Optional[str] = Field(default = None, min_length = 1, max_length = 100, pattern = r"^[A-Za-z0-9][A-Za-z0-9 &()/'.\-]*$")
     # New description, or null to clear it.
     description: Optional[str] = None
 
@@ -122,7 +122,7 @@ class DepartmentResponse(BaseModel):
 # Payload accepted on POST /seniority-levels — name plus a unique numeric rank.
 class SeniorityLevelCreate(BaseModel):
     # Display name, must be unique across all seniority levels (DB enforces).
-    name: str = Field(..., min_length = 1, max_length = 50, pattern = r"^[a-zA-Z0-9]+$")
+    name: str = Field(..., min_length = 1, max_length = 50, pattern = r"^[A-Za-z0-9][A-Za-z0-9 &()/'.\-]*$")
     # Numeric ordering rank, must be unique (DB enforces).
     rank: int = Field(..., ge = 0)
 
@@ -130,7 +130,7 @@ class SeniorityLevelCreate(BaseModel):
 # Payload accepted on PATCH /seniority-levels/{id} — every field optional for partial updates.
 class SeniorityLevelUpdate(BaseModel):
     # New display name; uniqueness still enforced by the DB.
-    name: Optional[str] = Field(default = None, min_length = 1, max_length = 50, pattern = r"^[a-zA-Z0-9]+$")
+    name: Optional[str] = Field(default = None, min_length = 1, max_length = 50, pattern = r"^[A-Za-z0-9][A-Za-z0-9 &()/'.\-]*$")
     # New rank; uniqueness still enforced by the DB.
     rank: Optional[int] = Field(default = None, ge = 0)
 
@@ -163,7 +163,7 @@ class JobPositionCreate(BaseModel):
 # Payload accepted on PATCH /job-positions/{id} — every field optional for partial updates.
 class JobPositionUpdate(BaseModel):
     # New display name; uniqueness still enforced by the DB.
-    name: Optional[str] = Field(default = None, min_length = 1, max_length = 100, pattern = r"^[a-zA-Z0-9]+$")
+    name: Optional[str] = Field(default = None, min_length = 1, max_length = 100, pattern = r"^[A-Za-z0-9][A-Za-z0-9 &()/'.\-]*$")
     # New description, or null to clear it.
     description: Optional[str] = None
 
@@ -196,7 +196,7 @@ class EmployeeLevelCreate(BaseModel):
 # Payload accepted on PATCH /employee-levels/{id} — every field optional for partial updates.
 class EmployeeLevelUpdate(BaseModel):
     # New display name; uniqueness still enforced by the DB.
-    name: Optional[str] = Field(default = None, min_length = 1, max_length = 50, pattern = r"^[a-zA-Z0-9]+$")
+    name: Optional[str] = Field(default = None, min_length = 1, max_length = 50, pattern = r"^[A-Za-z0-9][A-Za-z0-9 &()/'.\-]*$")
     # New rank; uniqueness still enforced by the DB.
     rank: Optional[int] = Field(default = None, ge = 0)
 
