@@ -43,6 +43,11 @@ class DailyQuizConfigUpdate(BaseModel):
     question_count: int | None = Field(default = None, ge = 1, le = 50)
 
 
+class DailyQuizConfigDeleteResponse(BaseModel):
+    deleted: int
+    quizzes_deleted: int
+
+
 class DailyQuizConfigResponse(BaseModel):
     model_config = ConfigDict(from_attributes = True)
 

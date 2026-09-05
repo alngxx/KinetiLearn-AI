@@ -1,8 +1,13 @@
 import itertools
 import uuid
+from datetime import date, datetime, timedelta, timezone
+
+from sqlalchemy import select
 
 from app.core.dependencies import require_admin
+from app.core.security import get_password_hash
 from app.main import app
+from app.modules.auth.models import User
 from app.modules.config.models import (
     Department,
     EmployeeLevel,
@@ -10,6 +15,13 @@ from app.modules.config.models import (
     SeniorityLevel,
 )
 from app.modules.documents.models import Document, DocumentVersion
+from app.modules.quiz.models import (
+    DailyQuiz,
+    DailyQuizConfig,
+    DailyQuizQuestion,
+    DailyQuizQuestionOption,
+    DailyQuizSubmission,
+)
 
 BASE = "/api/v1/daily-quiz-configs"
 
@@ -90,6 +102,40 @@ async def _create(client, db_session, **overrides):
     resp = await client.post(BASE, json = _payload(doc.id, **overrides))
     assert resp.status_code == 201
     return resp.json()
+
+
+# One question with two options, mirroring _seed_quiz in
+# test_daily_quiz_submissions.py, so a deleted config's cascade has real rows
+# to remove rather than an empty quiz.
+async def _seed_quiz(db, config_id, quiz_date = None):
+    quiz = DailyQuiz(
+        config_id = config_id,
+        quiz_date = quiz_date or date.today(),
+        expires_at = datetime.now(timezone.utc) + timedelta(hours = 1),
+    )
+    question = DailyQuizQuestion(question_text = "Q?", points = 1, order_index = 0)
+    question.options.append(
+        DailyQuizQuestionOption(option_label = "A", option_text = "A text", is_correct = True)
+    )
+    question.options.append(
+        DailyQuizQuestionOption(option_label = "B", option_text = "B text", is_correct = False)
+    )
+    quiz.questions.append(question)
+    db.add(quiz)
+    await db.flush()
+    return quiz
+
+
+async def _seed_learner(db):
+    user = User(
+        email = f"{uuid.uuid4()}@kineti.com",
+        password_hash = get_password_hash("secret123"),
+        full_name = "Learner",
+        role = "learner",
+    )
+    db.add(user)
+    await db.flush()
+    return user
 
 
 async def test_create_config_applies_defaults(client, db_session):
@@ -324,3 +370,70 @@ async def test_deactivate_and_activate_config(client, db_session):
     resp = await client.patch(f"{BASE}/{config['id']}/activate")
     assert resp.status_code == 200
     assert resp.json()["is_active"] is True
+
+
+async def test_delete_config_with_no_quizzes(client, db_session):
+    _use_stub_admin()
+    config = await _create(client, db_session)
+
+    resp = await client.delete(f"{BASE}/{config['id']}")
+    assert resp.status_code == 200
+    assert resp.json() == {"deleted": 1, "quizzes_deleted": 0}
+
+    resp = await client.get(f"{BASE}/{config['id']}")
+    assert resp.status_code == 404
+
+
+async def test_delete_config_cascades_generated_quizzes(client, db_session):
+    _use_stub_admin()
+    config = await _create(client, db_session)
+    quiz = await _seed_quiz(db_session, uuid.UUID(config["id"]))
+
+    resp = await client.delete(f"{BASE}/{config['id']}")
+    assert resp.status_code == 200
+    assert resp.json() == {"deleted": 1, "quizzes_deleted": 1}
+
+    # select() rather than .get(), which would return the stale in-memory
+    # object from this same session's identity map instead of re-querying.
+    assert (
+        await db_session.execute(select(DailyQuiz).where(DailyQuiz.id == quiz.id))
+    ).first() is None
+    assert (
+        await db_session.execute(
+            select(DailyQuizConfig).where(DailyQuizConfig.id == uuid.UUID(config["id"]))
+        )
+    ).first() is None
+    # Questions/options cascade from daily_quizzes' own FK, not from the config.
+    assert (
+        await db_session.execute(
+            select(DailyQuizQuestion).where(DailyQuizQuestion.daily_quiz_id == quiz.id)
+        )
+    ).first() is None
+
+
+async def test_delete_config_blocked_by_submission(client, db_session):
+    _use_stub_admin()
+    config = await _create(client, db_session)
+    quiz = await _seed_quiz(db_session, uuid.UUID(config["id"]))
+    learner = await _seed_learner(db_session)
+    db_session.add(DailyQuizSubmission(
+        daily_quiz_id = quiz.id,
+        user_id = learner.id,
+        score = 0,
+        submitted_at = datetime.now(timezone.utc),
+    ))
+    await db_session.flush()
+
+    resp = await client.delete(f"{BASE}/{config['id']}")
+    assert resp.status_code == 409
+    assert resp.json()["detail"] == "Cannot delete a config whose quizzes have submissions."
+
+    # Nothing was removed.
+    assert await db_session.get(DailyQuizConfig, uuid.UUID(config["id"])) is not None
+    assert await db_session.get(DailyQuiz, quiz.id) is not None
+
+
+async def test_delete_config_not_found(client):
+    resp = await client.delete(f"{BASE}/{uuid.uuid4()}")
+    assert resp.status_code == 404
+    assert resp.json()["detail"] == "Daily quiz config not found."

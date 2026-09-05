@@ -7,6 +7,7 @@ from app.core.dependencies import get_current_user, get_db, require_admin
 from app.modules.auth.models import User
 from app.modules.quiz.schemas import (
     DailyQuizConfigCreate,
+    DailyQuizConfigDeleteResponse,
     DailyQuizConfigResponse,
     DailyQuizConfigUpdate,
     DailyQuizSubmissionDetailResponse,
@@ -105,3 +106,10 @@ async def activate_config(config_id: UUID, db: AsyncSession = Depends(get_db)):
 )
 async def deactivate_config(config_id: UUID, db: AsyncSession = Depends(get_db)):
     return await DailyQuizConfigService(db).deactivate(config_id)
+
+
+@daily_quiz_configs_router.delete(
+    "/{config_id}", response_model = DailyQuizConfigDeleteResponse
+)
+async def delete_config(config_id: UUID, db: AsyncSession = Depends(get_db)):
+    return await DailyQuizConfigService(db).delete(config_id)

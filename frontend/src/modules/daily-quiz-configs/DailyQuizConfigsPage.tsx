@@ -1,4 +1,4 @@
-import { CircleCheckIcon, CircleSlashIcon, PencilIcon, PlusIcon } from "lucide-react"
+import { CircleCheckIcon, CircleSlashIcon, PencilIcon, PlusIcon, Trash2Icon } from "lucide-react"
 import { useState } from "react"
 import { toast } from "sonner"
 import { ConfirmDialog } from "@/components/ConfirmDialog"
@@ -25,6 +25,7 @@ import { DailyQuizConfigFormDialog, DEFAULT_TIMEZONE } from "@/modules/daily-qui
 import { formatPushTime, formatRange, formatRelative } from "@/modules/daily-quiz-configs/dates"
 import {
   useDailyQuizConfigs,
+  useDeleteConfig,
   useEligibleDocuments,
   useSaveConfig,
   useSetConfigActive,
@@ -57,12 +58,14 @@ export function DailyQuizConfigsPage() {
   const [editing, setEditing] = useState<DailyQuizConfigRow | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [confirming, setConfirming] = useState<DailyQuizConfigRow | null>(null)
+  const [deleting, setDeleting] = useState<DailyQuizConfigRow | null>(null)
 
   const list = useDailyQuizConfigs(includeInactive)
   const documents = useEligibleDocuments()
   const targetLookups = useTargetLookups()
   const save = useSaveConfig()
   const setActive = useSetConfigActive()
+  const remove = useDeleteConfig()
 
   const eligibleDocuments = (documents.data ?? []).filter(
     (row) => documentBlockedReason(row) === null,
@@ -94,6 +97,19 @@ export function DailyQuizConfigsPage() {
           toast.success(active ? `${row.name} activated` : `${row.name} deactivated`),
         onError: (err) =>
           toast.error(isApiError(err) ? err.message : "Could not change the status."),
+      },
+    )
+  }
+
+  function handleDelete(row: DailyQuizConfigRow) {
+    remove.mutate(
+      { id: row.id },
+      {
+        onSuccess: () => toast.success(`${row.name} deleted`),
+        // A 409 here means a learner has submitted one of this config's
+        // quizzes — that sentence is the whole answer, so it's shown as-is.
+        onError: (err) =>
+          toast.error(isApiError(err) ? err.message : "Could not delete the config."),
       },
     )
   }
@@ -304,6 +320,13 @@ export function DailyQuizConfigsPage() {
                             onSelect: () =>
                               row.is_active ? setConfirming(row) : handleSetActive(row, true),
                           },
+                          {
+                            label: "Delete",
+                            icon: Trash2Icon,
+                            destructive: true,
+                            disabled: remove.isPending,
+                            onSelect: () => setDeleting(row),
+                          },
                         ]}
                       />
                     </TableCell>
@@ -337,6 +360,21 @@ export function DailyQuizConfigsPage() {
         onConfirm={() => {
           if (confirming !== null) handleSetActive(confirming, false)
           setConfirming(null)
+        }}
+      />
+
+      <ConfirmDialog
+        open={deleting !== null}
+        onOpenChange={(open) => {
+          if (!open) setDeleting(null)
+        }}
+        title={`Delete ${deleting?.name} permanently?`}
+        description="This removes the config and every daily quiz already generated from it. It cannot be undone. If a learner has submitted one of those quizzes, the delete is refused and nothing changes."
+        confirmLabel="Delete permanently"
+        confirmVariant="destructive"
+        onConfirm={() => {
+          if (deleting !== null) handleDelete(deleting)
+          setDeleting(null)
         }}
       />
     </div>

@@ -83,9 +83,9 @@ export function updateDocument(id: string, body: Record<string, unknown>) {
   return api.patch<DocumentDetail>(`/api/v1/documents/${id}`, body)
 }
 
-// Permanent. The server refuses with a 409 while an exam, a daily quiz config
-// or a chat citation still points at it; that message is written for the admin
-// and is shown as-is.
+// Permanent. The server refuses with a 409 while an exam or a daily quiz
+// config still points at it; that message is written for the admin and is
+// shown as-is. A chat citation no longer blocks — it cascades instead.
 export function deleteDocument(id: string) {
   return api.delete<DocumentDeleteResult>(`/api/v1/documents/${id}`)
 }
