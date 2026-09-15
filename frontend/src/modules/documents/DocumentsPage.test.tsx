@@ -80,17 +80,51 @@ describe("DocumentsPage", () => {
     )
   })
 
-  it("lists documents with their category, tags and processing state", async () => {
+  it("groups documents under their category, with their tags and processing state", async () => {
     renderDocuments()
 
     expect(await screen.findByRole("link", { name: "Safety handbook" })).toBeInTheDocument()
+    // The category names the section now; it is no longer a column in the row.
+    expect(screen.getByRole("heading", { name: "Operations" })).toBeInTheDocument()
+
     const row = screen.getByRole("row", { name: /Safety handbook/ })
-    expect(within(row).getByText("Operations")).toBeInTheDocument()
     expect(within(row).getByText("Fire safety")).toBeInTheDocument()
     expect(within(row).getByText("Ready")).toBeInTheDocument()
 
     const processing = screen.getByRole("row", { name: /Onboarding guide/ })
     expect(within(processing).getByText("Processing")).toBeInTheDocument()
+  })
+
+  it("names a category with nothing in it in the strip rather than giving it a table", async () => {
+    server.use(
+      http.get(`${API}/api/v1/config/categories`, () =>
+        HttpResponse.json([lookup("c1", "Operations"), lookup("c2", "Compliance")]),
+      ),
+    )
+    renderDocuments()
+    await screen.findByRole("link", { name: "Safety handbook" })
+
+    expect(screen.getByRole("heading", { name: "Operations" })).toBeInTheDocument()
+    // Compliance holds nothing, so it is named once below instead of costing a
+    // whole empty section.
+    expect(screen.queryByRole("heading", { name: "Compliance" })).toBeNull()
+    expect(screen.getByText("Nothing uploaded yet")).toBeInTheDocument()
+    expect(screen.getByText("Compliance")).toBeInTheDocument()
+  })
+
+  // Null is the common case; a category that was deactivated after the fact
+  // leaves an id the lookup cannot resolve. Either way the document has to stay
+  // on the page rather than falling through the grouping.
+  it("keeps documents with no resolvable category under Uncategorized", async () => {
+    documents = [
+      doc("d9", "Orphan memo", { category_id: null }),
+      doc("d10", "Archived policy", { category_id: "gone" }),
+    ]
+    renderDocuments()
+
+    expect(await screen.findByRole("link", { name: "Orphan memo" })).toBeInTheDocument()
+    expect(screen.getByRole("heading", { name: "Uncategorized" })).toBeInTheDocument()
+    expect(screen.getByRole("row", { name: /Archived policy/ })).toBeInTheDocument()
   })
 
   it("uploads a file as multipart and lands on the new document", async () => {
@@ -131,7 +165,7 @@ describe("DocumentsPage", () => {
     expect(screen.getByRole("dialog")).toBeInTheDocument()
   })
 
-  it("reads its filters from the URL on load, and updates the URL when they change", async () => {
+  it("reads its filter from the URL on load, and updates the URL when it changes", async () => {
     const requests: string[] = []
     server.use(
       http.get(`${API}/api/v1/documents`, ({ request }) => {
@@ -140,19 +174,21 @@ describe("DocumentsPage", () => {
       }),
     )
 
-    renderDocuments("/admin/documents?category_id=c1&inactive=1")
+    renderDocuments("/admin/documents?inactive=1")
     await screen.findByRole("link", { name: "Safety handbook" })
 
-    expect(requests[0]).toContain("category_id=c1")
     expect(requests[0]).toContain("include_inactive=true")
     expect(screen.getByRole("button", { name: "Show inactive" })).toHaveAttribute(
       "aria-pressed",
       "true",
     )
+    // Grouping replaced the category filter, so nothing narrows the request by
+    // category any more — the page asks for the whole library in one go.
+    expect(requests[0]).not.toContain("category_id")
 
-    await userEvent.selectOptions(screen.getByLabelText("Category"), "")
+    await userEvent.click(screen.getByRole("button", { name: "Show inactive" }))
     await expect
-      .poll(() => requests.some((url) => !url.includes("category_id")))
+      .poll(() => requests.some((url) => !url.includes("include_inactive")))
       .toBe(true)
   })
 

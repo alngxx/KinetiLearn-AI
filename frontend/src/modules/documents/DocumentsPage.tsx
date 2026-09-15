@@ -39,22 +39,61 @@ function nameFor(rows: LookupRow[], id: string | null | undefined) {
   return rows.find((row) => row.id === id)?.name ?? null
 }
 
-const FILTER_KEYS = ["category_id", "inactive"] as const
+type Section = { key: string; name: string; rows: DocumentRow[] }
+
+// Sections are built from the category list rather than from the documents, so
+// a category with nothing in it is still knowable — it goes to the strip under
+// the sections instead of vanishing. The categories arrive unordered from the
+// API, and sorting by name keeps a section where the admin last saw it rather
+// than moving it every time something is uploaded.
+function groupByCategory(rows: DocumentRow[], categories: LookupRow[]) {
+  const known = new Set(categories.map((category) => category.id))
+  const byCategory = new Map<string, DocumentRow[]>()
+  // A null category, or one that has since been deactivated, would otherwise
+  // have no section to land in and would drop off the page silently.
+  const uncategorized: DocumentRow[] = []
+
+  for (const row of rows) {
+    const id = row.category_id
+    if (id === null || !known.has(id)) {
+      uncategorized.push(row)
+      continue
+    }
+    const bucket = byCategory.get(id)
+    if (bucket === undefined) byCategory.set(id, [row])
+    else bucket.push(row)
+  }
+
+  const sections: Section[] = []
+  const emptyCategories: string[] = []
+
+  for (const category of [...categories].sort((a, b) => a.name.localeCompare(b.name))) {
+    const bucket = byCategory.get(category.id)
+    if (bucket === undefined) emptyCategories.push(category.name)
+    else sections.push({ key: category.id, name: category.name, rows: bucket })
+  }
+
+  if (uncategorized.length > 0) {
+    sections.push({ key: "uncategorized", name: "Uncategorized", rows: uncategorized })
+  }
+
+  return { sections, emptyCategories }
+}
+
+const FILTER_KEYS = ["inactive"] as const
 
 export function DocumentsPage() {
   const navigate = useNavigate()
   const { values: filterValues, setFilter } = useUrlFilters(FILTER_KEYS)
-  const categoryId = filterValues.category_id
   const includeInactive = filterValues.inactive === "1"
   const [uploadOpen, setUploadOpen] = useState(false)
   const [confirming, setConfirming] = useState<DocumentRow | null>(null)
   const [editing, setEditing] = useState<DocumentRow | null>(null)
   const [deleting, setDeleting] = useState<DocumentRow | null>(null)
 
-  const filters = {
-    ...(categoryId === "" ? {} : { category_id: categoryId }),
-    ...(includeInactive ? { include_inactive: true } : {}),
-  }
+  // One request for the whole library: the category sections below are the
+  // filter now, so there is nothing left to narrow server-side.
+  const filters = includeInactive ? { include_inactive: true } : {}
 
   const lookups = useDocumentLookups()
   const list = useDocuments(filters)
@@ -108,6 +147,7 @@ export function DocumentsPage() {
   }
 
   const rows = list.data ?? []
+  const { sections, emptyCategories } = groupByCategory(rows, lookups.categories)
 
   return (
     <div className="flex flex-col gap-6">
@@ -124,25 +164,6 @@ export function DocumentsPage() {
       />
 
       <div className="flex flex-wrap items-end gap-3">
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="category-filter" className="label-micro">
-            Category
-          </label>
-          <select
-            id="category-filter"
-            value={categoryId}
-            onChange={(event) => setFilter("category_id", event.target.value)}
-            className="h-8 w-52 appearance-none rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm text-foreground transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/75 dark:bg-input/30"
-          >
-            <option value="">All categories</option>
-            {options.categories.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </div>
-
         <Button
           variant="outline"
           aria-pressed={includeInactive}
@@ -158,141 +179,67 @@ export function DocumentsPage() {
         </span>
       </div>
 
-      <div className="overflow-hidden surface">
-        <Table>
-          <TableHeader>
-            <TableRow className="hover:bg-transparent">
-              <TableHead>
-                <span className="label-micro">Title</span>
-              </TableHead>
-              <TableHead>
-                <span className="label-micro">Category</span>
-              </TableHead>
-              <TableHead>
-                <span className="label-micro">Skills</span>
-              </TableHead>
-              <TableHead className="w-36">
-                <span className="label-micro">Processing</span>
-              </TableHead>
-              <TableHead className="w-28">
-                <span className="label-micro">Status</span>
-              </TableHead>
-              <TableHead className="w-12 text-right">
-                <span className="label-micro">Actions</span>
-              </TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {list.isPending ? (
-              <TableRow>
-                <TableCell
-                  role="status"
-                  colSpan={6}
-                  className="py-10 text-center text-muted-foreground"
-                >
-                  Loading…
-                </TableCell>
-              </TableRow>
-            ) : list.isError ? (
-              <TableRow className="hover:bg-transparent">
-                <TableCell colSpan={6} className="py-10 text-center">
-                  <QueryErrorState
-                    title="Could not load documents"
-                    error={list.error}
-                    retrying={list.isFetching}
-                    onRetry={() => void list.refetch()}
-                  />
-                </TableCell>
-              </TableRow>
-            ) : rows.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={6} className="py-12 text-center">
-                  <p className="text-sm font-medium text-foreground">Nothing here yet</p>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    Upload a PDF, DOCX, or Markdown file to give the chatbot something to read.
-                  </p>
-                </TableCell>
-              </TableRow>
-            ) : (
-              rows.map((row, index) => {
-                const skills = row.skill_ids
-                  .map((id) => nameFor(lookups.skills, id))
-                  .filter((name): name is string => name !== null)
+      {list.isPending ? (
+        <p role="status" className="py-10 text-center text-sm text-muted-foreground">
+          Loading…
+        </p>
+      ) : list.isError ? (
+        <div className="surface py-10">
+          <QueryErrorState
+            title="Could not load documents"
+            error={list.error}
+            retrying={list.isFetching}
+            onRetry={() => void list.refetch()}
+          />
+        </div>
+      ) : rows.length === 0 ? (
+        <div className="surface py-12 text-center">
+          <p className="text-sm font-medium text-foreground">Nothing here yet</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Upload a PDF, DOCX, or Markdown file to give the chatbot something to read.
+          </p>
+        </div>
+      ) : (
+        <>
+          <div className="flex flex-col gap-6">
+            {sections.map((section, index) => (
+              <CategorySection
+                key={section.key}
+                section={section}
+                index={index}
+                skills={lookups.skills}
+                onEdit={setEditing}
+                onToggleActive={(row) =>
+                  row.is_active ? setConfirming(row) : handleSetActive(row, true)
+                }
+                onDelete={setDeleting}
+                activePending={setActive.isPending}
+                deletePending={remove.isPending}
+              />
+            ))}
+          </div>
 
-                return (
-                  <TableRow
-                    key={row.document_id}
-                    style={staggerStyle(index)}
-                    className={`enter-stagger ${row.is_active ? "" : "opacity-60"}`}
-                  >
-                    <TableCell>
-                      <Link
-                        to={`/admin/documents/${row.document_id}`}
-                        className="font-medium underline-offset-4 transition-colors outline-none hover:text-ring hover:underline focus-visible:rounded-sm focus-visible:ring-3 focus-visible:ring-ring/75"
-                      >
-                        {row.title}
-                      </Link>
-                    </TableCell>
-                    <TableCell>
-                      {nameFor(lookups.categories, row.category_id) ?? (
-                        <span className="text-muted-foreground">—</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {skills.length === 0 ? (
-                        <span className="text-muted-foreground">Untagged</span>
-                      ) : (
-                        <div className="flex flex-wrap gap-1">
-                          {skills.map((skill) => (
-                            <Badge key={skill} variant="outline">
-                              {skill}
-                            </Badge>
-                          ))}
-                        </div>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <ProcessingBadge status={row.active_version_processing_status} />
-                        {row.active_version_number !== null && (
-                          <span className="numeric text-xs text-muted-foreground">
-                            v{row.active_version_number}
-                          </span>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <StatusBadge active={row.is_active} />
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <RowActions
-                        label={row.title}
-                        inlineAction={{ label: "Edit", icon: PencilIcon, onSelect: () => setEditing(row) }}
-                        actions={[
-                          {
-                            label: row.is_active ? "Deactivate" : "Activate",
-                            icon: row.is_active ? CircleSlashIcon : CircleCheckIcon,
-                            disabled: setActive.isPending,
-                            onSelect: () =>
-                              row.is_active ? setConfirming(row) : handleSetActive(row, true),
-                          },
-                          {
-                            label: "Delete",
-                            icon: Trash2Icon,
-                            destructive: true,
-                            disabled: remove.isPending,
-                            onSelect: () => setDeleting(row),
-                          },
-                        ]}
-                      />
-                    </TableCell>
-                  </TableRow>
-                )
-              })
-            )}
-          </TableBody>
-        </Table>
-      </div>
+          {/* The categories nobody has filed anything under yet. A section each
+              would be five empty states to say what one line says here, and
+              dropping them entirely would hide that they exist at all. */}
+          {emptyCategories.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2">
+              <span id="empty-categories" className="label-micro">
+                Nothing uploaded yet
+              </span>
+              {/* A real list, so it is announced as one rather than as a run-on
+                  of category names after the label. */}
+              <ul aria-labelledby="empty-categories" className="flex flex-wrap items-center gap-2">
+                {emptyCategories.map((name) => (
+                  <li key={name}>
+                    <Badge variant="outline">{name}</Badge>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </>
+      )}
 
       {uploadOpen && (
         <UploadDialog
@@ -345,5 +292,167 @@ export function DocumentsPage() {
         }}
       />
     </div>
+  )
+}
+
+function CategorySection({
+  section,
+  index,
+  skills,
+  onEdit,
+  onToggleActive,
+  onDelete,
+  activePending,
+  deletePending,
+}: {
+  section: Section
+  index: number
+  skills: LookupRow[]
+  onEdit: (row: DocumentRow) => void
+  onToggleActive: (row: DocumentRow) => void
+  onDelete: (row: DocumentRow) => void
+  activePending: boolean
+  deletePending: boolean
+}) {
+  const headingId = `documents-${section.key}`
+
+  return (
+    // The stagger sits on the section rather than the row: per-section indices
+    // would restart at zero in every table and step them all in unison anyway.
+    <div style={staggerStyle(index, { step: "40ms" })} className="enter-stagger flex flex-col gap-3">
+      <div className="flex items-center gap-2">
+        <h2 id={headingId} className="label-micro">
+          {section.name}
+        </h2>
+        {/* A count to scan against the table beside it. Read aloud, a bare
+            number after the heading only asks "three what?" — the table below
+            already announces its own size. */}
+        <span aria-hidden="true" className="numeric text-xs text-muted-foreground">
+          {section.rows.length}
+        </span>
+      </div>
+
+      <div className="overflow-hidden surface">
+        {/* Named by its own heading, so the tables stay tellable apart when a
+            screen reader lists them. */}
+        <Table aria-labelledby={headingId}>
+          <TableHeader>
+            <TableRow className="hover:bg-transparent">
+              <TableHead>
+                <span className="label-micro">Title</span>
+              </TableHead>
+              <TableHead>
+                <span className="label-micro">Skills</span>
+              </TableHead>
+              <TableHead className="w-36">
+                <span className="label-micro">Processing</span>
+              </TableHead>
+              <TableHead className="w-28">
+                <span className="label-micro">Status</span>
+              </TableHead>
+              <TableHead className="w-12 text-right">
+                <span className="label-micro">Actions</span>
+              </TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {section.rows.map((row) => (
+              <DocumentTableRow
+                key={row.document_id}
+                row={row}
+                skills={skills}
+                onEdit={onEdit}
+                onToggleActive={onToggleActive}
+                onDelete={onDelete}
+                activePending={activePending}
+                deletePending={deletePending}
+              />
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+    </div>
+  )
+}
+
+function DocumentTableRow({
+  row,
+  skills,
+  onEdit,
+  onToggleActive,
+  onDelete,
+  activePending,
+  deletePending,
+}: {
+  row: DocumentRow
+  skills: LookupRow[]
+  onEdit: (row: DocumentRow) => void
+  onToggleActive: (row: DocumentRow) => void
+  onDelete: (row: DocumentRow) => void
+  activePending: boolean
+  deletePending: boolean
+}) {
+  const names = row.skill_ids
+    .map((id) => nameFor(skills, id))
+    .filter((name): name is string => name !== null)
+
+  return (
+    <TableRow className={row.is_active ? "" : "opacity-60"}>
+      <TableCell>
+        <Link
+          to={`/admin/documents/${row.document_id}`}
+          className="font-medium underline-offset-4 transition-colors outline-none hover:text-ring hover:underline focus-visible:rounded-sm focus-visible:ring-3 focus-visible:ring-ring/75"
+        >
+          {row.title}
+        </Link>
+      </TableCell>
+      <TableCell>
+        {names.length === 0 ? (
+          <span className="text-muted-foreground">Untagged</span>
+        ) : (
+          <div className="flex flex-wrap gap-1">
+            {names.map((skill) => (
+              <Badge key={skill} variant="outline">
+                {skill}
+              </Badge>
+            ))}
+          </div>
+        )}
+      </TableCell>
+      <TableCell>
+        <div className="flex items-center gap-2">
+          <ProcessingBadge status={row.active_version_processing_status} />
+          {row.active_version_number !== null && (
+            <span className="numeric text-xs text-muted-foreground">
+              v{row.active_version_number}
+            </span>
+          )}
+        </div>
+      </TableCell>
+      <TableCell>
+        <StatusBadge active={row.is_active} />
+      </TableCell>
+      <TableCell className="text-right">
+        <RowActions
+          label={row.title}
+          inlineAction={{ label: "Edit", icon: PencilIcon, onSelect: () => onEdit(row) }}
+          actions={[
+            {
+              label: row.is_active ? "Deactivate" : "Activate",
+              icon: row.is_active ? CircleSlashIcon : CircleCheckIcon,
+              disabled: activePending,
+              onSelect: () => onToggleActive(row),
+            },
+            {
+              label: "Delete",
+              icon: Trash2Icon,
+              destructive: true,
+              disabled: deletePending,
+              onSelect: () => onDelete(row),
+            },
+          ]}
+        />
+      </TableCell>
+    </TableRow>
   )
 }

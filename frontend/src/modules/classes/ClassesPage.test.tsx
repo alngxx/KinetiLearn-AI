@@ -44,7 +44,7 @@ function renderClasses() {
 }
 
 function rowFor(name: string) {
-  return screen.getByRole("row", { name: new RegExp(name) })
+  return screen.getByRole("link", { name }).closest("li") as HTMLElement
 }
 
 // A date input ignores userEvent.type in jsdom; setting the value directly is

@@ -24,13 +24,22 @@ export type ConfigEntityDescriptor = {
   formFields: FormField[]
   filterField?: FormField
   validate?: (values: FormValues) => Record<string, string>
+  // Name and description alone read better as cards; the entities carrying a
+  // rank or a threshold ladder still need the columns to line up, so absence
+  // means the table.
+  layout?: "cards"
+  // Only categories has a real DELETE endpoint today — skills.category_id
+  // is what makes a delete meaningfully different from deactivate. Absent
+  // means deactivate-only, same as every other entity.
+  deletable?: boolean
 }
 
 // The backend rejects anything outside this on every *Update schema. Job
 // positions and employee levels allow more on create, but applying the strict
 // rule everywhere stops the UI minting names its own edit form cannot save.
-const NAME_PATTERN = /^[a-zA-Z0-9]+$/
-const NAME_PATTERN_MESSAGE = "Letters and numbers only — no spaces or punctuation."
+const NAME_PATTERN = /^[A-Za-z0-9][A-Za-z0-9 &()/'.-]*$/
+const NAME_PATTERN_MESSAGE =
+  "Start with a letter or number. Letters, numbers, spaces, and & ( ) / ' . - are allowed."
 
 function nameField(maxLength: number): FormField {
   return {
@@ -93,6 +102,7 @@ function taxonomyDescriptor(
     basePath: `/api/v1/config/${key}`,
     columns: [{ key: "name", header: "Name" }, descriptionColumn],
     formFields: [nameField(100), descriptionField],
+    layout: "cards",
   }
 }
 
@@ -188,12 +198,15 @@ const skillsDescriptor: ConfigEntityDescriptor = {
 }
 
 export const configEntities: ConfigEntityDescriptor[] = [
-  taxonomyDescriptor(
-    "categories",
-    "Categories",
-    "Category",
-    "Top-level groupings used to organize platform skills.",
-  ),
+  {
+    ...taxonomyDescriptor(
+      "categories",
+      "Categories",
+      "Category",
+      "Top-level groupings used to organize platform skills.",
+    ),
+    deletable: true,
+  },
   skillsDescriptor,
   taxonomyDescriptor(
     "departments",

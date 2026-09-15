@@ -2,10 +2,11 @@ from typing import cast
 from uuid import UUID
 
 from fastapi import HTTPException
+from sqlalchemy import delete as sa_delete
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.crud import get_or_404
+from app.core.crud import assert_no_dependents, get_or_404
 
 from app.modules.config.models import (
     Category,
@@ -17,6 +18,7 @@ from app.modules.config.models import (
 )
 from app.modules.config.schemas import (
     CategoryCreate,
+    CategoryDeleteResponse,
     CategoryResponse,
     CategoryUpdate,
     DepartmentCreate,
@@ -109,6 +111,23 @@ class CategoryService:
         await self.db.commit()
         await self.db.refresh(row)
         return CategoryResponse.model_validate(row)
+
+    async def delete(self, category_id: UUID) -> CategoryDeleteResponse:
+        await get_or_404(self.db, Category, category_id, "Category not found.")
+
+        # skills.category_id is RESTRICT, so without this the delete below
+        # aborts as a raw 500 instead of a clean 409. Checked against every
+        # skill, active or not, since the FK itself doesn't distinguish.
+        await assert_no_dependents(
+            self.db,
+            select(Skill.id).where(Skill.category_id == category_id),
+            "Cannot delete a category with skills assigned to it. Reassign or delete those skills first.",
+        )
+
+        # documents.category_id is SET NULL, so those rows are freed automatically.
+        await self.db.execute(sa_delete(Category).where(Category.id == category_id))
+        await self.db.commit()
+        return CategoryDeleteResponse(deleted = 1)
 
 
 class SkillService:

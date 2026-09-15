@@ -8,16 +8,9 @@ import { RowActions } from "@/components/RowActions"
 import { QueryErrorState } from "@/components/QueryErrorState"
 import { StatusBadge } from "@/components/StatusBadge"
 import { Button } from "@/components/ui/button"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
 import { isApiError } from "@/lib/errors"
 import { staggerStyle } from "@/lib/stagger"
+import { useClampedText } from "@/lib/useClampedText"
 import { useUrlFilters } from "@/lib/useUrlFilters"
 import type { ClassRow } from "@/modules/classes/api"
 import { ClassFormDialog } from "@/modules/classes/ClassFormDialog"
@@ -111,120 +104,45 @@ export function ClassesPage() {
         </span>
       </div>
 
-      <div className="overflow-hidden surface">
-        <Table>
-          <TableHeader>
-            <TableRow className="hover:bg-transparent">
-              <TableHead>
-                <span className="label-micro">Name</span>
-              </TableHead>
-              <TableHead className="w-64">
-                <span className="label-micro">Runs</span>
-              </TableHead>
-              <TableHead className="w-28">
-                <span className="label-micro">Status</span>
-              </TableHead>
-              <TableHead className="w-12 text-right">
-                <span className="label-micro">Actions</span>
-              </TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {list.isPending ? (
-              <TableRow>
-                <TableCell
-                  role="status"
-                  colSpan={4}
-                  className="py-10 text-center text-muted-foreground"
-                >
-                  Loading…
-                </TableCell>
-              </TableRow>
-            ) : list.isError ? (
-              <TableRow className="hover:bg-transparent">
-                <TableCell colSpan={4} className="py-10 text-center">
-                  <QueryErrorState
-                    title="Could not load classes"
-                    error={list.error}
-                    retrying={list.isFetching}
-                    onRetry={() => void list.refetch()}
-                  />
-                </TableCell>
-              </TableRow>
-            ) : rows.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={4} className="py-12 text-center">
-                  <p className="text-sm font-medium text-foreground">No classes yet</p>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    Create one to group the people an exercise should reach.
-                  </p>
-                </TableCell>
-              </TableRow>
-            ) : (
-              rows.map((row, index) => (
-                <TableRow
-                  key={row.id}
-                  style={staggerStyle(index)}
-                  className={`enter-stagger ${row.is_active ? "" : "opacity-60"}`}
-                >
-                  <TableCell className="min-w-0 max-w-md">
-                    <div className="flex min-w-0 flex-col">
-                      <Link
-                        to={`/admin/classes/${row.id}`}
-                        className="w-fit font-medium break-words underline-offset-4 transition-colors outline-none hover:text-ring hover:underline focus-visible:rounded-sm focus-visible:ring-3 focus-visible:ring-ring/75"
-                      >
-                        {row.name}
-                      </Link>
-                      {row.description !== null && row.description !== "" && (
-                        <span className="text-xs break-words text-muted-foreground">
-                          {row.description}
-                        </span>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <span className="numeric text-sm text-muted-foreground">
-                      {formatRange(row.start_date, row.end_date)}
-                    </span>
-                  </TableCell>
-                  <TableCell>
-                    <StatusBadge active={row.is_active} />
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <RowActions
-                      label={row.name}
-                      inlineAction={{
-                        label: "Edit",
-                        icon: PencilIcon,
-                        onSelect: () => {
-                          setEditing(row)
-                          setDialogOpen(true)
-                        },
-                      }}
-                      actions={[
-                        {
-                          label: row.is_active ? "Deactivate" : "Activate",
-                          icon: row.is_active ? CircleSlashIcon : CircleCheckIcon,
-                          disabled: setActive.isPending,
-                          onSelect: () =>
-                            row.is_active ? setConfirming(row) : handleSetActive(row, true),
-                        },
-                        {
-                          label: "Delete",
-                          icon: Trash2Icon,
-                          destructive: true,
-                          disabled: remove.isPending,
-                          onSelect: () => setDeleting(row),
-                        },
-                      ]}
-                    />
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
+      {list.isPending ? (
+        <p role="status" className="py-10 text-center text-sm text-muted-foreground">
+          Loading…
+        </p>
+      ) : list.isError ? (
+        <div className="surface py-10">
+          <QueryErrorState
+            title="Could not load classes"
+            error={list.error}
+            retrying={list.isFetching}
+            onRetry={() => void list.refetch()}
+          />
+        </div>
+      ) : rows.length === 0 ? (
+        <div className="surface py-12 text-center">
+          <p className="text-sm font-medium text-foreground">No classes yet</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Create one to group the people an exercise should reach.
+          </p>
+        </div>
+      ) : (
+        <ul className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-3">
+          {rows.map((row, index) => (
+            <ClassCard
+              key={row.id}
+              row={row}
+              index={index}
+              onEdit={() => {
+                setEditing(row)
+                setDialogOpen(true)
+              }}
+              onSetActive={(active) => (active ? handleSetActive(row, true) : setConfirming(row))}
+              onDelete={() => setDeleting(row)}
+              activePending={setActive.isPending}
+              deletePending={remove.isPending}
+            />
+          ))}
+        </ul>
+      )}
 
       {dialogOpen && (
         <ClassFormDialog
@@ -265,5 +183,86 @@ export function ClassesPage() {
         }}
       />
     </div>
+  )
+}
+
+function ClassCard({
+  row,
+  index,
+  onEdit,
+  onSetActive,
+  onDelete,
+  activePending,
+  deletePending,
+}: {
+  row: ClassRow
+  index: number
+  onEdit: () => void
+  onSetActive: (active: boolean) => void
+  onDelete: () => void
+  activePending: boolean
+  deletePending: boolean
+}) {
+  const name = useClampedText<HTMLAnchorElement>(row.name, 2)
+  const description = useClampedText<HTMLParagraphElement>(row.description ?? "", 2)
+
+  return (
+    <li
+      style={staggerStyle(index)}
+      className={`surface enter-stagger flex flex-col gap-3 p-5 ${row.is_active ? "" : "opacity-60"}`}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <Link
+          ref={name.ref}
+          to={`/admin/classes/${row.id}`}
+          title={row.name}
+          aria-label={row.name}
+          className="max-h-[2lh] min-w-0 overflow-hidden font-medium underline-offset-4 transition-colors outline-none hover:text-ring hover:underline focus-visible:rounded-sm focus-visible:ring-3 focus-visible:ring-ring/75"
+        >
+          {name.text}
+        </Link>
+        <StatusBadge active={row.is_active} />
+      </div>
+
+      {row.description !== null && row.description !== "" && (
+        <p
+          ref={description.ref}
+          title={row.description}
+          className="max-h-[2lh] overflow-hidden text-xs text-muted-foreground"
+        >
+          {description.text}
+        </p>
+      )}
+
+      <span className="numeric mt-auto text-sm text-muted-foreground">
+        {formatRange(row.start_date, row.end_date)}
+      </span>
+
+      <div className="flex items-center justify-end">
+        <RowActions
+          label={row.name}
+          inlineAction={{
+            label: "Edit",
+            icon: PencilIcon,
+            onSelect: onEdit,
+          }}
+          actions={[
+            {
+              label: row.is_active ? "Deactivate" : "Activate",
+              icon: row.is_active ? CircleSlashIcon : CircleCheckIcon,
+              disabled: activePending,
+              onSelect: () => onSetActive(!row.is_active),
+            },
+            {
+              label: "Delete",
+              icon: Trash2Icon,
+              destructive: true,
+              disabled: deletePending,
+              onSelect: onDelete,
+            },
+          ]}
+        />
+      </div>
+    </li>
   )
 }
