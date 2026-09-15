@@ -44,3 +44,7 @@ export function updateEntity(basePath: string, id: string, body: Record<string, 
 export function setEntityActive(basePath: string, id: string, active: boolean) {
   return api.patch<ConfigRow>(`${basePath}/${id}/${active ? "activate" : "deactivate"}`)
 }
+
+export function deleteEntity(basePath: string, id: string) {
+  return api.delete<{ deleted: number }>(`${basePath}/${id}`)
+}

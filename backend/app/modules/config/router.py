@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.dependencies import get_db, require_admin
 from app.modules.config.schemas import (
     CategoryCreate,
+    CategoryDeleteResponse,
     CategoryResponse,
     CategoryUpdate,
     DepartmentCreate,
@@ -98,6 +99,11 @@ async def activate_category(category_id: UUID, db: AsyncSession = Depends(get_db
 @categories_router.patch("/{category_id}/deactivate", response_model = CategoryResponse)
 async def deactivate_category(category_id: UUID, db: AsyncSession = Depends(get_db)):
     return await CategoryService(db).deactivate(category_id)
+
+
+@categories_router.delete("/{category_id}", response_model = CategoryDeleteResponse)
+async def delete_category(category_id: UUID, db: AsyncSession = Depends(get_db)):
+    return await CategoryService(db).delete(category_id)
 
 
 @skills_router.post("", response_model = SkillResponse, status_code = status.HTTP_201_CREATED)

@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import {
   createEntity,
+  deleteEntity,
   listEntities,
   setEntityActive,
   updateEntity,
@@ -47,6 +48,16 @@ export function useSetActive(descriptor: ConfigEntityDescriptor) {
   return useMutation({
     mutationFn: (input: { row: ConfigRow; active: boolean }) =>
       setEntityActive(descriptor.basePath, input.row.id, input.active),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["config", descriptor.key] })
+    },
+  })
+}
+
+export function useDeleteEntity(descriptor: ConfigEntityDescriptor) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (input: { id: string }) => deleteEntity(descriptor.basePath, input.id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["config", descriptor.key] })
     },

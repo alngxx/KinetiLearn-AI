@@ -41,6 +41,11 @@ class CategoryResponse(BaseModel):
     created_at: datetime
 
 
+# Response shape for DELETE /categories/{id}.
+class CategoryDeleteResponse(BaseModel):
+    deleted: int
+
+
 # Payload accepted on POST /skills.
 class SkillCreate(BaseModel):
     category_id: UUID

@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event"
 import { clickRowAction } from "@/test/rowActions"
 import { http, HttpResponse } from "msw"
 import { Link, MemoryRouter, Route, Routes } from "react-router-dom"
+import { Toaster } from "sonner"
 import { beforeEach, describe, expect, it } from "vitest"
 import { ConfigEntityPage } from "@/modules/config/ConfigEntityPage"
 import { server } from "@/test/server"
@@ -34,12 +35,19 @@ function renderEntity(entityKey: string) {
           <Route path="/admin/config/:entityKey" element={<ConfigEntityPage />} />
         </Routes>
       </MemoryRouter>
+      <Toaster />
     </QueryClientProvider>,
   )
 }
 
 function rowFor(name: string) {
   return screen.getByRole("row", { name: new RegExp(name) })
+}
+
+// The taxonomy entities render as cards rather than table rows, so their
+// per-entity actions hang off the card instead.
+function cardFor(name: string) {
+  return screen.getByText(name).closest("li") as HTMLElement
 }
 
 // Mirrors AdminLayout's real NavLink for a config entity: to={`/admin/config/${key}`},
@@ -63,12 +71,24 @@ function renderWithEntitySwitch(from: string, to: string) {
 describe("ConfigEntityPage — categories", () => {
   let categories: Row[]
   let requests: { method: string; url: string; body: unknown }[]
+  let deleteStatus: number
+  let deleteDetail: string
 
   beforeEach(() => {
     categories = [row("c1", "Backend"), row("c2", "Frontend")]
     requests = []
+    deleteStatus = 200
+    deleteDetail = ""
 
     server.use(
+      http.delete(`${API}/api/v1/config/categories/:id`, ({ request, params }) => {
+        requests.push({ method: "DELETE", url: request.url, body: null })
+        if (deleteStatus !== 200) {
+          return HttpResponse.json({ detail: deleteDetail }, { status: deleteStatus })
+        }
+        categories = categories.filter((item) => item.id !== params.id)
+        return HttpResponse.json({ deleted: 1 })
+      }),
       http.get(`${API}/api/v1/config/categories`, ({ request }) => {
         const url = new URL(request.url)
         const includeInactive = url.searchParams.get("include_inactive") === "true"
@@ -127,7 +147,7 @@ describe("ConfigEntityPage — categories", () => {
     renderEntity("categories")
     await screen.findByText("Backend")
 
-    await clickRowAction(rowFor("Backend"), "Edit")
+    await clickRowAction(cardFor("Backend"), "Edit")
     const nameInput = screen.getByLabelText(/^Name/)
     await userEvent.clear(nameInput)
     await userEvent.type(nameInput, "Infra")
@@ -144,14 +164,14 @@ describe("ConfigEntityPage — categories", () => {
 
     // Inactive rows are hidden by default, so surface them first.
     await userEvent.click(screen.getByRole("button", { name: "Show inactive" }))
-    await clickRowAction(rowFor("Backend"), "Deactivate")
+    await clickRowAction(cardFor("Backend"), "Deactivate")
 
     // Deactivating asks first — nothing is sent until it is confirmed.
     const confirm = within(await screen.findByRole("alertdialog"))
     expect(requests.some((item) => item.method === "PATCH")).toBe(false)
     await userEvent.click(confirm.getByRole("button", { name: "Deactivate" }))
 
-    expect(await within(rowFor("Backend")).findByText("Inactive")).toBeInTheDocument()
+    expect(await within(cardFor("Backend")).findByText("Inactive")).toBeInTheDocument()
     expect(requests.some((item) => item.url.endsWith("/c1/deactivate"))).toBe(true)
   })
 
@@ -159,12 +179,40 @@ describe("ConfigEntityPage — categories", () => {
     renderEntity("categories")
     await screen.findByText("Backend")
 
-    await clickRowAction(rowFor("Backend"), "Deactivate")
+    await clickRowAction(cardFor("Backend"), "Deactivate")
     const confirm = within(await screen.findByRole("alertdialog"))
     await userEvent.click(confirm.getByRole("button", { name: "Cancel" }))
 
     expect(requests.some((item) => item.method === "PATCH")).toBe(false)
-    expect(within(rowFor("Backend")).getByText("Active")).toBeInTheDocument()
+    expect(within(cardFor("Backend")).getByText("Active")).toBeInTheDocument()
+  })
+
+  it("deletes an entity once the permanent confirmation is accepted", async () => {
+    renderEntity("categories")
+    await screen.findByText("Backend")
+
+    await clickRowAction(cardFor("Backend"), "Delete")
+    const confirm = within(await screen.findByRole("alertdialog"))
+    expect(requests.some((item) => item.method === "DELETE")).toBe(false)
+    await userEvent.click(confirm.getByRole("button", { name: "Delete permanently" }))
+
+    await expect.poll(() => screen.queryByText("Backend")).toBeNull()
+    expect(requests.some((item) => item.url.endsWith("/categories/c1"))).toBe(true)
+  })
+
+  it("keeps the entity and shows the server's reason when a delete is blocked", async () => {
+    deleteStatus = 409
+    deleteDetail = "Cannot delete a category with skills assigned to it. Reassign or delete those skills first."
+
+    renderEntity("categories")
+    await screen.findByText("Backend")
+
+    await clickRowAction(cardFor("Backend"), "Delete")
+    const confirm = within(await screen.findByRole("alertdialog"))
+    await userEvent.click(confirm.getByRole("button", { name: "Delete permanently" }))
+
+    expect(await screen.findByText(deleteDetail)).toBeInTheDocument()
+    expect(screen.getByText("Backend")).toBeInTheDocument()
   })
 
   it("puts a duplicate-name conflict on the field instead of a toast", async () => {
@@ -207,15 +255,15 @@ describe("ConfigEntityPage — categories", () => {
     expect(screen.queryByText("Could not load categories")).toBeNull()
   })
 
-  it("rejects a name with spaces before sending anything", async () => {
+  it("rejects a name with a disallowed character before sending anything", async () => {
     renderEntity("categories")
     await screen.findByText("Backend")
 
     await userEvent.click(screen.getByRole("button", { name: /New category/ }))
-    await userEvent.type(screen.getByLabelText(/^Name/), "Data Science")
+    await userEvent.type(screen.getByLabelText(/^Name/), "Data Science!")
     await userEvent.click(screen.getByRole("button", { name: "Create" }))
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("Letters and numbers only")
+    expect(await screen.findByRole("alert")).toHaveTextContent("Start with a letter or number")
     expect(requests.some((item) => item.method === "POST")).toBe(false)
   })
 })
@@ -320,7 +368,7 @@ describe("ConfigEntityPage — skills variant", () => {
 })
 
 // The backend's *Create schema for these two entities does NOT enforce the
-// no-spaces name pattern, but their *Update schema does — so a name accepted on
+// name pattern, but their *Update schema does — so a name accepted on
 // create could never be renamed. The UI applies the stricter Update pattern to
 // both forms on purpose. These tests exist to stop that being loosened.
 describe("ConfigEntityPage — the create form is as strict as the edit form", () => {
@@ -330,7 +378,7 @@ describe("ConfigEntityPage — the create form is as strict as the edit form", (
   ]
 
   for (const testCase of cases) {
-    it(`refuses a name with spaces when creating a ${testCase.key} row`, async () => {
+    it(`refuses a name with a disallowed character when creating a ${testCase.key} row`, async () => {
       let posted = false
       server.use(
         http.get(`${API}/api/v1/config/${testCase.path}`, () =>
@@ -347,14 +395,14 @@ describe("ConfigEntityPage — the create form is as strict as the edit form", (
 
       await userEvent.click(screen.getByRole("button", { name: testCase.button }))
       const dialog = within(screen.getByRole("dialog"))
-      await userEvent.type(dialog.getByLabelText(/^Name/), "Senior Engineer")
+      await userEvent.type(dialog.getByLabelText(/^Name/), "Senior Engineer!")
       // Employee levels also require a rank; fill it so the only thing left
       // failing is the name pattern.
       const rank = dialog.queryByLabelText(/^Rank/)
       if (rank !== null) await userEvent.type(rank, "1")
       await userEvent.click(screen.getByRole("button", { name: "Create" }))
 
-      expect(await screen.findByRole("alert")).toHaveTextContent("Letters and numbers only")
+      expect(await screen.findByRole("alert")).toHaveTextContent("Start with a letter or number")
       expect(posted).toBe(false)
     })
   }
