@@ -7,35 +7,23 @@ skill level from what they actually get right.
 
 ## Why this exists
 
-This is portfolio work built for internship interviews, not a live product with
-users. I built it to practise shipping a full-stack app end to end: FastAPI
+I built KinetiLearn to practice shipping a full-stack app end to end: FastAPI
 backend with async SQLAlchemy, a Celery pipeline for document processing, a RAG
 chatbot over uploaded material, an LLM-driven exam generator, and a React admin
 UI on top of all of it. The scope (13 active classes, real exams, real
 submissions, a scoring history) is a demo dataset sized to show the features
-working, not a customer deployment.
+working, not yet a customer deployment.
 
 ## Screenshots / Demo
 
-Screenshots go in `docs/screenshots/`. Demo video link below is a placeholder -
-fill in a Loom or YouTube link once recorded.
-
-**Demo video:** _add Loom/YouTube link here_
-
-![Admin classes grid](docs/screenshots/admin-classes-grid.png)
-![Document upload and skill tagging](docs/screenshots/admin-document-upload-tagging.png)
-![Exam generation from a document](docs/screenshots/admin-exam-generation.png)
-![Scored exam submission result](docs/screenshots/learner-scored-submission-result.png)
-![Learner skill breakdown](docs/screenshots/learner-skill-breakdown.png)
-![RAG chatbot with citations](docs/screenshots/learner-chat-citations.png)
 
 ## Key features
 
 - Admin can upload a document (PDF, DOCX, or Markdown), and it gets chunked,
   embedded, and stored in Chroma through a Celery pipeline, versioned so a
   re-upload doesn't silently replace what learners already saw.
-- Admin can tag a document with one or more skills, and generate a 10-question
-  multiple-choice exam from it with GPT-4o, with a free-text prompt to steer
+- Admin can tag a document with one or more skills, and generate a 50-question
+  multiple-choice exam from it with gpt-4o, with a free-text prompt to steer
   the questions asked.
 - Admin can organize employees into classes by department, activate/deactivate
   classes, and finalize an exam with a schedule window, duration, and pass
@@ -83,8 +71,6 @@ Verified from `backend/requirements.txt` and `frontend/package.json`.
 
 ## Setup
 
-Commands below were run against the current repo state before writing this.
-
 ### 1. Start Postgres and Redis
 
 ```bash
@@ -113,7 +99,7 @@ alembic upgrade head
 uvicorn app.main:app --reload
 ```
 
-In a second terminal, start the worker (needed for document processing and
+In terminal 2, start the worker (needed for document processing and
 exam generation, both run as Celery tasks):
 
 ```bash
@@ -200,8 +186,3 @@ provenance records rather than from live per-question links (which go null
 once an exam draws from more than one document). A similarity score below
 0.25 with no conversation history yet returns a canned "not in the training
 materials" response instead of asking the LLM to guess.
-
-## License
-
-MIT. The `LICENSE` file itself still needs to be added to the repo - this
-section states intent, it isn't the license yet.
