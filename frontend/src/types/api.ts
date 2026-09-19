@@ -34,7 +34,8 @@ export interface paths {
         /** Update Category */
         put: operations["update_category_api_v1_config_categories__category_id__put"];
         post?: never;
-        delete?: never;
+        /** Delete Category */
+        delete: operations["delete_category_api_v1_config_categories__category_id__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -664,6 +665,23 @@ export interface paths {
         head?: never;
         /** Deactivate Document */
         patch: operations["deactivate_document_api_v1_documents__document_id__deactivate_patch"];
+        trace?: never;
+    };
+    "/api/v1/documents/{document_id}/suggest-skills": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Suggest Document Skills */
+        post: operations["suggest_document_skills_api_v1_documents__document_id__suggest_skills_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/documents/{document_id}/skills/{skill_id}": {
@@ -1327,6 +1345,8 @@ export interface components {
              * Format: uuid
              */
             category_id: string;
+            /** Class Ids */
+            class_ids: string[];
             /** Description */
             description?: string | null;
             /** Change Note */
@@ -1358,6 +1378,11 @@ export interface components {
             name: string;
             /** Description */
             description?: string | null;
+        };
+        /** CategoryDeleteResponse */
+        CategoryDeleteResponse: {
+            /** Deleted */
+            deleted: number;
         };
         /** CategoryResponse */
         CategoryResponse: {
@@ -1897,6 +1922,8 @@ export interface components {
             is_active: boolean;
             /** Skill Ids */
             skill_ids: string[];
+            /** Class Ids */
+            class_ids: string[];
             /** Versions */
             versions: components["schemas"]["DocumentVersionDetail"][];
             /**
@@ -1924,6 +1951,8 @@ export interface components {
             active_version_processing_status: string | null;
             /** Skill Ids */
             skill_ids: string[];
+            /** Class Ids */
+            class_ids: string[];
             /**
              * Created At
              * Format: date-time
@@ -1938,6 +1967,10 @@ export interface components {
             description?: string | null;
             /** Category Id */
             category_id?: string | null;
+            /** Class Ids */
+            class_ids?: string[] | null;
+            /** Skill Ids */
+            skill_ids?: string[] | null;
         };
         /** DocumentUploadResponse */
         DocumentUploadResponse: {
@@ -2511,6 +2544,17 @@ export interface components {
              */
             created_at: string;
         };
+        /** SkillSuggestionResponse */
+        SkillSuggestionResponse: {
+            /** Skill Ids */
+            skill_ids: string[];
+            /** Prompt Tokens */
+            prompt_tokens: number;
+            /** Completion Tokens */
+            completion_tokens: number;
+            /** Total Tokens */
+            total_tokens: number;
+        };
         /** SkillUpdate */
         SkillUpdate: {
             /** Category Id */
@@ -2837,6 +2881,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CategoryResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_category_api_v1_config_categories__category_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                category_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CategoryDeleteResponse"];
                 };
             };
             /** @description Validation Error */
@@ -4192,6 +4267,7 @@ export interface operations {
             query?: {
                 category_id?: string | null;
                 include_inactive?: boolean;
+                class_id?: string | null;
             };
             header?: never;
             path?: never;
@@ -4430,6 +4506,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DocumentResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    suggest_document_skills_api_v1_documents__document_id__suggest_skills_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                document_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SkillSuggestionResponse"];
                 };
             };
             /** @description Validation Error */

@@ -38,7 +38,7 @@ async def _post(client, cls, docs, *, num_questions = 3, prompt = "Cover the bas
 async def test_generate_accepts_and_returns_a_queued_job(client, db_session):
     use_stub_admin()
     cls = await seed_class(db_session)
-    doc = await seed_document(db_session)
+    doc = await seed_document(db_session, cls = cls)
 
     with _mock_enqueue() as task:
         resp = await _post(client, cls, [doc], num_questions = 5)
@@ -70,8 +70,8 @@ async def test_generate_accepts_and_returns_a_queued_job(client, db_session):
 async def test_generate_dedupes_document_ids_preserving_order(client, db_session):
     use_stub_admin()
     cls = await seed_class(db_session)
-    doc1 = await seed_document(db_session)
-    doc2 = await seed_document(db_session)
+    doc1 = await seed_document(db_session, cls = cls)
+    doc2 = await seed_document(db_session, cls = cls)
 
     with _mock_enqueue():
         resp = await client.post(f"{BASE}/generate", json = {
@@ -92,7 +92,7 @@ async def test_generate_dedupes_document_ids_preserving_order(client, db_session
 async def test_generate_stores_the_prompt_verbatim(client, db_session):
     use_stub_admin()
     cls = await seed_class(db_session)
-    doc = await seed_document(db_session)
+    doc = await seed_document(db_session, cls = cls)
 
     for prompt in ("", "   ", "Focus on escalation"):
         with _mock_enqueue():
@@ -105,7 +105,7 @@ async def test_generate_stores_the_prompt_verbatim(client, db_session):
 async def test_generate_accepts_an_omitted_prompt(client, db_session):
     use_stub_admin()
     cls = await seed_class(db_session)
-    doc = await seed_document(db_session)
+    doc = await seed_document(db_session, cls = cls)
 
     with _mock_enqueue():
         resp = await client.post(f"{BASE}/generate", json = {
@@ -189,7 +189,7 @@ async def test_generate_no_content_rejected(client, db_session):
 async def test_generate_multi_document_one_not_ready_rejected(client, db_session):
     use_stub_admin()
     cls = await seed_class(db_session)
-    doc1 = await seed_document(db_session)
+    doc1 = await seed_document(db_session, cls = cls)
     doc2 = await seed_document(db_session, status = "pending")
 
     with _mock_enqueue() as task:
@@ -202,6 +202,80 @@ async def test_generate_multi_document_one_not_ready_rejected(client, db_session
     ) == 0
 
 
+# --- class scope ---------------------------------------------------------
+
+
+async def test_generate_rejects_a_document_from_another_class(client, db_session):
+    # The picker no longer offers these, but the endpoint is reachable without it.
+    use_stub_admin()
+    cls = await seed_class(db_session)
+    other = await seed_class(db_session)
+    outsider = await seed_document(db_session, cls = other)
+
+    with _mock_enqueue() as task:
+        resp = await _post(client, cls, [outsider])
+
+    assert resp.status_code == 422
+    # Named, so an admin can tell which document was the problem.
+    assert str(outsider.id) in resp.json()["detail"]
+    task.delay.assert_not_called()
+    assert await db_session.scalar(
+        select(func.count()).select_from(ExerciseGenerationJob)
+    ) == 0
+
+
+async def test_generate_rejects_a_document_with_no_class(client, db_session):
+    # Documents that pre-date class assignment are out of scope for every class,
+    # not in scope for all of them.
+    use_stub_admin()
+    cls = await seed_class(db_session)
+    orphan = await seed_document(db_session)
+
+    with _mock_enqueue() as task:
+        resp = await _post(client, cls, [orphan])
+
+    assert resp.status_code == 422
+    assert str(orphan.id) in resp.json()["detail"]
+    task.delay.assert_not_called()
+
+
+async def test_generate_accepts_several_documents_from_the_same_class(
+    client, db_session
+):
+    # The multi-document bonus exam: scope is checked per document, so several
+    # documents that all belong to the class stay a valid request.
+    use_stub_admin()
+    cls = await seed_class(db_session)
+    docs = [await seed_document(db_session, cls = cls) for _ in range(3)]
+
+    with _mock_enqueue() as task:
+        resp = await _post(client, cls, docs, num_questions = 5)
+
+    assert resp.status_code == 202
+    task.delay.assert_called_once()
+    job = await db_session.get(ExerciseGenerationJob, uuid.UUID(resp.json()["id"]))
+    assert job.document_ids == [str(d.id) for d in docs]
+
+
+async def test_generate_rejects_only_the_out_of_class_document(client, db_session):
+    # One good, one from another class — the mixed case must still fail, and the
+    # message must name only the offender.
+    use_stub_admin()
+    cls = await seed_class(db_session)
+    other = await seed_class(db_session)
+    mine = await seed_document(db_session, cls = cls)
+    outsider = await seed_document(db_session, cls = other)
+
+    with _mock_enqueue() as task:
+        resp = await _post(client, cls, [mine, outsider])
+
+    assert resp.status_code == 422
+    detail = resp.json()["detail"]
+    assert str(outsider.id) in detail
+    assert str(mine.id) not in detail
+    task.delay.assert_not_called()
+
+
 # --- broker down ---------------------------------------------------------
 
 
@@ -211,7 +285,7 @@ async def test_enqueue_failure_fails_the_job_immediately(client, db_session):
     # a queue that will never move.
     use_stub_admin()
     cls = await seed_class(db_session)
-    doc = await seed_document(db_session)
+    doc = await seed_document(db_session, cls = cls)
 
     with patch("worker.tasks.generate_exercise") as task:
         task.delay.side_effect = OSError("broker is down")
@@ -231,7 +305,7 @@ async def test_enqueue_failure_fails_the_job_immediately(client, db_session):
 async def test_get_job_reports_progress(client, db_session):
     use_stub_admin()
     cls = await seed_class(db_session)
-    doc = await seed_document(db_session)
+    doc = await seed_document(db_session, cls = cls)
 
     with _mock_enqueue():
         created = await _post(client, cls, [doc], num_questions = 10)

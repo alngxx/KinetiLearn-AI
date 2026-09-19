@@ -12,11 +12,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import vectorstore
 from app.core.crud import assert_no_dependents, get_by_id, get_or_404
+from app.core.llm import LLMError, suggest_skills
 from app.core.storage import R2Storage, StorageError
 from app.modules.chat.models import ChatSession
 from app.modules.config.models import Category, Skill
+from app.modules.classes.models import Class
 from app.modules.documents.models import (
+    ClassDocument,
     Document,
+    DocumentChunk,
     DocumentSkill,
     DocumentVersion,
 )
@@ -27,6 +31,7 @@ from app.modules.documents.schemas import (
     DocumentUpdate,
     DocumentUploadResponse,
     DocumentVersionDetail,
+    SkillSuggestionResponse,
     DocumentVersionResponse,
 )
 from app.modules.exams.models import ExerciseDocument
@@ -35,6 +40,12 @@ from app.modules.quiz.models import DailyQuizConfig
 logger = logging.getLogger(__name__)
 
 MAX_FILE_SIZE = 20 * 1024 * 1024  # 20 MB
+
+# Chunks fed to the skill-suggestion prompt. The ingestion pipeline targets 500
+# tokens per chunk, so this is roughly a 6k-token prompt — classifying a
+# document against a handful of skill names needs far less context than writing
+# questions from it, and this constant is the cost lever for that endpoint.
+MAX_SUGGEST_CHUNKS = 12
 
 # Allowed upload types mapped to the file extension used in the R2 key.
 MIME_EXT = {
@@ -53,6 +64,7 @@ class DocumentService:
         *,
         title: str,
         category_id: UUID,
+        class_ids: list[UUID],
         description: str | None,
         change_note: str | None,
         file: UploadFile,
@@ -86,6 +98,10 @@ class DocumentService:
         category = await get_by_id(self.db, Category, category_id)
         if category is None:
             raise HTTPException(status_code = 422, detail = "Category not found")
+
+        # 3b. Every class has to exist. Same 422 as the category check above,
+        #     and same silence about is_active.
+        wanted_class_ids = await self._validated_class_ids(class_ids)
 
         # 4. Find an existing document with the same title + category, and
         #    work out the target document id and next version number.
@@ -149,6 +165,17 @@ class DocumentService:
                 uploaded_by = uploader_id,
             )
             self.db.add(version)
+
+            # Union rather than replace. A re-upload is a new version of a
+            # document already in use, so dropping the classes it was serving
+            # would pull it out of their pickers as a side effect of an upload.
+            linked = set() if is_new_document else await self._linked_class_ids(document_id)
+            for class_id in wanted_class_ids:
+                if class_id not in linked:
+                    self.db.add(
+                        ClassDocument(class_id = class_id, document_id = document_id)
+                    )
+
             await self.db.commit()
             await self.db.refresh(version)
         except SQLAlchemyError:
@@ -176,6 +203,87 @@ class DocumentService:
             processing_status = version.processing_status,
             created_at = version.created_at,
         )
+
+    async def _validated_class_ids(self, class_ids: list[UUID]) -> list[UUID]:
+        # Dedupe while preserving order, the same way exam generation treats its
+        # document_ids.
+        unique_ids = list(dict.fromkeys(class_ids))
+        if not unique_ids:
+            raise HTTPException(
+                status_code = 422, detail = "At least one class is required"
+            )
+        result = await self.db.execute(
+            select(Class.id).where(Class.id.in_(unique_ids))
+        )
+        found = set(result.scalars().all())
+        missing = [str(class_id) for class_id in unique_ids if class_id not in found]
+        if missing:
+            raise HTTPException(
+                status_code = 422,
+                detail = f"Class not found: {', '.join(missing)}",
+            )
+        return unique_ids
+
+    async def _validated_skill_ids(
+        self, document: Document, skill_ids: list[UUID]
+    ) -> list[UUID]:
+        # skills.category_id is NOT NULL, so a skill only means anything inside
+        # its category — and an uncategorized document has no valid skill list
+        # at all. Checked before the membership test below so an uncategorized
+        # document gets the actionable message rather than a list of names.
+        if document.category_id is None:
+            raise HTTPException(
+                status_code = 422,
+                detail = "Set a category on this document before assigning skills",
+            )
+
+        unique_ids = list(dict.fromkeys(skill_ids))
+        if not unique_ids:
+            return []
+
+        result = await self.db.execute(
+            select(Skill).where(Skill.id.in_(unique_ids))
+        )
+        found = {skill.id: skill for skill in result.scalars().all()}
+
+        missing = [str(skill_id) for skill_id in unique_ids if skill_id not in found]
+        if missing:
+            raise HTTPException(
+                status_code = 422,
+                detail = f"Skill not found: {', '.join(missing)}",
+            )
+
+        # Named rather than listed by id: the admin picked these by name.
+        outside = [
+            found[skill_id].name
+            for skill_id in unique_ids
+            if found[skill_id].category_id != document.category_id
+        ]
+        if outside:
+            raise HTTPException(
+                status_code = 422,
+                detail = (
+                    "These skills do not belong to this document's category: "
+                    f"{', '.join(outside)}"
+                ),
+            )
+        return unique_ids
+
+    async def _linked_skill_ids(self, document_id: UUID) -> set[UUID]:
+        result = await self.db.execute(
+            select(DocumentSkill.skill_id).where(
+                DocumentSkill.document_id == document_id
+            )
+        )
+        return set(result.scalars().all())
+
+    async def _linked_class_ids(self, document_id: UUID) -> set[UUID]:
+        result = await self.db.execute(
+            select(ClassDocument.class_id).where(
+                ClassDocument.document_id == document_id
+            )
+        )
+        return set(result.scalars().all())
 
     def _enqueue_processing(self, document_id: UUID, version_number: int) -> None:
         # Local import so the web app doesn't pull Celery/Chroma/OpenAI at startup
@@ -234,6 +342,7 @@ class DocumentService:
             is_active = document.is_active,
             active_version_processing_status = status,
             skill_ids = list(result.scalars().all()),
+            class_ids = sorted(await self._linked_class_ids(document_id)),
             created_at = document.created_at,
         )
 
@@ -241,10 +350,17 @@ class DocumentService:
         self,
         category_id: UUID | None = None,
         include_inactive: bool = False,
+        class_id: UUID | None = None,
     ) -> list[DocumentResponse]:
         stmt = select(Document)
         if category_id is not None:
             stmt = stmt.where(Document.category_id == category_id)
+        # What the exam-generation source picker calls: only the documents
+        # assigned to the class the exam is being generated for.
+        if class_id is not None:
+            stmt = stmt.join(
+                ClassDocument, ClassDocument.document_id == Document.id
+            ).where(ClassDocument.class_id == class_id)
         if not include_inactive:
             stmt = stmt.where(Document.is_active.is_(True))
         stmt = stmt.order_by(Document.created_at.desc())
@@ -263,6 +379,15 @@ class DocumentService:
         skill_ids_by_document: dict[UUID, list[UUID]] = {}
         for doc_id, skill_id in skill_result.all():
             skill_ids_by_document.setdefault(doc_id, []).append(skill_id)
+
+        class_result = await self.db.execute(
+            select(ClassDocument.document_id, ClassDocument.class_id).where(
+                ClassDocument.document_id.in_(document_ids)
+            )
+        )
+        class_ids_by_document: dict[UUID, list[UUID]] = {}
+        for doc_id, linked_class_id in class_result.all():
+            class_ids_by_document.setdefault(doc_id, []).append(linked_class_id)
 
         version_result = await self.db.execute(
             select(
@@ -292,6 +417,7 @@ class DocumentService:
                 is_active = document.is_active,
                 active_version_processing_status = active_status(document),
                 skill_ids = skill_ids_by_document.get(document.id, []),
+                class_ids = sorted(class_ids_by_document.get(document.id, [])),
                 created_at = document.created_at,
             )
             for document in documents
@@ -324,6 +450,7 @@ class DocumentService:
             active_version_number = document.active_version_number,
             is_active = document.is_active,
             skill_ids = list(skill_result.scalars().all()),
+            class_ids = sorted(await self._linked_class_ids(document_id)),
             versions = versions,
             created_at = document.created_at,
         )
@@ -335,6 +462,9 @@ class DocumentService:
             self.db, Document, document_id, "Document not found"
         )
         update_data = data.model_dump(exclude_none = True)
+        # Not columns, so they cannot ride the setattr loop at the end.
+        new_class_ids = update_data.pop("class_ids", None)
+        new_skill_ids = update_data.pop("skill_ids", None)
 
         # Same rule upload applies: the category has to exist. upload does not
         # check is_active either, so this deliberately doesn't.
@@ -361,6 +491,44 @@ class DocumentService:
                 raise HTTPException(
                     status_code = 409,
                     detail = "Another document already uses this title in this category",
+                )
+
+        # Unlike upload, this replaces the set — reassigning is the whole point
+        # of the action, so a class left out here is a class being removed.
+        if new_class_ids is not None:
+            wanted = set(await self._validated_class_ids(new_class_ids))
+            linked = await self._linked_class_ids(document_id)
+            if removed := linked - wanted:
+                await self.db.execute(
+                    sa_delete(ClassDocument).where(
+                        ClassDocument.document_id == document_id,
+                        ClassDocument.class_id.in_(removed),
+                    )
+                )
+            for class_id in wanted - linked:
+                self.db.add(
+                    ClassDocument(class_id = class_id, document_id = document_id)
+                )
+
+        # Replaces the set, like class_ids — a skill left out is a skill being
+        # removed. Validated against the document's category *after* the
+        # category change above is staged, so moving a document and retagging it
+        # in one request is checked against the category it ends up in.
+        if new_skill_ids is not None:
+            if new_category_id is not None:
+                document.category_id = new_category_id
+            wanted = set(await self._validated_skill_ids(document, new_skill_ids))
+            linked = await self._linked_skill_ids(document_id)
+            if removed := linked - wanted:
+                await self.db.execute(
+                    sa_delete(DocumentSkill).where(
+                        DocumentSkill.document_id == document_id,
+                        DocumentSkill.skill_id.in_(removed),
+                    )
+                )
+            for skill_id in wanted - linked:
+                self.db.add(
+                    DocumentSkill(document_id = document_id, skill_id = skill_id)
                 )
 
         for key, value in update_data.items():
@@ -465,11 +633,89 @@ class DocumentService:
         await self.db.commit()
         return await self._document_response(document_id)
 
+    async def suggest_skills(self, document_id: UUID) -> SkillSuggestionResponse:
+        document = await get_or_404(
+            self.db, Document, document_id, "Document not found"
+        )
+        # Same rule, same words as assigning: with no category there is no valid
+        # skill list to suggest from.
+        if document.category_id is None:
+            raise HTTPException(
+                status_code = 422,
+                detail = "Set a category on this document before assigning skills",
+            )
+        category = await get_or_404(
+            self.db, Category, document.category_id, "Category not found"
+        )
+
+        result = await self.db.execute(
+            select(Skill)
+            .where(Skill.category_id == document.category_id, Skill.is_active.is_(True))
+            .order_by(Skill.name)
+        )
+        skills = list(result.scalars().all())
+        if not skills:
+            # Nothing to choose from, so there is nothing to ask the model.
+            return SkillSuggestionResponse(
+                skill_ids = [], prompt_tokens = 0, completion_tokens = 0, total_tokens = 0
+            )
+
+        excerpt = await self._suggestion_excerpt(document)
+        if excerpt == "":
+            raise HTTPException(
+                status_code = 422,
+                detail = "This document has no processed content to read yet",
+            )
+
+        try:
+            names, tokens = await suggest_skills(
+                category_name = category.name,
+                document_title = document.title,
+                excerpt = excerpt,
+                skill_names = [skill.name for skill in skills],
+            )
+        except LLMError:
+            logger.exception("Skill suggestion failed for document %s", document_id)
+            raise HTTPException(
+                status_code = 502, detail = "Could not generate a suggestion"
+            )
+
+        # The model is not trusted: anything that is not an exact (case- and
+        # whitespace-insensitive) match on a name we sent is dropped rather than
+        # guessed at. Iterating the skills rather than the response also dedupes
+        # and keeps the order stable.
+        wanted = {name.strip().casefold() for name in names}
+        skill_ids = [
+            skill.id for skill in skills if skill.name.strip().casefold() in wanted
+        ]
+        return SkillSuggestionResponse(skill_ids = skill_ids, **tokens)
+
+    async def _suggestion_excerpt(self, document: Document) -> str:
+        # Reuses the text the ingestion pipeline already extracted — the file is
+        # never re-parsed, and R2 is never touched.
+        if document.active_version_number is None:
+            return ""
+        result = await self.db.execute(
+            select(DocumentChunk.content)
+            .where(
+                DocumentChunk.document_id == document.id,
+                DocumentChunk.version_number == document.active_version_number,
+            )
+            .order_by(DocumentChunk.chunk_index)
+            .limit(MAX_SUGGEST_CHUNKS)
+        )
+        return "\n\n".join(result.scalars().all())
+
     async def attach_skill(
         self, document_id: UUID, skill_id: UUID
     ) -> DocumentResponse:
-        await get_or_404(self.db, Document, document_id, "Document not found")
+        document = await get_or_404(
+            self.db, Document, document_id, "Document not found"
+        )
         await get_or_404(self.db, Skill, skill_id, "Skill not found")
+        # Same invariant the bulk update enforces — otherwise this endpoint is a
+        # way around it.
+        await self._validated_skill_ids(document, [skill_id])
         existing = await self.db.get(DocumentSkill, (document_id, skill_id))
         if existing is None:
             self.db.add(DocumentSkill(document_id = document_id, skill_id = skill_id))

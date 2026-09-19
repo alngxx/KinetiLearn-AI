@@ -6,6 +6,7 @@ export type DocumentDetail = components["schemas"]["DocumentDetailResponse"]
 export type DocumentVersion = components["schemas"]["DocumentVersionDetail"]
 export type UploadResult = components["schemas"]["DocumentUploadResponse"]
 export type DocumentDeleteResult = components["schemas"]["DocumentDeleteResponse"]
+export type SkillSuggestion = components["schemas"]["SkillSuggestionResponse"]
 
 // The two lists this screen needs from config. Documents owns its own calls so
 // nothing here reaches into another feature's api module.
@@ -19,6 +20,27 @@ export type LookupName = keyof typeof LOOKUP_PATHS
 export type LookupRow = {
   id: string
   name: string
+}
+
+// Classes are not config, so they are not in LOOKUP_PATHS — but the documents
+// screens need them to name and edit a document's assignment. Same key shape
+// the classes module uses, so both share one cached copy.
+export function listActiveClasses() {
+  return api.get<LookupRow[]>("/api/v1/classes")
+}
+
+// Skills only exist inside a category, so the picker asks for one category's
+// worth rather than filtering the whole list client-side.
+export function listSkillsForCategory(categoryId: string) {
+  return api.get<LookupRow[]>(
+    `/api/v1/config/skills?category_id=${encodeURIComponent(categoryId)}`,
+  )
+}
+
+// Read-only despite being a POST: it returns ids for the admin to confirm and
+// writes nothing. Saving goes through updateDocument.
+export function suggestSkills(id: string) {
+  return api.post<SkillSuggestion>(`/api/v1/documents/${id}/suggest-skills`)
 }
 
 // Mirrors the server exactly: the endpoint gates on the multipart part's
@@ -39,6 +61,9 @@ export const MAX_FILE_SIZE = 20 * 1024 * 1024
 export type DocumentFilters = {
   category_id?: string
   include_inactive?: boolean
+  // What the exam-generation picker sends: only the documents assigned to the
+  // class the exam is for.
+  class_id?: string
 }
 
 export function listDocuments(filters: DocumentFilters) {
@@ -47,6 +72,9 @@ export function listDocuments(filters: DocumentFilters) {
     search.set("category_id", filters.category_id)
   }
   if (filters.include_inactive === true) search.set("include_inactive", "true")
+  if (filters.class_id !== undefined && filters.class_id !== "") {
+    search.set("class_id", filters.class_id)
+  }
   const query = search.toString()
   return api.get<DocumentRow[]>(`/api/v1/documents${query === "" ? "" : `?${query}`}`)
 }
@@ -58,6 +86,7 @@ export function getDocument(id: string) {
 export type UploadInput = {
   title: string
   category_id: string
+  class_ids: string[]
   description: string
   change_note: string
   file: File
@@ -67,6 +96,8 @@ export function buildUploadForm(input: UploadInput): FormData {
   const form = new FormData()
   form.set("title", input.title)
   form.set("category_id", input.category_id)
+  // Appended one per id, which is how FastAPI reads a list[UUID] off a form.
+  for (const classId of input.class_ids) form.append("class_ids", classId)
   // Left off entirely when blank, so the column stays null rather than "".
   if (input.description !== "") form.set("description", input.description)
   if (input.change_note !== "") form.set("change_note", input.change_note)

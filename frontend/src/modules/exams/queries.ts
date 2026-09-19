@@ -99,16 +99,24 @@ export function useSubmitExam() {
 
 // Both lists the generate form needs. Exams owns its own calls so nothing here
 // reaches into another feature's api module.
-export function useExamLookups() {
+export function useExamLookups(classId: string) {
   return useQueries({
     queries: [
-      { queryKey: ["documents", {}], queryFn: () => listDocuments() },
+      {
+        queryKey: ["documents", { class_id: classId }],
+        queryFn: () => listDocuments(classId),
+        // Nothing to scope by until a class is chosen, and an unscoped request
+        // would return the whole library.
+        enabled: classId !== "",
+      },
       { queryKey: ["classes", { include_inactive: false }], queryFn: () => listClasses() },
     ],
     combine: (results) => ({
       documents: results[0].data ?? [],
       classes: results[1].data ?? [],
-      isPending: results.some((result) => result.isPending),
+      // A disabled query stays pending forever, so it only counts while there
+      // is a class to scope by.
+      isPending: (classId !== "" && results[0].isPending) || results[1].isPending,
     }),
   })
 }

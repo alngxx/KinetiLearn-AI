@@ -36,6 +36,13 @@ class GeneratedQuiz(BaseModel):
     questions: list[GeneratedQuestion]
 
 
+# Skill suggestion returns names, not ids: the model never sees an id, so it
+# cannot invent one that happens to exist. The caller maps names back to ids and
+# drops anything that is not an exact match.
+class SuggestedSkills(BaseModel):
+    skill_names: list[str]
+
+
 class LLMError(Exception):
     pass
 
@@ -151,6 +158,70 @@ EXPLAIN_SYSTEM_PROMPT = (
     "If the message says only some of the wrong questions are covered, repeat that "
     "at the end."
 )
+
+
+# Worded to be decisive rather than cautious. An earlier, stricter version
+# ("only skills it is genuine training material for, not ones it mentions in
+# passing") returned an empty list even for documents that obviously taught a
+# listed skill, which made the button look broken. The admin confirms every
+# suggestion, so an over-eager tag costs a click while a missing one costs the
+# whole point of the feature.
+SKILL_SUGGEST_PROMPT = (
+    "You tag corporate training documents with the skills they teach. You are "
+    "given a category, a document title, an excerpt, and an exact list of skill "
+    "names. Choose every skill from that list that this document would help an "
+    "employee build. Judge the document as a whole from the excerpt; it does not "
+    "have to cover a skill exhaustively to count. Copy the names verbatim from "
+    "the list and never invent one. Return an empty list only if none of the "
+    "listed skills relate to the document."
+)
+
+
+async def suggest_skills(
+    *,
+    category_name: str,
+    document_title: str,
+    excerpt: str,
+    skill_names: list[str],
+) -> tuple[list[str], dict]:
+    """Suggest which of `skill_names` the document teaches.
+
+    Returns the raw names the model chose and its token usage. The caller is
+    responsible for validating the names against the list it passed in — this
+    does not trust the model's output either.
+    """
+    options = "\n".join(f"- {name}" for name in skill_names)
+    user_prompt = "\n\n".join([
+        f"Category: {category_name}",
+        f"Document title: {document_title}",
+        f"Skill names to choose from:\n{options}",
+        f"Document excerpt:\n{excerpt}",
+    ])
+
+    # Same contract as _generate_batch and stream_chat: every OpenAI failure
+    # leaves this module as an LLMError.
+    try:
+        completion = await _get_client().chat.completions.parse(
+            model = CHAT_MODEL,
+            messages = [
+                {"role": "system", "content": SKILL_SUGGEST_PROMPT},
+                {"role": "user", "content": user_prompt},
+            ],
+            response_format = SuggestedSkills,
+        )
+    except OpenAIError as e:
+        raise LLMError(str(e))
+    message = completion.choices[0].message
+    if message.refusal:
+        raise LLMError(message.refusal)
+
+    usage = completion.usage
+    tokens = {
+        "prompt_tokens": getattr(usage, "prompt_tokens", 0) or 0,
+        "completion_tokens": getattr(usage, "completion_tokens", 0) or 0,
+        "total_tokens": getattr(usage, "total_tokens", 0) or 0,
+    }
+    return message.parsed.skill_names, tokens
 
 
 async def embed_query(text: str) -> list[float]:

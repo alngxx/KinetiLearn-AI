@@ -232,8 +232,10 @@ describe("DocumentDetailPage", () => {
     renderDetail()
     await screen.findByText("Safety handbook")
 
+    // The skill list is scoped to the document's category, so it can only be
+    // fetched once the document itself has loaded.
+    await screen.findByRole("option", { name: "Evacuation" })
     const picker = screen.getByLabelText("Add skill")
-    expect(within(picker).getByRole("option", { name: "Evacuation" })).toBeInTheDocument()
     // Already attached, so offering it would be an option that does nothing.
     expect(within(picker).queryByRole("option", { name: "Fire safety" })).toBeNull()
 

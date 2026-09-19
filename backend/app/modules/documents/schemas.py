@@ -25,6 +25,24 @@ class DocumentUpdate(BaseModel):
     title: str | None = Field(default = None, min_length = 1, max_length = 255)
     description: str | None = None
     category_id: UUID | None = None
+    # Left out means untouched; a list replaces the whole set. min_length holds
+    # the same "at least one class" rule upload enforces, so the only documents
+    # with no class are the ones that pre-date this field.
+    class_ids: list[UUID] | None = Field(default = None, min_length = 1)
+    # No min_length, unlike class_ids: an empty list is a real instruction here,
+    # meaning "remove every tag". Left out is still untouched — exclude_none
+    # drops None but keeps [], so the two stay distinguishable.
+    skill_ids: list[UUID] | None = None
+
+
+# Result of POST /documents/{id}/suggest-skills. Read-only: these are ids for
+# the admin to confirm, nothing has been written. Token counts ride along
+# because nothing else in this codebase records what a parse call cost.
+class SkillSuggestionResponse(BaseModel):
+    skill_ids: list[UUID]
+    prompt_tokens: int
+    completion_tokens: int
+    total_tokens: int
 
 
 # Hard delete result. cleanup_warning is set when the DB row is gone but the
@@ -48,6 +66,7 @@ class DocumentResponse(BaseModel):
     is_active: bool
     active_version_processing_status: str | None
     skill_ids: list[UUID]
+    class_ids: list[UUID]
     created_at: datetime
 
 
@@ -88,5 +107,6 @@ class DocumentDetailResponse(BaseModel):
     active_version_number: int | None
     is_active: bool
     skill_ids: list[UUID]
+    class_ids: list[UUID]
     versions: list[DocumentVersionDetail]
     created_at: datetime

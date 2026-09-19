@@ -13,7 +13,12 @@ from datetime import datetime, timedelta, timezone
 from app.core.dependencies import require_admin
 from app.main import app
 from app.modules.classes.models import Class
-from app.modules.documents.models import Document, DocumentChunk, DocumentVersion
+from app.modules.documents.models import (
+    ClassDocument,
+    Document,
+    DocumentChunk,
+    DocumentVersion,
+)
 from app.modules.exams.models import (
     Exercise,
     ExerciseDocument,
@@ -39,10 +44,18 @@ async def seed_class(db):
     return cls
 
 
-async def seed_document(db, *, num_chunks = 3, active_version = 1, status = "ready"):
+async def seed_document(db, *, num_chunks = 3, active_version = 1, status = "ready", cls = None):
+    """Seed a document, optionally assigned to a class.
+
+    Generation rejects documents that are not assigned to the class the exam is
+    for, so anything a valid request uses has to pass cls.
+    """
     doc = Document(title = f"Doc {uuid.uuid4()}", active_version_number = active_version)
     db.add(doc)
     await db.flush()
+    if cls is not None:
+        db.add(ClassDocument(class_id = cls.id, document_id = doc.id))
+        await db.flush()
     if active_version is not None:
         db.add(DocumentVersion(
             document_id = doc.id,

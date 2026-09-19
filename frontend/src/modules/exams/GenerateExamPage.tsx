@@ -91,7 +91,6 @@ function GenerateView({ classId }: { classId: string }) {
   const [documentsError, setDocumentsError] = useState<string | undefined>(undefined)
 
   const jobId = searchParams.get("job")
-  const lookups = useExamLookups()
   const generate = useGenerateExercise()
   const job = useGenerationJob(jobId)
   const onCreated = useExerciseCreated()
@@ -119,6 +118,18 @@ function GenerateView({ classId }: { classId: string }) {
       setSearchParams({ job: created.id }, { replace: true })
     },
   })
+
+  // Scoped to whichever class the form currently targets, not the route — the
+  // class stays editable here, and generation refuses a document that is not
+  // assigned to the class being generated for.
+  const lookups = useExamLookups(form.values.class_id)
+
+  // Retargeting the exam invalidates what was picked: those documents belong to
+  // the class that was chosen before, and the server would refuse them.
+  useEffect(() => {
+    setSelected([])
+    setDocumentsError(undefined)
+  }, [form.values.class_id])
 
   // The draft only exists once the job says so, and class_id comes off the job
   // rather than the route — the form can retarget the exam to another class.

@@ -31,7 +31,8 @@ export function DocumentPicker({
           </p>
         ) : rows.length === 0 ? (
           <p className="p-3 text-sm text-muted-foreground">
-            No documents yet. Upload one before generating an exam.
+            No documents assigned to this class. Assign one on the documents page,
+            or pick a different class above.
           </p>
         ) : (
           <ul className="divide-y divide-border">

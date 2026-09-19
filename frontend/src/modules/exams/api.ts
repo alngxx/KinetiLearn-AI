@@ -40,8 +40,13 @@ export function documentBlockedReason(row: DocumentRow): string | null {
   return null
 }
 
-export function listDocuments() {
-  return api.get<DocumentRow[]>("/api/v1/documents")
+// Scoped to one class: generation rejects a document that is not assigned to
+// the class the exam is for, so offering the whole library would be offering
+// choices the server refuses.
+export function listDocuments(classId: string) {
+  return api.get<DocumentRow[]>(
+    `/api/v1/documents?class_id=${encodeURIComponent(classId)}`,
+  )
 }
 
 export function listClasses() {

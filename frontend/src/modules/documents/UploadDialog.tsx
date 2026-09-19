@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { CheckboxGroup } from "@/components/form/CheckboxGroup"
 import { FieldRow } from "@/components/form/FieldRow"
 import type { FormField, Option } from "@/components/form/types"
 import { useEntityForm } from "@/components/form/useEntityForm"
@@ -58,19 +59,31 @@ export function validateFile(file: File | null): string | undefined {
   return undefined
 }
 
+export function validateClasses(classIds: string[]): string | undefined {
+  return classIds.length === 0 ? "Choose at least one class." : undefined
+}
+
 export function UploadDialog({
   options,
+  classes,
+  classesLoading,
   open,
   onOpenChange,
   onUpload,
 }: {
   options: Record<string, Option[]>
+  classes: Option[]
+  classesLoading: boolean
   open: boolean
   onOpenChange: (open: boolean) => void
   onUpload: (input: UploadInput) => Promise<void>
 }) {
   const [file, setFile] = useState<File | null>(null)
   const [fileError, setFileError] = useState<string | undefined>(undefined)
+  // FormValues holds strings, so the class selection lives beside the form
+  // rather than in it.
+  const [classIds, setClassIds] = useState<string[]>([])
+  const [classesError, setClassesError] = useState<string | undefined>(undefined)
   // Once the admin edits Title themselves, their text wins over any future
   // file selection — this only tracks edits made through the field itself, so
   // the auto-fill below (which calls setValue directly) never trips it.
@@ -83,9 +96,11 @@ export function UploadDialog({
       // The text fields passed, but the file is checked outside this hook, so
       // it is re-checked here rather than trusted.
       if (file === null || validateFile(file) !== undefined) return
+      if (validateClasses(classIds) !== undefined) return
       await onUpload({
         title: values.title.trim(),
         category_id: values.category_id,
+        class_ids: classIds,
         description: values.description.trim(),
         change_note: values.change_note.trim(),
         file,
@@ -94,18 +109,22 @@ export function UploadDialog({
     },
   })
 
-  // Both checks run on every attempt so a blank form reports the missing file
-  // and the missing title together, not one and then the other.
+  // Every check runs on every attempt so a blank form reports the missing file,
+  // title and classes together, not one and then the next.
   function handleSubmit() {
     const problem = validateFile(file)
     setFileError(problem)
+    const classProblem = validateClasses(classIds)
+    setClassesError(classProblem)
     // "file" only wins focus when it is the sole failure. A field error from
     // the hook always outranks this fallback, so a fully blank form focuses
     // Title, above the file input, rather than the file input itself. That is
     // accepted as-is: fixing it needs a second ordering concept in a hook with
     // 11 consumers, and the file error is still visible with its own
     // role="alert" either way — this is not a missed case.
-    void form.submit(problem === undefined ? undefined : "file")
+    // "file" sits above the mapped fields and "classes" below them, so the file
+    // keeps priority when both are missing.
+    void form.submit(problem !== undefined ? "file" : classProblem !== undefined ? "classes" : undefined)
   }
 
   return (
@@ -167,6 +186,24 @@ export function UploadDialog({
               }}
             />
           ))}
+
+          <CheckboxGroup
+            id="classes"
+            legend="Classes"
+            options={classes}
+            selected={classIds}
+            error={classesError}
+            loading={classesLoading}
+            emptyText="No active classes yet. Create one before uploading."
+            onToggle={(value) => {
+              setClassesError(undefined)
+              setClassIds((current) =>
+                current.includes(value)
+                  ? current.filter((id) => id !== value)
+                  : [...current, value],
+              )
+            }}
+          />
 
           {form.formError !== null && (
             <p role="alert" className="text-sm text-destructive">

@@ -189,7 +189,7 @@ async def test_list_query_count_is_constant_regardless_of_list_size(
     client, db_session, test_engine
 ):
     # Guards against get_all() regressing into a per-document loop: 1 base
-    # query + 2 batched follow-up queries, no matter how many documents match.
+    # query + 3 batched follow-up queries, no matter how many documents match.
     for _ in range(5):
         doc = await _seed_document(db_session)
         await _seed_version(db_session, doc, 1)
@@ -207,7 +207,7 @@ async def test_list_query_count_is_constant_regardless_of_list_size(
 
     assert resp.status_code == 200
     assert len(resp.json()) >= 5
-    assert len(statements) == 3, statements
+    assert len(statements) == 4, statements
 
 
 async def test_list_requires_authentication(auth_client):
@@ -240,9 +240,11 @@ async def test_detail_lists_all_versions_newest_first(client, db_session):
 
 
 async def test_detail_includes_skill_ids(client, db_session):
-    doc = await _seed_document(db_session)
+    # A skill only exists inside its category, so the document has to share it.
+    cat = await _seed_category(db_session)
+    doc = await _seed_document(db_session, category = cat)
     await _seed_version(db_session, doc, 1)
-    skill = await _seed_skill(db_session)
+    skill = await _seed_skill(db_session, cat)
     await client.post(f"{BASE}/{doc.id}/skills/{skill.id}")
 
     resp = await client.get(f"{BASE}/{doc.id}")

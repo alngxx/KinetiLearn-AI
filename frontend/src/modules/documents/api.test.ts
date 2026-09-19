@@ -15,6 +15,7 @@ describe("buildUploadForm", () => {
     const form = buildUploadForm({
       title: "Safety handbook",
       category_id: "c1",
+      class_ids: ["cl1", "cl2"],
       description: "How the fire drill runs.",
       change_note: "Adds the 2026 drill",
       file: file("handbook.pdf", PDF_MIME),
@@ -22,6 +23,8 @@ describe("buildUploadForm", () => {
 
     expect(form.get("title")).toBe("Safety handbook")
     expect(form.get("category_id")).toBe("c1")
+    // One entry per class, which is how FastAPI reads a list off a form.
+    expect(form.getAll("class_ids")).toEqual(["cl1", "cl2"])
     expect(form.get("description")).toBe("How the fire drill runs.")
     expect(form.get("change_note")).toBe("Adds the 2026 drill")
     expect((form.get("file") as File).name).toBe("handbook.pdf")
@@ -32,6 +35,7 @@ describe("buildUploadForm", () => {
     const form = buildUploadForm({
       title: "Safety handbook",
       category_id: "c1",
+      class_ids: ["cl1"],
       description: "",
       change_note: "",
       file: file("handbook.pdf", PDF_MIME),

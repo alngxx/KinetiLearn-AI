@@ -22,8 +22,22 @@ function doc(id: string, title: string, extra: Record<string, unknown> = {}) {
     is_active: true,
     active_version_processing_status: "ready",
     skill_ids: [],
+    class_ids: ["cl1"],
     created_at: "2026-01-01T00:00:00Z",
     ...extra,
+  }
+}
+
+function classRow(id: string, name: string) {
+  return {
+    id,
+    name,
+    description: null,
+    start_date: null,
+    end_date: null,
+    created_by: null,
+    is_active: true,
+    created_at: "2026-01-01T00:00:00Z",
   }
 }
 
@@ -67,6 +81,7 @@ describe("GenerateExamPage", () => {
   let jobReads: number
   let respond: () => Response
   let jobStates: Record<string, unknown>[]
+  let documentQueries: string[]
 
   beforeEach(() => {
     posts = []
@@ -75,22 +90,18 @@ describe("GenerateExamPage", () => {
     respond = () => HttpResponse.json(job(), { status: 202 })
     jobStates = [job()]
 
+    documentQueries = []
+
     server.use(
-      http.get(`${API}/api/v1/documents`, () => HttpResponse.json(documents)),
-      http.get(`${API}/api/v1/classes`, () =>
-        HttpResponse.json([
-          {
-            id: "cl1",
-            name: "Q1 onboarding",
-            description: null,
-            start_date: null,
-            end_date: null,
-            created_by: null,
-            is_active: true,
-            created_at: "2026-01-01T00:00:00Z",
-          },
-        ]),
-      ),
+      // Scoped: answers with only the documents assigned to the class asked for.
+      http.get(`${API}/api/v1/documents`, ({ request }) => {
+        const classId = new URL(request.url).searchParams.get("class_id") ?? ""
+        documentQueries.push(classId)
+        return HttpResponse.json(
+          documents.filter((row) => row.class_ids.includes(classId)),
+        )
+      }),
+      http.get(`${API}/api/v1/classes`, () => HttpResponse.json([classRow("cl1", "Q1 onboarding")])),
       http.post(`${API}/api/v1/exams/generate`, async ({ request }) => {
         posts.push(await request.json())
         return respond()
@@ -496,5 +507,42 @@ describe("GenerateExamPage", () => {
     expect(screen.getByLabelText("Title")).toBeInTheDocument()
     expect(screen.getByLabelText("Class")).toBeInTheDocument()
     expect(screen.queryByText("*")).toBeNull()
+  })
+
+  // --- class scoping ------------------------------------------------------
+
+  it("asks only for the documents assigned to the class in the form", async () => {
+    renderGenerate()
+
+    await screen.findByLabelText("Escalation policy")
+
+    expect(documentQueries).toEqual(["cl1"])
+    // Assigned to cl1 only, so a cl2 document is never offered.
+    expect(screen.queryByLabelText("Field ops runbook")).not.toBeInTheDocument()
+  })
+
+  it("re-scopes and clears the selection when the class is changed", async () => {
+    documents = [
+      doc("d1", "Escalation policy"),
+      doc("d3", "Field ops runbook", { class_ids: ["cl2"] }),
+    ]
+    server.use(
+      http.get(`${API}/api/v1/classes`, () =>
+        HttpResponse.json([classRow("cl1", "Q1 onboarding"), classRow("cl2", "Field ops")]),
+      ),
+    )
+    renderGenerate()
+
+    await userEvent.click(await screen.findByLabelText("Escalation policy"))
+    expect(screen.getByLabelText("Escalation policy")).toBeChecked()
+
+    await userEvent.selectOptions(screen.getByLabelText(/^Class/), "cl2")
+
+    // The other class's documents replace them, and nothing stays picked — the
+    // server would refuse a document from the class that was chosen before.
+    expect(await screen.findByLabelText("Field ops runbook")).toBeInTheDocument()
+    expect(screen.queryByLabelText("Escalation policy")).not.toBeInTheDocument()
+    expect(screen.getByLabelText("Field ops runbook")).not.toBeChecked()
+    expect(documentQueries).toEqual(["cl1", "cl2"])
   })
 })

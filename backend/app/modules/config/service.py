@@ -185,6 +185,9 @@ class SkillService:
             stmt = stmt.where(Skill.category_id == category_id)
         if not include_inactive:
             stmt = stmt.where(Skill.is_active.is_(True))
+        # Without this the skill picker gets rows in whatever order Postgres
+        # happens to return, which shuffles as rows are updated.
+        stmt = stmt.order_by(Skill.name)
         result = await self.db.execute(stmt)
         return [SkillResponse.model_validate(row) for row in result.scalars().all()]
 
