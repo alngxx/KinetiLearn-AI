@@ -6,13 +6,24 @@ import {
   LogOutIcon,
   UsersIcon,
 } from "lucide-react"
+import { useRef, useState, type KeyboardEvent, type PointerEvent } from "react"
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom"
 import { ThemeToggle } from "@/components/ThemeToggle"
 import { Button } from "@/components/ui/button"
 import { Logo } from "@/components/Logo"
 import { cn } from "@/lib/utils"
+import { getStoredSidebarWidth, setStoredSidebarWidth } from "@/lib/sidebarWidthStorage"
 import { configEntities } from "@/modules/config/descriptors"
 import { useAuth } from "@/modules/auth/useAuth"
+
+const SIDEBAR_MIN_WIDTH = 200
+const SIDEBAR_MAX_WIDTH = 400
+const SIDEBAR_DEFAULT_WIDTH = 240 // the old w-60
+const SIDEBAR_KEYBOARD_STEP = 16
+
+function clampSidebarWidth(width: number): number {
+  return Math.min(SIDEBAR_MAX_WIDTH, Math.max(SIDEBAR_MIN_WIDTH, width))
+}
 
 const navLinkClasses =
   "flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/75 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
@@ -52,8 +63,55 @@ export function AdminLayout() {
   const { pathname } = useLocation()
   const showBand = bandRoutes.includes(pathname) || pathname.startsWith("/admin/config/")
 
+  const [sidebarWidth, setSidebarWidth] = useState(
+    () => clampSidebarWidth(getStoredSidebarWidth() ?? SIDEBAR_DEFAULT_WIDTH),
+  )
+  // Drives a page-wide select-none while dragging — without it, a drag that
+  // overshoots the handle by a pixel selects the nav link text underneath it.
+  const [isDragging, setIsDragging] = useState(false)
+  const dragStateRef = useRef<{ pointerId: number; startX: number; startWidth: number } | null>(null)
+
+  function commitSidebarWidth(width: number) {
+    const clamped = clampSidebarWidth(width)
+    setSidebarWidth(clamped)
+    setStoredSidebarWidth(clamped)
+  }
+
+  function handleHandlePointerDown(event: PointerEvent<HTMLDivElement>) {
+    event.currentTarget.setPointerCapture(event.pointerId)
+    dragStateRef.current = { pointerId: event.pointerId, startX: event.clientX, startWidth: sidebarWidth }
+    setIsDragging(true)
+  }
+
+  function handleHandlePointerMove(event: PointerEvent<HTMLDivElement>) {
+    const drag = dragStateRef.current
+    if (drag === null || drag.pointerId !== event.pointerId) return
+    commitSidebarWidth(drag.startWidth + (event.clientX - drag.startX))
+  }
+
+  function handleHandlePointerUp(event: PointerEvent<HTMLDivElement>) {
+    if (dragStateRef.current?.pointerId === event.pointerId) dragStateRef.current = null
+    setIsDragging(false)
+  }
+
+  function handleHandleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    if (event.key === "ArrowLeft") {
+      event.preventDefault()
+      commitSidebarWidth(sidebarWidth - SIDEBAR_KEYBOARD_STEP)
+    } else if (event.key === "ArrowRight") {
+      event.preventDefault()
+      commitSidebarWidth(sidebarWidth + SIDEBAR_KEYBOARD_STEP)
+    } else if (event.key === "Home") {
+      event.preventDefault()
+      commitSidebarWidth(SIDEBAR_MIN_WIDTH)
+    } else if (event.key === "End") {
+      event.preventDefault()
+      commitSidebarWidth(SIDEBAR_MAX_WIDTH)
+    }
+  }
+
   return (
-    <div className="flex min-h-svh">
+    <div className={cn("flex min-h-svh", isDragging && "select-none")}>
       {/* First thing in the tab order: skips the whole sidebar. */}
       <a
         href="#main-content"
@@ -62,7 +120,10 @@ export function AdminLayout() {
         Skip to content
       </a>
 
-      <aside className="sticky top-0 flex h-svh w-60 shrink-0 flex-col gap-6 border-r border-sidebar-border bg-sidebar px-3 py-5">
+      <aside
+        className="sticky top-0 flex h-svh shrink-0 flex-col gap-6 border-r border-sidebar-border bg-sidebar px-3 py-5"
+        style={{ width: sidebarWidth }}
+      >
         {/* Lights the existing border rather than replacing it: the
             gradient fades to transparent at both ends, and in dark mode
             --sidebar sits only 0.02 lightness from --background, so a
@@ -72,6 +133,30 @@ export function AdminLayout() {
           className="pointer-events-none absolute inset-y-0 right-0 w-px"
           style={{ background: sidebarRule }}
         />
+
+        {/* Hit target is wider than what's drawn — a 1px line is unreachable
+            with a mouse, so the visible grip only fills in on hover/focus
+            while the draggable area stays generous. Sits on the sticky
+            aside's own positioning context, same as the rule span above. */}
+        <div
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize sidebar"
+          aria-valuenow={sidebarWidth}
+          aria-valuemin={SIDEBAR_MIN_WIDTH}
+          aria-valuemax={SIDEBAR_MAX_WIDTH}
+          tabIndex={0}
+          onPointerDown={handleHandlePointerDown}
+          onPointerMove={handleHandlePointerMove}
+          onPointerUp={handleHandlePointerUp}
+          onKeyDown={handleHandleKeyDown}
+          className="group absolute inset-y-0 -right-1.5 z-10 flex w-3 cursor-col-resize touch-none items-stretch justify-center rounded-full outline-none focus-visible:ring-3 focus-visible:ring-ring/75"
+        >
+          <span
+            aria-hidden="true"
+            className="w-px bg-transparent transition-colors group-hover:bg-ring/60 group-focus-visible:bg-ring group-active:bg-ring"
+          />
+        </div>
         <div className="px-2.5">
           <Logo />
           <p className="label-micro mt-0.5">Admin</p>
@@ -139,7 +224,13 @@ export function AdminLayout() {
           </div>
         </nav>
 
-        <div className="mt-auto flex items-center justify-between gap-2 border-t border-sidebar-border pt-3">
+        {/* flex-wrap is the overflow fix, not a stylistic choice: theme
+            toggle + "Sign out" don't both fit on one line once the sidebar
+            is dragged near its 200px floor, and nothing here clips, so
+            without it "Sign out" bled past the sidebar's right edge. A
+            single wrapped item still lands flush left, since justify-between
+            has nothing to space apart on a line of one. */}
+        <div className="mt-auto flex flex-wrap items-center justify-between gap-2 border-t border-sidebar-border pt-3">
           <ThemeToggle />
 
           <Button
