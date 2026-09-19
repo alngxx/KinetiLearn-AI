@@ -12,6 +12,7 @@ from app.modules.documents.schemas import (
     DocumentUpdate,
     DocumentUploadResponse,
     DocumentVersionResponse,
+    SkillSuggestionResponse,
 )
 from app.modules.documents.service import DocumentService
 
@@ -26,9 +27,10 @@ router = APIRouter()
 async def list_documents(
     category_id: UUID | None = None,
     include_inactive: bool = False,
+    class_id: UUID | None = None,
     db: AsyncSession = Depends(get_db),
 ):
-    return await DocumentService(db).get_all(category_id, include_inactive)
+    return await DocumentService(db).get_all(category_id, include_inactive, class_id)
 
 
 @router.get(
@@ -48,6 +50,7 @@ async def get_document(document_id: UUID, db: AsyncSession = Depends(get_db)):
 async def upload_document(
     title: str = Form(..., min_length = 1, max_length = 255),
     category_id: UUID = Form(...),
+    class_ids: list[UUID] = Form(...),
     description: str | None = Form(None),
     change_note: str | None = Form(None),
     file: UploadFile = File(...),
@@ -57,6 +60,7 @@ async def upload_document(
     return await DocumentService(db).upload(
         title = title,
         category_id = category_id,
+        class_ids = class_ids,
         description = description,
         change_note = change_note,
         file = file,
@@ -115,6 +119,20 @@ async def activate_document(document_id: UUID, db: AsyncSession = Depends(get_db
 )
 async def deactivate_document(document_id: UUID, db: AsyncSession = Depends(get_db)):
     return await DocumentService(db).deactivate(document_id)
+
+
+# Read-only despite being a POST: it calls GPT-4o and returns ids for the admin
+# to confirm. Nothing is written until they save through the PATCH above.
+@router.post(
+    "/{document_id}/suggest-skills",
+    response_model = SkillSuggestionResponse,
+    dependencies = [Depends(require_admin)],
+)
+async def suggest_document_skills(
+    document_id: UUID,
+    db: AsyncSession = Depends(get_db),
+):
+    return await DocumentService(db).suggest_skills(document_id)
 
 
 @router.post(

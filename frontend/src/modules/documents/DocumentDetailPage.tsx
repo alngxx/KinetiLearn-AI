@@ -27,6 +27,7 @@ import {
   useReprocessVersion,
   useSaveDocument,
   useSetDocumentSkill,
+  useSkillsForCategory,
 } from "@/modules/documents/queries"
 
 const megabytes = new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 })
@@ -57,6 +58,9 @@ function DetailView({ documentId }: { documentId: string }) {
   const save = useSaveDocument()
   const remove = useDeleteDocument()
   const setSkill = useSetDocumentSkill()
+  // Disabled until the document has a category — there is no valid skill list
+  // without one.
+  const categorySkills = useSkillsForCategory(detail.data?.category_id ?? null)
 
   const document = detail.data
 
@@ -123,13 +127,18 @@ function DetailView({ documentId }: { documentId: string }) {
   }
 
   const attachedIds = document?.skill_ids ?? []
+  // Names still resolve against the full list, so a tag from before skills were
+  // scoped to a category still reads correctly instead of showing as unknown.
   const attachedSkills = attachedIds.map((id) => ({
     id,
     name: lookups.skills.find((skill) => skill.id === id)?.name ?? "Unknown skill",
   }))
-  // Only what is not already on the document — re-attaching an existing tag is
-  // a no-op on the server, so offering it would be an option that does nothing.
-  const availableSkills = lookups.skills.filter((skill) => !attachedIds.includes(skill.id))
+  // Offering only this document's category: skills.category_id is NOT NULL, and
+  // the server refuses a tag from any other category.
+  const hasCategory = document?.category_id != null
+  const availableSkills = (categorySkills.data ?? []).filter(
+    (skill) => !attachedIds.includes(skill.id),
+  )
 
   const versions = document?.versions ?? []
 
@@ -223,7 +232,11 @@ function DetailView({ documentId }: { documentId: string }) {
                   className="h-8 w-48 appearance-none rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm text-foreground transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/75 disabled:pointer-events-none disabled:opacity-50 dark:bg-input/30"
                 >
                   <option value="">
-                    {availableSkills.length === 0 ? "All skills added" : "Add skill…"}
+                    {!hasCategory
+                      ? "Set a category first"
+                      : availableSkills.length === 0
+                        ? "All skills added"
+                        : "Add skill…"}
                   </option>
                   {availableSkills.map((skill) => (
                     <option key={skill.id} value={skill.id}>

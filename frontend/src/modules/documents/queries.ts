@@ -4,11 +4,14 @@ import {
   deleteDocument,
   detachSkill,
   getDocument,
+  listActiveClasses,
   listDocuments,
   listLookup,
+  listSkillsForCategory,
   promoteVersion,
   reprocessVersion,
   setDocumentActive,
+  suggestSkills,
   updateDocument,
   uploadDocument,
   type DocumentDetail,
@@ -82,6 +85,33 @@ export function useDocumentLookups() {
       })
       return byName
     },
+  })
+}
+
+// Same key the classes module's useClasses(false) produces, so the documents
+// screens reuse whatever it has already cached rather than refetching.
+export function useActiveClasses() {
+  return useQuery({
+    queryKey: ["classes", { include_inactive: false }],
+    queryFn: () => listActiveClasses(),
+  })
+}
+
+// Keyed like the other config lookups so it shares their cache, but with the
+// category in the key — each category has its own skill list.
+export function useSkillsForCategory(categoryId: string | null) {
+  return useQuery({
+    queryKey: ["config", "skills", { category_id: categoryId }],
+    queryFn: () => listSkillsForCategory(categoryId ?? ""),
+    enabled: categoryId !== null,
+  })
+}
+
+// Deliberately not a useDocumentMutation: suggesting writes nothing, so
+// invalidating the document queries would just refetch unchanged rows.
+export function useSuggestSkills() {
+  return useMutation({
+    mutationFn: (input: { id: string }) => suggestSkills(input.id),
   })
 }
 

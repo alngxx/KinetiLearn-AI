@@ -3,6 +3,7 @@ from unittest.mock import patch
 
 from app.core.dependencies import require_admin
 from app.main import app
+from app.modules.classes.models import Class
 from app.modules.config.models import Category, Skill
 from app.modules.documents.models import Document, DocumentVersion
 
@@ -16,9 +17,11 @@ async def _seed_document(
     version_number = 1,
     active_version = None,
     is_active = True,
+    category = None,
 ):
     doc = Document(
         title = f"Doc {uuid.uuid4()}",
+        category_id = category.id if category else None,
         is_active = is_active,
         active_version_number = active_version,
     )
@@ -37,10 +40,15 @@ async def _seed_document(
     return doc
 
 
-async def _seed_skill(db):
+async def _seed_category(db):
     cat = Category(name = f"Cat {uuid.uuid4()}")
     db.add(cat)
     await db.flush()
+    return cat
+
+
+async def _seed_skill(db, category = None):
+    cat = category or await _seed_category(db)
     skill = Skill(category_id = cat.id, name = "S", basic_max = 50, intermediate_max = 80)
     db.add(skill)
     await db.flush()
@@ -53,7 +61,8 @@ async def test_upload_enqueues_processing(client, db_session):
     app.dependency_overrides[require_admin] = lambda: type("U", (), {"id": None})()
 
     cat = Category(name = f"Cat {uuid.uuid4()}")
-    db_session.add(cat)
+    cls = Class(name = f"Class {uuid.uuid4()}")
+    db_session.add_all([cat, cls])
     await db_session.flush()
 
     with patch("app.modules.documents.service.R2Storage") as mock_r2, \
@@ -61,7 +70,11 @@ async def test_upload_enqueues_processing(client, db_session):
         mock_r2.return_value.upload.return_value = "key"
         resp = await client.post(
             f"{BASE}/upload",
-            data = {"title": "Doc A", "category_id": str(cat.id)},
+            data = {
+                "title": "Doc A",
+                "category_id": str(cat.id),
+                "class_ids": [str(cls.id)],
+            },
             files = {"file": ("a.pdf", b"%PDF-1.4 test", "application/pdf")},
         )
 
@@ -102,8 +115,10 @@ async def test_document_deactivate_then_activate(client, db_session):
 
 
 async def test_skill_attach_detach_idempotent(client, db_session):
-    doc = await _seed_document(db_session)
-    skill = await _seed_skill(db_session)
+    # A skill only exists inside its category, so the document has to share it.
+    cat = await _seed_category(db_session)
+    doc = await _seed_document(db_session, category = cat)
+    skill = await _seed_skill(db_session, cat)
 
     r1 = await client.post(f"{BASE}/{doc.id}/skills/{skill.id}")
     assert r1.status_code == 200

@@ -13,7 +13,12 @@ from app.core.crud import assert_no_dependents, get_or_404
 from app.core.llm import LLMError, generate_quiz
 from app.modules.classes.models import Class
 from app.modules.classes.service import assert_class_member
-from app.modules.documents.models import Document, DocumentChunk, DocumentVersion
+from app.modules.documents.models import (
+    ClassDocument,
+    Document,
+    DocumentChunk,
+    DocumentVersion,
+)
 from app.modules.exams.models import (
     Exercise,
     ExerciseDocument,
@@ -80,6 +85,13 @@ class ExamService:
         for document_id in unique_ids:
             await self._assert_document_usable(document_id)
 
+        # The picker no longer offers documents from other classes, but the
+        # endpoint is reachable without it. Runs after the loop above so a
+        # document that does not exist still reports as missing rather than as
+        # out-of-class. One query for the whole request, so asking for several
+        # documents costs the same as asking for one.
+        await self._assert_documents_in_class(class_id, unique_ids)
+
         # Stored as strings: the column is JSONB, and Celery would serialise them
         # this way regardless.
         job = ExerciseGenerationJob(
@@ -98,6 +110,28 @@ class ExamService:
         # against a row that already exists.
         await self._enqueue_generation(job)
         return GenerationJobResponse.model_validate(job)
+
+    async def _assert_documents_in_class(
+        self, class_id: UUID, document_ids: list[UUID]
+    ) -> None:
+        result = await self.db.execute(
+            select(ClassDocument.document_id).where(
+                ClassDocument.class_id == class_id,
+                ClassDocument.document_id.in_(document_ids),
+            )
+        )
+        linked = set(result.scalars().all())
+        # Per document, not per request: several documents that all belong to
+        # the class are fine, which is what a multi-document bonus exam is.
+        outside = [str(d) for d in document_ids if d not in linked]
+        if outside:
+            raise HTTPException(
+                status_code = 422,
+                detail = (
+                    "These documents do not belong to the selected class: "
+                    f"{', '.join(outside)}"
+                ),
+            )
 
     async def _assert_document_usable(self, document_id: UUID) -> None:
         # Must use the document's ACTIVE version, and only if it finished processing.

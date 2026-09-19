@@ -1,4 +1,12 @@
-import { CircleCheckIcon, CircleSlashIcon, PencilIcon, Trash2Icon, UploadIcon } from "lucide-react"
+import {
+  CircleCheckIcon,
+  CircleSlashIcon,
+  GraduationCapIcon,
+  PencilIcon,
+  TagIcon,
+  Trash2Icon,
+  UploadIcon,
+} from "lucide-react"
 import { useState } from "react"
 import { Link, useNavigate } from "react-router-dom"
 import { toast } from "sonner"
@@ -23,13 +31,18 @@ import { staggerStyle } from "@/lib/stagger"
 import { useUrlFilters } from "@/lib/useUrlFilters"
 import type { DocumentRow, LookupRow, UploadInput } from "@/modules/documents/api"
 import { DocumentEditDialog } from "@/modules/documents/DocumentEditDialog"
+import { ManageClassesDialog } from "@/modules/documents/ManageClassesDialog"
+import { ManageSkillsDialog } from "@/modules/documents/ManageSkillsDialog"
 import { ProcessingBadge } from "@/modules/documents/ProcessingBadge"
 import {
+  useActiveClasses,
   useDeleteDocument,
   useDocumentLookups,
   useDocuments,
   useSaveDocument,
   useSetDocumentActive,
+  useSkillsForCategory,
+  useSuggestSkills,
   useUploadDocument,
 } from "@/modules/documents/queries"
 import { UploadDialog } from "@/modules/documents/UploadDialog"
@@ -90,12 +103,19 @@ export function DocumentsPage() {
   const [confirming, setConfirming] = useState<DocumentRow | null>(null)
   const [editing, setEditing] = useState<DocumentRow | null>(null)
   const [deleting, setDeleting] = useState<DocumentRow | null>(null)
+  const [managing, setManaging] = useState<DocumentRow | null>(null)
+  const [managingSkills, setManagingSkills] = useState<DocumentRow | null>(null)
 
   // One request for the whole library: the category sections below are the
   // filter now, so there is nothing left to narrow server-side.
   const filters = includeInactive ? { include_inactive: true } : {}
 
   const lookups = useDocumentLookups()
+  const classes = useActiveClasses()
+  // Scoped to whichever document's dialog is open: skills only exist inside a
+  // category, so there is no one list to fetch up front.
+  const skillsForCategory = useSkillsForCategory(managingSkills?.category_id ?? null)
+  const suggest = useSuggestSkills()
   const list = useDocuments(filters)
   const upload = useUploadDocument()
   const setActive = useSetDocumentActive()
@@ -105,6 +125,9 @@ export function DocumentsPage() {
   const options: Record<string, Option[]> = {
     categories: lookups.categories.map((row) => ({ value: row.id, label: row.name })),
   }
+
+  const classRows = classes.data ?? []
+  const classOptions: Option[] = classRows.map((row) => ({ value: row.id, label: row.name }))
 
   async function handleUpload(input: UploadInput) {
     const result = await upload.mutateAsync(input)
@@ -118,6 +141,23 @@ export function DocumentsPage() {
   async function handleSave(id: string, body: Record<string, unknown>) {
     await save.mutateAsync({ id, body })
     toast.success("Changes saved")
+  }
+
+  async function handleSaveClasses(row: DocumentRow, classIds: string[]) {
+    await save.mutateAsync({ id: row.document_id, body: { class_ids: classIds } })
+    toast.success(`Classes updated for ${row.title}`)
+  }
+
+  async function handleSaveSkills(row: DocumentRow, skillIds: string[]) {
+    await save.mutateAsync({ id: row.document_id, body: { skill_ids: skillIds } })
+    toast.success(`Skills updated for ${row.title}`)
+  }
+
+  // Hands the suggestion back to the dialog rather than applying it here — the
+  // admin confirms before anything is written.
+  async function handleSuggestSkills(row: DocumentRow): Promise<string[]> {
+    const result = await suggest.mutateAsync({ id: row.document_id })
+    return result.skill_ids
   }
 
   function handleDelete(row: DocumentRow) {
@@ -208,7 +248,10 @@ export function DocumentsPage() {
                 section={section}
                 index={index}
                 skills={lookups.skills}
+                classes={classRows}
                 onEdit={setEditing}
+                onManageClasses={setManaging}
+                onManageSkills={setManagingSkills}
                 onToggleActive={(row) =>
                   row.is_active ? setConfirming(row) : handleSetActive(row, true)
                 }
@@ -244,6 +287,8 @@ export function DocumentsPage() {
       {uploadOpen && (
         <UploadDialog
           options={options}
+          classes={classOptions}
+          classesLoading={classes.isPending}
           open={uploadOpen}
           onOpenChange={setUploadOpen}
           onUpload={handleUpload}
@@ -260,6 +305,42 @@ export function DocumentsPage() {
             if (!open) setEditing(null)
           }}
           onSave={(body) => handleSave(editing.document_id, body)}
+        />
+      )}
+
+      {managing !== null && (
+        <ManageClassesDialog
+          key={managing.document_id}
+          title={managing.title}
+          classes={classOptions}
+          classesLoading={classes.isPending}
+          initialClassIds={managing.class_ids}
+          open={true}
+          onOpenChange={(open) => {
+            if (!open) setManaging(null)
+          }}
+          onSave={(classIds) => handleSaveClasses(managing, classIds)}
+        />
+      )}
+
+      {managingSkills !== null && (
+        <ManageSkillsDialog
+          key={managingSkills.document_id}
+          title={managingSkills.title}
+          categoryId={managingSkills.category_id}
+          skills={(skillsForCategory.data ?? []).map((row) => ({
+            value: row.id,
+            label: row.name,
+          }))}
+          skillsLoading={skillsForCategory.isPending}
+          initialSkillIds={managingSkills.skill_ids}
+          open={true}
+          suggesting={suggest.isPending}
+          onOpenChange={(open) => {
+            if (!open) setManagingSkills(null)
+          }}
+          onSuggest={() => handleSuggestSkills(managingSkills)}
+          onSave={(skillIds) => handleSaveSkills(managingSkills, skillIds)}
         />
       )}
 
@@ -299,7 +380,10 @@ function CategorySection({
   section,
   index,
   skills,
+  classes,
   onEdit,
+  onManageClasses,
+  onManageSkills,
   onToggleActive,
   onDelete,
   activePending,
@@ -308,7 +392,10 @@ function CategorySection({
   section: Section
   index: number
   skills: LookupRow[]
+  classes: LookupRow[]
   onEdit: (row: DocumentRow) => void
+  onManageClasses: (row: DocumentRow) => void
+  onManageSkills: (row: DocumentRow) => void
   onToggleActive: (row: DocumentRow) => void
   onDelete: (row: DocumentRow) => void
   activePending: boolean
@@ -344,6 +431,9 @@ function CategorySection({
               <TableHead>
                 <span className="label-micro">Skills</span>
               </TableHead>
+              <TableHead>
+                <span className="label-micro">Classes</span>
+              </TableHead>
               <TableHead className="w-36">
                 <span className="label-micro">Processing</span>
               </TableHead>
@@ -361,7 +451,10 @@ function CategorySection({
                 key={row.document_id}
                 row={row}
                 skills={skills}
+                classes={classes}
                 onEdit={onEdit}
+                onManageClasses={onManageClasses}
+                onManageSkills={onManageSkills}
                 onToggleActive={onToggleActive}
                 onDelete={onDelete}
                 activePending={activePending}
@@ -378,7 +471,10 @@ function CategorySection({
 function DocumentTableRow({
   row,
   skills,
+  classes,
   onEdit,
+  onManageClasses,
+  onManageSkills,
   onToggleActive,
   onDelete,
   activePending,
@@ -386,7 +482,10 @@ function DocumentTableRow({
 }: {
   row: DocumentRow
   skills: LookupRow[]
+  classes: LookupRow[]
   onEdit: (row: DocumentRow) => void
+  onManageClasses: (row: DocumentRow) => void
+  onManageSkills: (row: DocumentRow) => void
   onToggleActive: (row: DocumentRow) => void
   onDelete: (row: DocumentRow) => void
   activePending: boolean
@@ -394,6 +493,9 @@ function DocumentTableRow({
 }) {
   const names = row.skill_ids
     .map((id) => nameFor(skills, id))
+    .filter((name): name is string => name !== null)
+  const classNames = row.class_ids
+    .map((id) => nameFor(classes, id))
     .filter((name): name is string => name !== null)
 
   return (
@@ -420,6 +522,21 @@ function DocumentTableRow({
         )}
       </TableCell>
       <TableCell>
+        {classNames.length === 0 ? (
+          // Not decoration: an unassigned document is invisible in every
+          // exam-generation picker, so this is the state that needs naming.
+          <span className="text-muted-foreground">Unassigned</span>
+        ) : (
+          <div className="flex flex-wrap gap-1">
+            {classNames.map((name) => (
+              <Badge key={name} variant="outline">
+                {name}
+              </Badge>
+            ))}
+          </div>
+        )}
+      </TableCell>
+      <TableCell>
         <div className="flex items-center gap-2">
           <ProcessingBadge status={row.active_version_processing_status} />
           {row.active_version_number !== null && (
@@ -437,6 +554,16 @@ function DocumentTableRow({
           label={row.title}
           inlineAction={{ label: "Edit", icon: PencilIcon, onSelect: () => onEdit(row) }}
           actions={[
+            {
+              label: "Manage skills",
+              icon: TagIcon,
+              onSelect: () => onManageSkills(row),
+            },
+            {
+              label: "Manage classes",
+              icon: GraduationCapIcon,
+              onSelect: () => onManageClasses(row),
+            },
             {
               label: row.is_active ? "Deactivate" : "Activate",
               icon: row.is_active ? CircleSlashIcon : CircleCheckIcon,

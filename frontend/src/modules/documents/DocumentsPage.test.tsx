@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { render, screen, within } from "@testing-library/react"
+import { render, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { clickRowAction } from "@/test/rowActions"
 import { http, HttpResponse } from "msw"
@@ -21,6 +21,7 @@ function doc(id: string, title: string, extra: Record<string, unknown> = {}) {
     is_active: true,
     active_version_processing_status: "ready",
     skill_ids: [],
+    class_ids: [],
     created_at: "2026-01-01T00:00:00Z",
     ...extra,
   }
@@ -66,6 +67,9 @@ describe("DocumentsPage", () => {
         HttpResponse.json([lookup("c1", "Operations")]),
       ),
       http.get(`${API}/api/v1/config/skills`, () => HttpResponse.json([lookup("s1", "Fire safety")])),
+      http.get(`${API}/api/v1/classes`, () =>
+        HttpResponse.json([lookup("cl1", "Onboarding"), lookup("cl2", "Field ops")]),
+      ),
       http.get(`${API}/api/v1/documents`, () => HttpResponse.json(documents)),
       // The body is deliberately left unread: jsdom's File cannot be streamed
       // back out by msw, so touching it here would hang the request. What the
@@ -127,6 +131,46 @@ describe("DocumentsPage", () => {
     expect(screen.getByRole("row", { name: /Archived policy/ })).toBeInTheDocument()
   })
 
+  it("names each document's classes, and says so when it has none", async () => {
+    documents = [
+      doc("d1", "Safety handbook", { class_ids: ["cl1", "cl2"] }),
+      doc("d2", "Onboarding guide"),
+    ]
+    renderDocuments()
+
+    const assigned = within(
+      await screen.findByRole("row", { name: /Safety handbook/ }),
+    )
+    expect(assigned.getByText("Onboarding")).toBeInTheDocument()
+    expect(assigned.getByText("Field ops")).toBeInTheDocument()
+
+    // An unassigned document is invisible in every picker, so the row says so
+    // rather than leaving the cell blank.
+    const unassigned = within(screen.getByRole("row", { name: /Onboarding guide/ }))
+    expect(unassigned.getByText("Unassigned")).toBeInTheDocument()
+  })
+
+  it("refuses to upload until at least one class is chosen", async () => {
+    renderDocuments()
+    await screen.findByRole("link", { name: "Safety handbook" })
+
+    await userEvent.click(screen.getByRole("button", { name: /Upload document/ }))
+    const dialog = within(screen.getByRole("dialog"))
+    await userEvent.upload(dialog.getByLabelText(/^File/), pdf())
+    await userEvent.type(dialog.getByLabelText(/^Title/), "Safety handbook")
+    await userEvent.selectOptions(dialog.getByLabelText(/^Category/), "c1")
+    await userEvent.click(screen.getByRole("button", { name: "Upload" }))
+
+    expect(await dialog.findByRole("alert")).toHaveTextContent("Choose at least one class.")
+    expect(uploads).toHaveLength(0)
+
+    // Choosing one clears the error and lets the same submit through.
+    await userEvent.click(dialog.getByLabelText("Onboarding"))
+    await userEvent.click(screen.getByRole("button", { name: "Upload" }))
+    expect(await screen.findByText("Detail for a document")).toBeInTheDocument()
+    expect(uploads).toHaveLength(1)
+  })
+
   it("uploads a file as multipart and lands on the new document", async () => {
     renderDocuments()
     await screen.findByRole("link", { name: "Safety handbook" })
@@ -136,6 +180,7 @@ describe("DocumentsPage", () => {
     await userEvent.upload(dialog.getByLabelText(/^File/), pdf())
     await userEvent.type(dialog.getByLabelText(/^Title/), "Safety handbook")
     await userEvent.selectOptions(dialog.getByLabelText(/^Category/), "c1")
+    await userEvent.click(dialog.getByLabelText("Onboarding"))
     await userEvent.type(dialog.getByLabelText(/^Change note/), "Adds the 2026 fire drill")
     await userEvent.click(screen.getByRole("button", { name: "Upload" }))
 
@@ -158,6 +203,7 @@ describe("DocumentsPage", () => {
     await userEvent.upload(dialog.getByLabelText(/^File/), pdf())
     await userEvent.type(dialog.getByLabelText(/^Title/), "Safety handbook")
     await userEvent.selectOptions(dialog.getByLabelText(/^Category/), "c1")
+    await userEvent.click(dialog.getByLabelText("Onboarding"))
     await userEvent.click(screen.getByRole("button", { name: "Upload" }))
 
     expect(await dialog.findByRole("alert")).toHaveTextContent("File exceeds the 20 MB limit")
@@ -273,6 +319,8 @@ describe("DocumentsPage edit and delete", () => {
   let requests: { method: string; url: string; body: unknown }[]
   let deleteStatus: number
   let deleteDetail: string
+  let suggestCalls: number
+  let suggested: string[]
 
   function rowFor(title: string) {
     return screen.getByRole("row", { name: new RegExp(title) })
@@ -283,12 +331,28 @@ describe("DocumentsPage edit and delete", () => {
     requests = []
     deleteStatus = 200
     deleteDetail = ""
+    suggestCalls = 0
+    suggested = ["s2"]
 
     server.use(
       http.get(`${API}/api/v1/config/categories`, () =>
         HttpResponse.json([lookup("c1", "Operations"), lookup("c2", "Compliance")]),
       ),
-      http.get(`${API}/api/v1/config/skills`, () => HttpResponse.json([])),
+      http.get(`${API}/api/v1/config/skills`, () =>
+        HttpResponse.json([lookup("s1", "Fire safety"), lookup("s2", "Evacuation")]),
+      ),
+      http.post(`${API}/api/v1/documents/:id/suggest-skills`, () => {
+        suggestCalls += 1
+        return HttpResponse.json({
+          skill_ids: suggested,
+          prompt_tokens: 100,
+          completion_tokens: 12,
+          total_tokens: 112,
+        })
+      }),
+      http.get(`${API}/api/v1/classes`, () =>
+        HttpResponse.json([lookup("cl1", "Onboarding"), lookup("cl2", "Field ops")]),
+      ),
       http.get(`${API}/api/v1/documents`, () => HttpResponse.json(documents)),
       http.patch(`${API}/api/v1/documents/:id`, async ({ request, params }) => {
         const body = (await request.json()) as Record<string, unknown>
@@ -396,5 +460,146 @@ describe("DocumentsPage edit and delete", () => {
 
     expect(await screen.findByText(deleteDetail)).toBeInTheDocument()
     expect(screen.getByRole("link", { name: "Safety handbook" })).toBeInTheDocument()
+  })
+
+  it("reassigns a document's classes through the manage classes dialog", async () => {
+    documents = [doc("d1", "Safety handbook", { class_ids: ["cl1"] }), doc("d2", "Onboarding guide")]
+    renderWithToasts()
+    await screen.findByRole("link", { name: "Safety handbook" })
+
+    await clickRowAction(rowFor("Safety handbook"), "Manage classes")
+
+    const dialog = within(await screen.findByRole("dialog"))
+    // Opens on what the document already has.
+    expect(dialog.getByLabelText("Onboarding")).toBeChecked()
+    expect(dialog.getByLabelText("Field ops")).not.toBeChecked()
+
+    await userEvent.click(dialog.getByLabelText("Onboarding"))
+    await userEvent.click(dialog.getByLabelText("Field ops"))
+    await userEvent.click(dialog.getByRole("button", { name: "Save changes" }))
+
+    await waitFor(() => expect(requests).toHaveLength(1))
+    expect(requests[0].method).toBe("PATCH")
+    // The whole set is sent: leaving a class out here is removing it.
+    expect(requests[0].body).toEqual({ class_ids: ["cl2"] })
+  })
+
+  it("will not save an empty class list", async () => {
+    documents = [doc("d1", "Safety handbook", { class_ids: ["cl1"] }), doc("d2", "Onboarding guide")]
+    renderWithToasts()
+    await screen.findByRole("link", { name: "Safety handbook" })
+
+    await clickRowAction(rowFor("Safety handbook"), "Manage classes")
+
+    const dialog = within(await screen.findByRole("dialog"))
+    await userEvent.click(dialog.getByLabelText("Onboarding"))
+    await userEvent.click(dialog.getByRole("button", { name: "Save changes" }))
+
+    expect(await dialog.findByRole("alert")).toHaveTextContent("Choose at least one class.")
+    expect(requests).toHaveLength(0)
+  })
+
+  // --- manage skills ------------------------------------------------------
+
+  it("opens the skills dialog on the document's current tags", async () => {
+    documents = [doc("d1", "Safety handbook", { skill_ids: ["s1"] }), doc("d2", "Onboarding guide")]
+    renderWithToasts()
+    await screen.findByRole("link", { name: "Safety handbook" })
+
+    await clickRowAction(rowFor("Safety handbook"), "Manage skills")
+
+    const dialog = within(await screen.findByRole("dialog"))
+    expect(await dialog.findByLabelText("Fire safety")).toBeChecked()
+    expect(dialog.getByLabelText("Evacuation")).not.toBeChecked()
+  })
+
+  it("saves the whole skill set, including clearing it", async () => {
+    documents = [doc("d1", "Safety handbook", { skill_ids: ["s1"] }), doc("d2", "Onboarding guide")]
+    renderWithToasts()
+    await screen.findByRole("link", { name: "Safety handbook" })
+
+    await clickRowAction(rowFor("Safety handbook"), "Manage skills")
+    const dialog = within(await screen.findByRole("dialog"))
+
+    await userEvent.click(await dialog.findByLabelText("Fire safety"))
+    await userEvent.click(dialog.getByLabelText("Evacuation"))
+    await userEvent.click(dialog.getByRole("button", { name: "Save changes" }))
+
+    await waitFor(() => expect(requests).toHaveLength(1))
+    expect(requests[0].method).toBe("PATCH")
+    expect(requests[0].body).toEqual({ skill_ids: ["s2"] })
+  })
+
+  it("lets Suggest fill the picker without saving anything", async () => {
+    documents = [doc("d1", "Safety handbook"), doc("d2", "Onboarding guide")]
+    renderWithToasts()
+    await screen.findByRole("link", { name: "Safety handbook" })
+
+    await clickRowAction(rowFor("Safety handbook"), "Manage skills")
+    const dialog = within(await screen.findByRole("dialog"))
+    await dialog.findByLabelText("Evacuation")
+
+    await userEvent.click(dialog.getByRole("button", { name: /Suggest with AI/ }))
+
+    expect(await dialog.findByLabelText("Evacuation")).toBeChecked()
+    expect(suggestCalls).toBe(1)
+    // Suggested, not saved — the admin still has to confirm.
+    expect(requests).toHaveLength(0)
+  })
+
+  it("says so when the suggestion comes back empty", async () => {
+    suggested = []
+    documents = [doc("d1", "Safety handbook"), doc("d2", "Onboarding guide")]
+    renderWithToasts()
+    await screen.findByRole("link", { name: "Safety handbook" })
+
+    await clickRowAction(rowFor("Safety handbook"), "Manage skills")
+    const dialog = within(await screen.findByRole("dialog"))
+    await dialog.findByLabelText("Evacuation")
+
+    await userEvent.click(dialog.getByRole("button", { name: /Suggest with AI/ }))
+
+    // An empty result is an outcome, not an error.
+    expect(await dialog.findByText(/No skills matched this document/)).toBeInTheDocument()
+    expect(dialog.getByLabelText("Evacuation")).not.toBeChecked()
+  })
+
+  it("reports a failed suggestion and leaves the picker alone", async () => {
+    documents = [doc("d1", "Safety handbook", { skill_ids: ["s1"] }), doc("d2", "Onboarding guide")]
+    server.use(
+      http.post(`${API}/api/v1/documents/:id/suggest-skills`, () =>
+        HttpResponse.json({ detail: "Could not generate a suggestion" }, { status: 502 }),
+      ),
+    )
+    renderWithToasts()
+    await screen.findByRole("link", { name: "Safety handbook" })
+
+    await clickRowAction(rowFor("Safety handbook"), "Manage skills")
+    const dialog = within(await screen.findByRole("dialog"))
+    await dialog.findByLabelText("Fire safety")
+
+    await userEvent.click(dialog.getByRole("button", { name: /Suggest with AI/ }))
+
+    expect(await dialog.findByRole("alert")).toHaveTextContent("Could not generate a suggestion")
+    // Whatever was picked before the failure is still picked, and the button works again.
+    expect(dialog.getByLabelText("Fire safety")).toBeChecked()
+    expect(dialog.getByRole("button", { name: /Suggest with AI/ })).toBeEnabled()
+  })
+
+  it("disables the picker and Suggest when the document has no category", async () => {
+    documents = [
+      doc("d1", "Safety handbook", { category_id: null }),
+      doc("d2", "Onboarding guide"),
+    ]
+    renderWithToasts()
+    await screen.findByRole("link", { name: "Safety handbook" })
+
+    await clickRowAction(rowFor("Safety handbook"), "Manage skills")
+
+    const dialog = within(await screen.findByRole("dialog"))
+    expect(dialog.getByText(/Set its category with Edit/)).toBeInTheDocument()
+    expect(dialog.queryByLabelText("Fire safety")).toBeNull()
+    expect(dialog.queryByRole("button", { name: /Suggest with AI/ })).toBeNull()
+    expect(dialog.getByRole("button", { name: "Save changes" })).toBeDisabled()
   })
 })

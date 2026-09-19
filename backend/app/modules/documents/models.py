@@ -63,6 +63,11 @@ class Document(Base):
         back_populates="document",
         cascade="all, delete-orphan",
     )
+    class_documents = relationship(
+        "ClassDocument",
+        back_populates="document",
+        cascade="all, delete-orphan",
+    )
     skills = relationship(
         "Skill",
         secondary="document_skills",
@@ -153,6 +158,40 @@ class DocumentSkill(Base):
 
     document = relationship("Document", back_populates="document_skills")
     skill = relationship("Skill")
+
+
+# Which classes a document belongs to. Scopes the exam-generation source picker
+# so an admin only sees the documents for the class they are generating for.
+# Deliberately not documents.category_id: category is a taxonomy shared with
+# skills and feeds skill scoring, which is a different question from "which
+# class is this for".
+class ClassDocument(Base):
+    __tablename__ = "class_documents"
+
+    class_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("classes.id", ondelete="CASCADE"),
+        primary_key=True,
+        nullable=False,
+    )
+    document_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("documents.id", ondelete="CASCADE"),
+        primary_key=True,
+        nullable=False,
+    )
+    created_at = Column(
+        TIMESTAMP(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+    document = relationship("Document", back_populates="class_documents")
+    class_ = relationship("Class")
+
+    # The PK already leads with class_id; responses look documents up the other
+    # way round, one row at a time.
+    __table_args__ = (Index("ix_class_documents_document_id", "document_id"),)
 
 
 class DocumentChunk(Base):
