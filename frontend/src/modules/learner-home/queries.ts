@@ -1,9 +1,13 @@
-import { useQuery } from "@tanstack/react-query"
+import { useMutation, useQuery } from "@tanstack/react-query"
+import { startDownload } from "@/lib/download"
 import {
+  getClassDocumentDownload,
+  listMyClassDocuments,
   listMyClassExercises,
   listMyClasses,
   listMySubmissions,
   type MyClass,
+  type MyClassDocument,
   type MyExercise,
   type MySubmission,
 } from "@/modules/learner-home/api"
@@ -19,6 +23,23 @@ export function useMyClassExercises(classId: string) {
   return useQuery({
     queryKey: ["my-class-exercises", classId],
     queryFn: () => listMyClassExercises(classId),
+  })
+}
+
+export function useMyClassDocuments(classId: string) {
+  return useQuery({
+    queryKey: ["my-class-documents", classId],
+    queryFn: () => listMyClassDocuments(classId),
+  })
+}
+
+// A mutation rather than a query: the URL it returns expires in minutes, so it
+// is fetched when the learner asks for it and never cached. One of these per
+// row, so a download in flight only disables its own button.
+export function useClassDocumentDownload(classId: string) {
+  return useMutation({
+    mutationFn: (documentId: string) => getClassDocumentDownload(classId, documentId),
+    onSuccess: (data) => startDownload(data.url),
   })
 }
 
@@ -45,4 +66,4 @@ export function bestSubmissionByExercise(rows: MySubmission[]): Map<string, stri
   return new Map([...best].map(([exerciseId, row]) => [exerciseId, row.id]))
 }
 
-export type { MyClass, MyExercise, MySubmission }
+export type { MyClass, MyClassDocument, MyExercise, MySubmission }

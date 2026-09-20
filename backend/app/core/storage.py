@@ -1,3 +1,5 @@
+from urllib.parse import quote
+
 import boto3
 from botocore.config import Config
 from botocore.exceptions import BotoCoreError, ClientError
@@ -48,11 +50,25 @@ class R2Storage:
         except (BotoCoreError, ClientError) as e:
             raise StorageError(f"Failed to download '{key}': {e}") from e
 
-    def get_presigned_url(self, key: str, expires_in: int = 3600) -> str:
+    def get_presigned_url(
+        self,
+        key: str,
+        expires_in: int = 3600,
+        download_filename: str | None = None,
+    ) -> str:
+        params = {"Bucket": self.bucket, "Key": key}
+        # Without this the browser names the download after the key, which is
+        # "v1.pdf" for every document. filename* is the RFC 5987 form: the
+        # stored name can be non-ASCII, and the plain filename= parameter has
+        # no way to carry that.
+        if download_filename is not None:
+            params["ResponseContentDisposition"] = (
+                f"attachment; filename*=UTF-8''{quote(download_filename)}"
+            )
         try:
             return self.client.generate_presigned_url(
                 "get_object",
-                Params = {"Bucket": self.bucket, "Key": key},
+                Params = params,
                 ExpiresIn = expires_in,
             )
         except (BotoCoreError, ClientError) as e:

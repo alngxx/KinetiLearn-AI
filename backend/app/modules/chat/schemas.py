@@ -6,8 +6,11 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 # Body is optional on POST /sessions — omitting it opens an unscoped chat.
+# class_id and document_id are mutually exclusive; the service 400s if both
+# are set.
 class SessionCreate(BaseModel):
     document_id: UUID | None = None
+    class_id: UUID | None = None
 
 
 class ChatSessionResponse(BaseModel):
@@ -15,6 +18,7 @@ class ChatSessionResponse(BaseModel):
 
     id: UUID
     exercise_id: UUID | None
+    class_id: UUID | None
     document_id: UUID | None
     title: str | None
     is_active: bool

@@ -27,7 +27,14 @@ from app.modules.chat.schemas import (
     ExplainRequest,
     MessageCreate,
 )
-from app.modules.documents.models import Document, DocumentChunk, DocumentVersion
+from app.modules.classes.models import ClassMember
+from app.modules.classes.service import assert_class_member
+from app.modules.documents.models import (
+    ClassDocument,
+    Document,
+    DocumentChunk,
+    DocumentVersion,
+)
 from app.modules.exams.models import (
     Exercise,
     ExerciseDocument,
@@ -66,17 +73,35 @@ class ChatService:
         self.db = db
 
     async def create_session(
-        self, user_id: UUID, document_id: UUID | None = None
+        self,
+        user_id: UUID,
+        document_id: UUID | None = None,
+        class_id: UUID | None = None,
     ) -> ChatSessionResponse:
+        if document_id is not None and class_id is not None:
+            raise HTTPException(
+                status_code = 400,
+                detail = "A session cannot be scoped to both a document and a class.",
+            )
         # A document the learner cannot see is rejected the same way as one that
         # doesn't exist, so the id can't be used to probe the corpus.
         if document_id is not None and not await self._active_scope(document_id):
             raise HTTPException(status_code = 404, detail = "Document not found.")
+        # Same check the class's Materials list and exercises use — a non-member
+        # gets a 403, not a session over documents they cannot see.
+        if class_id is not None:
+            await assert_class_member(self.db, class_id, user_id)
 
-        session = ChatSession(user_id = user_id, document_id = document_id)
+        session = ChatSession(user_id = user_id, document_id = document_id, class_id = class_id)
         self.db.add(session)
         await self.db.commit()
         await self.db.refresh(session)
+        return ChatSessionResponse.model_validate(session)
+
+    # Backs GET /sessions/{id} — lets the panel read back a restored session's
+    # scope so the chip it shows can never drift from what the server has.
+    async def get_session(self, session_id: UUID, user_id: UUID) -> ChatSessionResponse:
+        session = await self._load_session(session_id, user_id)
         return ChatSessionResponse.model_validate(session)
 
     # Filtering on user_id inside the query means someone else's session is
@@ -94,22 +119,33 @@ class ChatService:
         return session
 
     # Backs the recent-chats sidebar. Explain sessions are left out on purpose:
-    # they answer follow-ups only from their own exam's source documents, and the
-    # general panel gives no sign of that narrower scope. They are reached from
-    # the result page instead.
-    async def list_sessions(self, user_id: UUID) -> list[ChatSessionResponse]:
-        result = await self.db.execute(
-            select(ChatSession)
-            .where(
-                ChatSession.user_id == user_id,
-                ChatSession.exercise_id.is_(None),
-                # create_session commits before any turn exists, so a first
-                # message that never finished leaves an untitled empty session.
-                ChatSession.messages.any(),
-            )
-            .order_by(ChatSession.updated_at.desc())
-            .limit(SESSION_LIST_LIMIT)
+    # they answer follow-ups only from their own exam's source documents, and
+    # nothing in the general panel showed that narrower scope. They are reached
+    # from the result page instead. Document- and class-scoped sessions ARE
+    # included — the panel renders a chip naming the scope, so the same
+    # objection doesn't apply to them.
+    #
+    # class_id narrows the list to one class's sessions, for the study page to
+    # check whether a "Resume studying" session already exists; a non-member
+    # gets the same 403 the Materials list does.
+    async def list_sessions(
+        self, user_id: UUID, class_id: UUID | None = None
+    ) -> list[ChatSessionResponse]:
+        if class_id is not None:
+            await assert_class_member(self.db, class_id, user_id)
+
+        stmt = select(ChatSession).where(
+            ChatSession.user_id == user_id,
+            ChatSession.exercise_id.is_(None),
+            # create_session commits before any turn exists, so a first
+            # message that never finished leaves an untitled empty session.
+            ChatSession.messages.any(),
         )
+        if class_id is not None:
+            stmt = stmt.where(ChatSession.class_id == class_id)
+        stmt = stmt.order_by(ChatSession.updated_at.desc()).limit(SESSION_LIST_LIMIT)
+
+        result = await self.db.execute(stmt)
         return [
             ChatSessionResponse.model_validate(row) for row in result.scalars().all()
         ]
@@ -384,11 +420,44 @@ class ChatService:
         )
         return [(row[0], row[1]) for row in result.all()]
 
+    # Every (document, version) linked to a class that a learner may see, and
+    # only while they are still enrolled. Membership is joined into the query
+    # rather than asserted up front: a session outlives enrolment, and losing
+    # it should collapse retrieval to nothing rather than 403 mid-conversation
+    # or, worse, silently keep answering from a class the learner has left.
+    async def _class_scope(
+        self, class_id: UUID, user_id: UUID
+    ) -> list[tuple[UUID, int]]:
+        result = await self.db.execute(
+            select(Document.id, Document.active_version_number)
+            .join(ClassDocument, ClassDocument.document_id == Document.id)
+            .join(
+                ClassMember,
+                (ClassMember.class_id == ClassDocument.class_id)
+                & (ClassMember.user_id == user_id),
+            )
+            .join(
+                DocumentVersion,
+                (DocumentVersion.document_id == Document.id)
+                & (DocumentVersion.version_number == Document.active_version_number),
+            )
+            .where(
+                ClassDocument.class_id == class_id,
+                Document.is_active.is_(True),
+                Document.active_version_number.isnot(None),
+                DocumentVersion.processing_status == "ready",
+            )
+        )
+        return [(row[0], row[1]) for row in result.all()]
+
     # An exam-scoped session covers every source document of that exam; a
-    # document-scoped one covers exactly that document; neither means the corpus.
+    # class-scoped one covers that class's documents; a document-scoped one
+    # covers exactly that document; none of the three means the corpus.
     async def _session_scope(self, session: ChatSession) -> list[tuple[UUID, int]]:
         if session.exercise_id is not None:
             return await self._provenance_scope(session.exercise_id)
+        if session.class_id is not None:
+            return await self._class_scope(session.class_id, session.user_id)
         return await self._active_scope(session.document_id)
 
     # One search per question, since a single embedding of ten stitched-together

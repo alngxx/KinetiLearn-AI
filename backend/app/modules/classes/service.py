@@ -6,7 +6,9 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.core.config import settings
 from app.core.crud import assert_no_dependents, get_or_404
+from app.core.storage import R2Storage, StorageError
 from app.modules.auth.models import User
 from app.modules.classes.models import Class, ClassMember
 from app.modules.classes.schemas import (
@@ -18,13 +20,16 @@ from app.modules.classes.schemas import (
     ClassResponse,
     ClassUpdate,
     DeleteResponse,
+    LearnerDocumentDownload,
+    LearnerDocumentSummary,
     LearnerExerciseBase,
     LearnerExerciseSummary,
     MyClassBase,
     MyClassResponse,
 )
-from app.modules.config.models import Skill
-from app.modules.documents.models import DocumentSkill
+from app.modules.config.models import Category, Skill
+from app.modules.documents.models import ClassDocument, Document, DocumentSkill, DocumentVersion
+from app.modules.documents.service import MIME_EXT
 from app.modules.exams.models import Exercise, Question
 from app.modules.submissions.models import Submission
 
@@ -201,6 +206,93 @@ class ClassService:
             )
             for e in exercises
         ]
+
+    # Reference only — mirrors exactly what ChatService._class_scope treats as
+    # answerable, so Materials and the AI Mentor's actual knowledge never
+    # disagree: active document, promoted version, and that version finished
+    # processing. A just-uploaded document is silently absent until Celery
+    # finishes it, same as it is absent from retrieval.
+    async def get_my_documents(
+        self, class_id: UUID, user_id: UUID
+    ) -> list[LearnerDocumentSummary]:
+        await assert_class_member(self.db, class_id, user_id)
+
+        result = await self.db.execute(
+            select(Document, Category.name, DocumentVersion.mime_type)
+            .join(ClassDocument, ClassDocument.document_id == Document.id)
+            .join(
+                DocumentVersion,
+                (DocumentVersion.document_id == Document.id)
+                & (DocumentVersion.version_number == Document.active_version_number),
+            )
+            .outerjoin(Category, Category.id == Document.category_id)
+            .where(
+                ClassDocument.class_id == class_id,
+                Document.is_active.is_(True),
+                Document.active_version_number.isnot(None),
+                DocumentVersion.processing_status == "ready",
+            )
+            .order_by(Category.name, Document.title)
+        )
+
+        return [
+            LearnerDocumentSummary(
+                id = document.id,
+                title = document.title,
+                category_name = category_name,
+                format = MIME_EXT[mime_type].upper(),
+            )
+            for document, category_name, mime_type in result.all()
+        ]
+
+    # Same gate and same predicate as get_my_documents, narrowed to one
+    # document — a learner can only ever download something Materials already
+    # shows them. Membership is checked first, so a non-member gets 403 without
+    # learning whether the document exists.
+    async def get_my_document_download(
+        self, class_id: UUID, document_id: UUID, user_id: UUID
+    ) -> LearnerDocumentDownload:
+        await assert_class_member(self.db, class_id, user_id)
+
+        result = await self.db.execute(
+            select(DocumentVersion.file_url, DocumentVersion.file_name)
+            .join(Document, Document.id == DocumentVersion.document_id)
+            .join(ClassDocument, ClassDocument.document_id == Document.id)
+            .where(
+                Document.id == document_id,
+                ClassDocument.class_id == class_id,
+                DocumentVersion.version_number == Document.active_version_number,
+                Document.is_active.is_(True),
+                Document.active_version_number.isnot(None),
+                DocumentVersion.processing_status == "ready",
+            )
+        )
+        row = result.first()
+        # One body for every miss — not linked to this class, not promoted, not
+        # processed, soft-deleted, or never existed. Distinguishing them would
+        # let the id be used to probe the corpus.
+        if row is None:
+            raise HTTPException(status_code = 404, detail = "Document not found.")
+
+        file_url, file_name = row
+        # Constructed inside the try: __init__ raises StorageError when R2 is
+        # unconfigured, and that should read as a 502 like any other storage
+        # failure rather than a bare 500.
+        try:
+            storage = R2Storage()
+            url = storage.get_presigned_url(
+                file_url,
+                expires_in = settings.DOWNLOAD_URL_EXPIRE_SECONDS,
+                download_filename = file_name,
+            )
+        except StorageError:
+            raise HTTPException(
+                status_code = 502, detail = "Failed to generate a download link."
+            )
+
+        return LearnerDocumentDownload(
+            url = url, expires_in = settings.DOWNLOAD_URL_EXPIRE_SECONDS
+        )
 
     # A multi-document exam awards no skill points (accepted Task 31 limitation),
     # so only single-document exercises can honestly advertise what they earn.

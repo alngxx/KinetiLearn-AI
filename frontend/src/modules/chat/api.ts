@@ -5,17 +5,29 @@ import type { components } from "@/types/api"
 export type ChatSession = components["schemas"]["ChatSessionResponse"]
 export type StoredChatMessage = components["schemas"]["ChatMessageResponse"]
 
-// No body opens an unscoped chat over the whole corpus. The signal is passed
-// through so Stop can interrupt this call too — without it Stop looks live but
-// does nothing until the POST resolves on its own, and the answer starts anyway.
-export function createChatSession(signal: AbortSignal) {
-  return api.post<ChatSession>("/api/v1/chat/sessions", undefined, { signal })
+// No body opens an unscoped chat over the whole corpus. classId scopes it to
+// one class instead — mutually exclusive with a document scope server-side.
+// The signal is passed through so Stop can interrupt this call too — without
+// it Stop looks live but does nothing until the POST resolves on its own, and
+// the answer starts anyway.
+export function createChatSession(signal: AbortSignal, classId?: string) {
+  const body = classId === undefined ? undefined : { class_id: classId }
+  return api.post<ChatSession>("/api/v1/chat/sessions", body, { signal })
 }
 
 // The learner's own general chats, newest first. Explain sessions are not
 // included — the server leaves them out, see chat/service.py list_sessions.
-export function listChatSessions() {
-  return api.get<ChatSession[]>("/api/v1/chat/sessions")
+// classId narrows this to one class's sessions, for the study page's
+// "Resume studying" check.
+export function listChatSessions(classId?: string) {
+  const query = classId === undefined ? "" : `?class_id=${classId}`
+  return api.get<ChatSession[]>(`/api/v1/chat/sessions${query}`)
+}
+
+// Reads back a session's own scope — what the panel's chip renders from,
+// rather than trusting a client-held id which could drift from the server.
+export function getChatSession(sessionId: string) {
+  return api.get<ChatSession>(`/api/v1/chat/sessions/${sessionId}`)
 }
 
 // The full transcript, oldest first, with the same citation shape the done

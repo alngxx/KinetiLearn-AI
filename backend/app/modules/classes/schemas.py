@@ -111,3 +111,25 @@ class LearnerExerciseSummary(LearnerExerciseBase):
     # no skill points at all, so listing skills for one would promise something
     # the scoring engine never delivers.
     skill_names: list[str]
+
+
+# No file_url and no version: the storage key stays server-side, and a download
+# goes through the separate membership-checked endpoint that mints a short-lived
+# signed URL per click. Restricted to documents the AI Mentor can actually
+# answer from (see ClassService.get_my_documents), so this list and the mentor's
+# knowledge never disagree.
+class LearnerDocumentSummary(BaseModel):
+    id: UUID
+    title: str
+    category_name: str | None
+    # "PDF" / "DOCX" / "MD" — MIME_EXT's extension, upper-cased for display.
+    format: str
+
+
+# A signed R2 URL, good for DOWNLOAD_URL_EXPIRE_SECONDS and nothing longer. It
+# carries its own signature, so it needs no bearer token — which is exactly why
+# it expires quickly. expires_in rides along so the UI could say so if it ever
+# needs to; the URL is never stored.
+class LearnerDocumentDownload(BaseModel):
+    url: str
+    expires_in: int

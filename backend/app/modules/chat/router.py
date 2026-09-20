@@ -30,16 +30,31 @@ async def create_session(
     db: AsyncSession = Depends(get_db),
 ):
     document_id = data.document_id if data is not None else None
-    return await ChatService(db).create_session(current_user.id, document_id)
+    class_id = data.class_id if data is not None else None
+    return await ChatService(db).create_session(current_user.id, document_id, class_id)
 
 
-# Backs the recent-chats sidebar: the caller's own general chats only.
+# Backs the recent-chats sidebar: the caller's own general chats only. class_id
+# narrows this to one class's sessions, for the study page's "Resume studying"
+# check.
 @router.get("/sessions", response_model = list[ChatSessionResponse])
 async def list_sessions(
+    class_id: UUID | None = None,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    return await ChatService(db).list_sessions(current_user.id)
+    return await ChatService(db).list_sessions(current_user.id, class_id)
+
+
+# 404s for a session that is not the caller's, exactly as list_session_messages
+# does — _load_session filters on user_id inside the query.
+@router.get("/sessions/{session_id}", response_model = ChatSessionResponse)
+async def get_session(
+    session_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    return await ChatService(db).get_session(session_id, current_user.id)
 
 
 # 404s for a session that is not the caller's, exactly as a missing one does.

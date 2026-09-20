@@ -83,6 +83,14 @@ function SkyBand() {
   )
 }
 
+// What a page nested in the Outlet needs to drive the layout-owned chat panel.
+// A study page resolves whether a resumable session exists for its class (it
+// already needs that to word its own button) and hands the result here rather
+// than this layout re-querying it.
+export type LearnerChatContext = {
+  openClassChat: (classId: string, existingSessionId: string | null) => void
+}
+
 // A top bar rather than the admin sidebar: the learner has one destination, and
 // the chat panel needs the horizontal room a nav column would take.
 export function LearnerLayout() {
@@ -107,6 +115,15 @@ export function LearnerLayout() {
   function closeChat() {
     setChatOpen(false)
     askRef.current?.focus()
+  }
+
+  // Opens an existing class session if the study page found one to resume, or
+  // starts a fresh class-scoped draft otherwise — either way, over the panel
+  // that already lives here.
+  function openClassChat(classId: string, existingSessionId: string | null) {
+    if (existingSessionId !== null) chat.openSession(existingSessionId)
+    else chat.startClassChat(classId)
+    setChatOpen(true)
   }
 
   return (
@@ -198,7 +215,7 @@ export function LearnerLayout() {
               column is a deliberately tighter well so text lines and cards
               don't stretch edge-to-edge on a wide monitor. */}
           <div key={pathname} className="enter-rise mx-auto w-full max-w-[600px]">
-            <Outlet />
+            <Outlet context={{ openClassChat } satisfies LearnerChatContext} />
           </div>
         </main>
 
@@ -208,6 +225,7 @@ export function LearnerLayout() {
             status={chat.status}
             busy={chat.busy}
             sessionId={chat.sessionId}
+            activeClassId={chat.activeClassId}
             restoring={chat.restoring}
             restoreError={chat.restoreError}
             retryingRestore={chat.retryingRestore}
