@@ -8,7 +8,8 @@ KinetiLearn/
 ├── frontend/
 ├── docs/
 │   ├── DECISIONS.md
-│   └── SCHEMA.md
+│   ├── SCHEMA.md
+│   └── ARCHITECTURE.md
 ├── docker-compose.yml
 ├── CLAUDE.md
 └── README.md
@@ -110,5 +111,5 @@ queries would have to become real APIs first.
 
 ## More detail
 
-- [DECISIONS.md](DECISIONS.md) - specific engineering decisions and one bug fix, each with the problem, the fix, and why.
+- [DECISIONS.md](DECISIONS.md) - specific engineering decisions and bug fixes, each with problem, fix, and why.
 - [SCHEMA.md](SCHEMA.md) - the full database schema, table by table.

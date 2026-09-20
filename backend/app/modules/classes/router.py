@@ -13,6 +13,8 @@ from app.modules.classes.schemas import (
     ClassResponse,
     ClassUpdate,
     DeleteResponse,
+    LearnerDocumentDownload,
+    LearnerDocumentSummary,
     LearnerExerciseSummary,
     MyClassResponse,
 )
@@ -43,6 +45,35 @@ async def list_my_class_exercises(
     db: AsyncSession = Depends(get_db),
 ):
     return await ClassService(db).get_my_exercises(class_id, current_user.id)
+
+
+@my_classes_router.get(
+    "/{class_id}/documents", response_model = list[LearnerDocumentSummary]
+)
+async def list_my_class_documents(
+    class_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    return await ClassService(db).get_my_documents(class_id, current_user.id)
+
+
+# Returns the signed URL rather than redirecting to it: auth here is a bearer
+# token the browser cannot attach to a plain navigation, so a redirect target
+# would arrive unauthenticated.
+@my_classes_router.get(
+    "/{class_id}/documents/{document_id}/download",
+    response_model = LearnerDocumentDownload,
+)
+async def download_my_class_document(
+    class_id: UUID,
+    document_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    return await ClassService(db).get_my_document_download(
+        class_id, document_id, current_user.id
+    )
 
 
 @router.post("", response_model = ClassResponse, status_code = status.HTTP_201_CREATED)

@@ -12,7 +12,7 @@ from app.main import app
 from app.modules.auth.models import User
 from app.modules.chat.models import ChatMessage, ChatMessageCitation, ChatSession
 from app.modules.chat.service import SESSION_LIST_LIMIT
-from app.modules.classes.models import Class
+from app.modules.classes.models import Class, ClassMember
 from app.modules.documents.models import Document, DocumentChunk, DocumentVersion
 from app.modules.exams.models import Exercise
 
@@ -51,11 +51,12 @@ async def _seed_user(db):
 
 # A session the sidebar should list: it has a turn, so it has a title.
 async def _seed_chat(db, user, title = "What is the leave policy?", *, minutes_ago = 0,
-                     exercise_id = None, with_messages = True):
+                     exercise_id = None, class_id = None, with_messages = True):
     at = datetime.now(timezone.utc) - timedelta(minutes = minutes_ago)
     session = ChatSession(
         user_id = user.id,
         exercise_id = exercise_id,
+        class_id = class_id,
         title = title if with_messages else None,
         updated_at = at,
     )
@@ -268,4 +269,100 @@ async def test_messages_requires_auth(auth_client, db_session):
     await db_session.commit()
 
     resp = await auth_client.get(f"{BASE}/sessions/{session.id}/messages")
+    assert resp.status_code == 401
+
+
+async def _seed_class(db, *members, name = None):
+    cls = Class(name = name or f"Class {uuid.uuid4()}")
+    db.add(cls)
+    await db.flush()
+    for user in members:
+        db.add(ClassMember(class_id = cls.id, user_id = user.id))
+    await db.flush()
+    return cls
+
+
+# Document-scoped sessions have always shown up in the unfiltered list — the
+# chip that names the scope is what makes that honest. Class-scoped sessions
+# follow the same rule.
+async def test_list_includes_class_scoped_sessions(auth_client, db_session):
+    user = await _seed_user(db_session)
+    cls = await _seed_class(db_session, user)
+    await _seed_chat(db_session, user, "a general question")
+    await _seed_chat(db_session, user, "studying for the exam", class_id = cls.id)
+    await db_session.commit()
+
+    resp = await auth_client.get(f"{BASE}/sessions", headers = _auth(user))
+    body = resp.json()
+    assert {row["title"] for row in body} == {"a general question", "studying for the exam"}
+    scoped = next(row for row in body if row["title"] == "studying for the exam")
+    assert scoped["class_id"] == str(cls.id)
+
+
+async def test_list_filters_to_one_class(auth_client, db_session):
+    user = await _seed_user(db_session)
+    cls = await _seed_class(db_session, user)
+    other_cls = await _seed_class(db_session, user)
+    await _seed_chat(db_session, user, "this class", class_id = cls.id)
+    await _seed_chat(db_session, user, "other class", class_id = other_cls.id)
+    await _seed_chat(db_session, user, "unscoped")
+    await db_session.commit()
+
+    resp = await auth_client.get(
+        f"{BASE}/sessions", params = {"class_id": str(cls.id)}, headers = _auth(user)
+    )
+    assert [row["title"] for row in resp.json()] == ["this class"]
+
+
+async def test_list_by_class_id_rejects_non_member(auth_client, db_session):
+    user = await _seed_user(db_session)
+    cls = await _seed_class(db_session)  # user is not a member
+    await db_session.commit()
+
+    resp = await auth_client.get(
+        f"{BASE}/sessions", params = {"class_id": str(cls.id)}, headers = _auth(user)
+    )
+    assert resp.status_code == 403
+    assert resp.json() == {"detail": "You are not a member of this class."}
+
+
+async def test_get_session_returns_own_session(auth_client, db_session):
+    user = await _seed_user(db_session)
+    session = await _seed_chat(db_session, user, "What is the leave policy?")
+    await db_session.commit()
+
+    resp = await auth_client.get(f"{BASE}/sessions/{session.id}", headers = _auth(user))
+    assert resp.status_code == 200
+    assert resp.json()["id"] == str(session.id)
+    assert resp.json()["title"] == "What is the leave policy?"
+
+
+# Closes a coverage gap rather than fixing a bug: get_session is a thin wrapper
+# over _load_session, which already filters on user_id inside the query — so
+# another learner's session is indistinguishable from one that doesn't exist,
+# the same guarantee test_messages_on_another_learners_session_rejected checks
+# for the /messages path.
+async def test_get_session_on_another_learners_session_rejected(auth_client, db_session):
+    owner = await _seed_user(db_session)
+    intruder = await _seed_user(db_session)
+    session = await _seed_chat(db_session, owner, "private")
+    await db_session.commit()
+
+    resp = await auth_client.get(f"{BASE}/sessions/{session.id}", headers = _auth(intruder))
+    assert resp.status_code == 404
+    assert resp.json() == {"detail": "Chat session not found."}
+
+    missing = await auth_client.get(
+        f"{BASE}/sessions/{uuid.uuid4()}", headers = _auth(intruder)
+    )
+    assert missing.status_code == 404
+    assert missing.json() == resp.json()
+
+
+async def test_get_session_requires_auth(auth_client, db_session):
+    user = await _seed_user(db_session)
+    session = await _seed_chat(db_session, user)
+    await db_session.commit()
+
+    resp = await auth_client.get(f"{BASE}/sessions/{session.id}")
     assert resp.status_code == 401
