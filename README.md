@@ -26,7 +26,7 @@ there to make the features visible, since nobody is using this for real yet.
   embedded, and stored in Chroma through a Celery pipeline. Documents are
   versioned, so a re-upload doesn't quietly wipe out what learners already saw.
 - Tag that document with one or more skills, then hand it to gpt-4o with a
-  free-text prompt to generate a 50-question multiple-choice exam.
+  free-text prompt to generate a 50 MCQs exam.
 - The learner-facing chatbot answers from the training material itself, not
   from memory: every answer cites the source chunks it drew from, and it says
   plainly when nothing in the corpus matches instead of guessing. It can be
@@ -47,11 +47,10 @@ Verified from `backend/requirements.txt` and `frontend/package.json`.
 - FastAPI + Uvicorn
 - SQLAlchemy (async, via `asyncpg`) + Alembic migrations
 - PostgreSQL
-- Celery + Redis for the document processing pipeline
+- Celery + Redis for document processing pipeline
 - LangChain + `langchain-openai` + `tiktoken`, calling GPT-4o and
   `text-embedding-3-small` directly through the `openai` SDK
-- Chroma as the vector store (the config also has a Pinecone index/API key slot
-  for a prod swap, unused in this repo)
+- Chroma as the vector database (the config also has a Pinecone index/API key slot for a prod swap)
 - PyMuPDF and `python-docx` for document text extraction
 - boto3 for Cloudflare R2 (S3-compatible) file storage
 - passlib (bcrypt) + `python-jose` for password hashing and JWTs
