@@ -1,4 +1,7 @@
-# KinetiLearn
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/logo-dark.png">
+  <img alt="KinetiLearn" src="docs/logo.png">
+</picture>
 
 An AI-powered corporate training platform with an admin portal for training
 managers and a learner portal for employees: upload training material, generate
