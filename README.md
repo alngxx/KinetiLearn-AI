@@ -3,8 +3,8 @@
   <img alt="KinetiLearn" src="docs/logo.png">
 </picture>
 
-An AI-powered corporate training platform with an admin portal for training
-managers and a learner portal for employees: upload training material, generate
+An AI-powered LMS with admin portal for training
+managers and learner portal for employees: upload training material, generate
 exams from it with GPT-4o, run a daily quiz engine, and track employees'
 skill level from what they actually get right.
 
