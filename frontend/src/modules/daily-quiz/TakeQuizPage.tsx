@@ -58,7 +58,11 @@ function TakeView({ quizId }: { quizId: string }) {
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    // pt-6 reuses this page's own gap-6 rhythm: the layout's <main> has no
+    // top padding of its own (PortalHero supplies that on the pages built
+    // around the sky band), so a page that opens with this back link instead
+    // needs its own clearance from the sticky header.
+    <div className="flex flex-col gap-6 pt-6">
       <Link
         to="/learner"
         className="-mb-2 flex w-fit items-center gap-1 text-sm text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:rounded-sm focus-visible:ring-3 focus-visible:ring-ring/75"

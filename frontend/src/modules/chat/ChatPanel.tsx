@@ -1,6 +1,7 @@
 import { ArrowLeftIcon, ArrowUpIcon, HistoryIcon, SquareIcon, XIcon } from "lucide-react"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { QueryErrorState } from "@/components/QueryErrorState"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Bubble } from "@/modules/chat/Bubble"
@@ -15,6 +16,7 @@ export function ChatPanel({
   status,
   busy,
   sessionId,
+  activeClassId,
   restoring,
   restoreError,
   retryingRestore,
@@ -29,6 +31,7 @@ export function ChatPanel({
   status: ChatStatus
   busy: boolean
   sessionId: string | null
+  activeClassId: string | null
   restoring: boolean
   restoreError: unknown
   retryingRestore: boolean
@@ -53,6 +56,14 @@ export function ChatPanel({
   // route but /learner/skills this is already warm under the same query key.
   const classes = useMyClasses()
   const suggestions = useMemo(() => suggestionsFor(classes.data), [classes.data])
+
+  // The name for the scope chip. Falls back to a generic label rather than
+  // hiding the chip: a class the learner has since left is exactly when being
+  // told the scope is narrower than usual matters most.
+  const activeClassName =
+    activeClassId === null
+      ? null
+      : (classes.data?.find((row) => row.id === activeClassId)?.name ?? "this class")
 
   // Desktop only. On a phone this is a full-screen overlay the learner has only
   // just opened, and focusing the composer throws the keyboard up over it before
@@ -161,6 +172,18 @@ export function ChatPanel({
         </Button>
       </div>
 
+      {/* Only in the chat view — RecentChats already marks each row with its
+          own scope, and repeating it here while browsing history would say
+          the same thing about the wrong session. */}
+      {!history && activeClassName !== null && (
+        <div className="flex items-center gap-1.5 border-b border-border px-4 py-2">
+          <Badge variant="outline">{activeClassName}</Badge>
+          <span className="text-xs text-muted-foreground">
+            Answers only from this class&rsquo;s materials
+          </span>
+        </div>
+      )}
+
       {history ? (
         <RecentChats sessionId={sessionId} onSelect={pick} onNewChat={startNewChat} />
       ) : (
@@ -191,8 +214,9 @@ export function ChatPanel({
                   Hi, I&rsquo;m <span translate="no">Pace</span>
                 </h3>
                 <p className="text-sm text-muted-foreground">
-                  I answer from the documents your organisation has uploaded, and I show my
-                  sources every time.
+                  {activeClassName === null
+                    ? "I answer from the documents your organisation has uploaded, and I show my sources every time."
+                    : `I’ll only look at ${activeClassName}’s materials for this chat, and I show my sources every time.`}
                 </p>
                 <div className="flex flex-col items-start gap-2">
                   {suggestions.map((question) => (

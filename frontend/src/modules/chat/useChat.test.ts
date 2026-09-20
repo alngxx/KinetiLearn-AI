@@ -173,6 +173,23 @@ describe("useChat", () => {
             headers: { "Content-Type": "application/json" },
           })
         }
+        // The panel's scope-chip lookup (GET /chat/sessions/{id}) — unscoped
+        // here, same shape a real unscoped session comes back with.
+        if (/\/chat\/sessions\/[^/]+$/.test(url) && init.method !== "POST") {
+          return new Response(
+            JSON.stringify({
+              id: url.split("/").pop(),
+              exercise_id: null,
+              class_id: null,
+              document_id: null,
+              title: null,
+              is_active: true,
+              created_at: "2026-08-27T09:00:00Z",
+              updated_at: "2026-08-27T09:00:00Z",
+            }),
+            { status: 200, headers: { "Content-Type": "application/json" } },
+          )
+        }
         const body = new ReadableStream<Uint8Array>({
           start(controller) {
             bodyController = controller
@@ -372,6 +389,23 @@ describe("useChat", () => {
             status: 201,
             headers: { "Content-Type": "application/json" },
           })
+        }
+        // The panel's scope-chip lookup (GET /chat/sessions/{id}) — unscoped
+        // here, same shape a real unscoped session comes back with.
+        if (/\/chat\/sessions\/[^/]+$/.test(url) && init.method !== "POST") {
+          return new Response(
+            JSON.stringify({
+              id: url.split("/").pop(),
+              exercise_id: null,
+              class_id: null,
+              document_id: null,
+              title: null,
+              is_active: true,
+              created_at: "2026-08-27T09:00:00Z",
+              updated_at: "2026-08-27T09:00:00Z",
+            }),
+            { status: 200, headers: { "Content-Type": "application/json" } },
+          )
         }
         const body = new ReadableStream<Uint8Array>({
           start(controller) {

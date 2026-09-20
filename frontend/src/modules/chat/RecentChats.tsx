@@ -1,10 +1,12 @@
 import { MessageCircleIcon, PlusIcon } from "lucide-react"
 import { EmptyState } from "@/components/EmptyState"
 import { QueryErrorState } from "@/components/QueryErrorState"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { formatMoment } from "@/modules/chat/dates"
 import { useChatSessions } from "@/modules/chat/queries"
+import { useMyClasses } from "@/modules/learner-home/queries"
 
 // The query lives here rather than in useChat, so it only runs once the learner
 // actually asks for the list — the panel opens on the conversation, not on this.
@@ -18,6 +20,10 @@ export function RecentChats({
   onNewChat: () => void
 }) {
   const sessions = useChatSessions()
+  // Already warm under this query key by the time the panel opens — ChatPanel
+  // fetches the same list for its suggestion chips. Only for naming a
+  // class-scoped row; a name that hasn't loaded yet just holds the row's spot.
+  const classes = useMyClasses()
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain p-4">
@@ -75,6 +81,12 @@ export function RecentChats({
                         and a row with no label at all is unpickable. */}
                     {session.title ?? "Untitled chat"}
                   </span>
+                  {session.class_id !== null && (
+                    <Badge variant="outline">
+                      {classes.data?.find((row) => row.id === session.class_id)?.name ??
+                        "Class"}
+                    </Badge>
+                  )}
                   <time dateTime={session.updated_at} className="label-micro">
                     {formatMoment(session.updated_at)}
                   </time>

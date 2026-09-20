@@ -1,18 +1,31 @@
-import { ChevronLeftIcon, ClipboardListIcon } from "lucide-react"
+import {
+  BookOpenIcon,
+  ChevronLeftIcon,
+  ClipboardListIcon,
+  DownloadIcon,
+  RefreshCwIcon,
+} from "lucide-react"
 import type { ReactNode } from "react"
-import { Link, useParams } from "react-router-dom"
+import { Link, useOutletContext, useParams } from "react-router-dom"
 import { EmptyState } from "@/components/EmptyState"
 import { PageHeader } from "@/components/PageHeader"
 import { QueryErrorState } from "@/components/QueryErrorState"
 import { ResultBadge } from "@/components/ResultBadge"
+import { SectionLabel } from "@/components/SectionLabel"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import type { LearnerChatContext } from "@/layouts/LearnerLayout"
+import { isApiError } from "@/lib/errors"
+import { useChatSessions } from "@/modules/chat/queries"
 import { formatMoment } from "@/modules/learner-home/dates"
 import {
   bestSubmissionByExercise,
+  useClassDocumentDownload,
+  useMyClassDocuments,
   useMyClassExercises,
   useMyClasses,
   useMySubmissions,
+  type MyClassDocument,
   type MyExercise,
 } from "@/modules/learner-home/queries"
 
@@ -34,8 +47,20 @@ function ClassView({ classId }: { classId: string }) {
   const submissions = useMySubmissions(classId)
   const bestSubmissions = bestSubmissionByExercise(submissions.data ?? [])
 
+  const documents = useMyClassDocuments(classId)
+  // Whether a class-scoped chat already exists, so the button can say "Resume
+  // studying" rather than silently starting a second one. Newest first from
+  // the server, so the first row is the one to resume.
+  const classChats = useChatSessions(classId)
+  const existingSessionId = classChats.data?.[0]?.id ?? null
+  const { openClassChat } = useOutletContext<LearnerChatContext>()
+
   return (
-    <div className="flex flex-col gap-6">
+    // pt-6 reuses this page's own gap-6 rhythm: the layout's <main> has no
+    // top padding of its own (PortalHero supplies that on the pages built
+    // around the sky band), so a page that opens with this back link instead
+    // needs its own clearance from the sticky header.
+    <div className="flex flex-col gap-6 pt-6">
       <Link
         to="/learner"
         className="-mb-2 flex w-fit items-center gap-1 text-sm text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:rounded-sm focus-visible:ring-3 focus-visible:ring-ring/75"
@@ -52,38 +77,178 @@ function ClassView({ classId }: { classId: string }) {
             ? row.description
             : "The exercises assigned to this class, and how you have done on them."
         }
+        actions={
+          // Waits on classChats rather than defaulting to "Study with AI
+          // mentor": clicking mid-fetch would start a second conversation
+          // instead of resuming the one that is about to be found.
+          classChats.isPending ? (
+            <Button disabled>Study with AI mentor</Button>
+          ) : (
+            <Button onClick={() => openClassChat(classId, existingSessionId)}>
+              {existingSessionId !== null ? "Resume studying" : "Study with AI mentor"}
+            </Button>
+          )
+        }
       />
 
-      {exercises.isPending ? (
-        <p role="status" className="py-10 text-center text-sm text-muted-foreground">
-          Loading…
-        </p>
-      ) : exercises.isError ? (
-        <div className="surface py-10">
-          <QueryErrorState
-            title="Could not load these exercises"
-            error={exercises.error}
-            retrying={exercises.isFetching}
-            onRetry={() => void exercises.refetch()}
+      <section className="flex flex-col gap-3.5">
+        <SectionLabel>Materials</SectionLabel>
+        {documents.isPending ? (
+          <p role="status" className="py-8 text-center text-sm text-muted-foreground">
+            Loading…
+          </p>
+        ) : documents.isError ? (
+          <div className="surface py-8">
+            <QueryErrorState
+              title="Could not load these materials"
+              error={documents.error}
+              retrying={documents.isFetching}
+              onRetry={() => void documents.refetch()}
+            />
+          </div>
+        ) : documents.data.length === 0 ? (
+          <EmptyState
+            icon={BookOpenIcon}
+            title="No materials yet"
+            body="Nothing has been uploaded for this class so far. It will appear here once it is."
           />
+        ) : (
+          <MaterialsList classId={classId} documents={documents.data} />
+        )}
+      </section>
+
+      <section className="flex flex-col gap-3.5">
+        <SectionLabel>Exercises</SectionLabel>
+        {exercises.isPending ? (
+          <p role="status" className="py-8 text-center text-sm text-muted-foreground">
+            Loading…
+          </p>
+        ) : exercises.isError ? (
+          <div className="surface py-8">
+            <QueryErrorState
+              title="Could not load these exercises"
+              error={exercises.error}
+              retrying={exercises.isFetching}
+              onRetry={() => void exercises.refetch()}
+            />
+          </div>
+        ) : exercises.data.length === 0 ? (
+          <EmptyState
+            icon={ClipboardListIcon}
+            title="No exercises yet"
+            body="Nothing has been assigned to this class so far. It will appear here once it is."
+          />
+        ) : (
+          <ul className="flex flex-col gap-3">
+            {exercises.data.map((exercise) => (
+              <li key={exercise.id}>
+                <ExerciseCard
+                  exercise={exercise}
+                  bestSubmissionId={bestSubmissions.get(exercise.id)}
+                />
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+    </div>
+  )
+}
+
+// Grouped by category, matching the order the server already returns
+// (category name, then title).
+function MaterialsList({
+  classId,
+  documents,
+}: {
+  classId: string
+  documents: MyClassDocument[]
+}) {
+  const groups: { category: string | null; rows: MyClassDocument[] }[] = []
+  for (const doc of documents) {
+    const current = groups.at(-1)
+    if (current !== undefined && current.category === doc.category_name) {
+      current.rows.push(doc)
+    } else {
+      groups.push({ category: doc.category_name, rows: [doc] })
+    }
+  }
+
+  return (
+    <div className="surface divide-y divide-border overflow-hidden">
+      {groups.map((group) => (
+        <div key={group.category ?? "uncategorised"} className="p-3.5">
+          {group.category !== null && (
+            <p className="label-micro mb-2">{group.category}</p>
+          )}
+          <ul className="flex flex-col gap-2">
+            {group.rows.map((doc) => (
+              <li key={doc.id}>
+                <MaterialRow classId={classId} doc={doc} />
+              </li>
+            ))}
+          </ul>
         </div>
-      ) : exercises.data.length === 0 ? (
-        <EmptyState
-          icon={ClipboardListIcon}
-          title="No exercises yet"
-          body="Nothing has been assigned to this class so far. It will appear here once it is."
-        />
-      ) : (
-        <ul className="flex flex-col gap-3">
-          {exercises.data.map((exercise) => (
-            <li key={exercise.id}>
-              <ExerciseCard
-                exercise={exercise}
-                bestSubmissionId={bestSubmissions.get(exercise.id)}
-              />
-            </li>
-          ))}
-        </ul>
+      ))}
+    </div>
+  )
+}
+
+// One mutation per row rather than one for the list: a shared one would put
+// every row in the pending state at once, and a failure on one row would read
+// as a failure of all of them.
+function MaterialRow({ classId, doc }: { classId: string; doc: MyClassDocument }) {
+  const download = useClassDocumentDownload(classId)
+
+  return (
+    <div className="flex flex-col gap-1">
+      <div className="flex items-center justify-between gap-3">
+        <span className="min-w-0 break-words text-sm text-foreground">{doc.title}</span>
+        <div className="flex shrink-0 items-center gap-2">
+          <Badge variant="outline">{doc.format}</Badge>
+          {/* Named for the document, not the icon — "Download" on its own
+              repeats once per row and tells a screen reader nothing. The name
+              also carries the pending state, which is otherwise only a spin:
+              same reason QueryErrorState's button says "Retrying…".
+
+              44px on a phone, back to the compact size from md up — the same
+              call the chat panel's close button makes, and mis-tapping a row
+              here fetches the wrong file. */}
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            // Muted at rest so a list of ten materials reads as a reference
+            // list rather than ten dark icons competing with the titles; ghost
+            // already brings it up on hover, and focus-visible matches that for
+            // the keyboard. Same idiom as the back link at the top of the page.
+            className="size-11 text-muted-foreground focus-visible:text-foreground md:size-7"
+            disabled={download.isPending}
+            aria-label={
+              download.isPending ? `Downloading ${doc.title}` : `Download ${doc.title}`
+            }
+            onClick={() => download.mutate(doc.id)}
+          >
+            {download.isPending ? (
+              // The app's one spin idiom, borrowed from QueryErrorState —
+              // motion-safe so a reduced-motion preference gets a still icon
+              // rather than none at all.
+              <RefreshCwIcon className="motion-safe:animate-spin" />
+            ) : (
+              <DownloadIcon />
+            )}
+          </Button>
+        </div>
+      </div>
+
+      {/* The server's own wording: it is the only side that knows whether this
+          was a membership problem or a missing file. The row returns to idle
+          either way, so a retry is always one click away. */}
+      {download.isError && (
+        <p role="alert" className="text-xs text-destructive">
+          {isApiError(download.error)
+            ? download.error.message
+            : "Something went wrong. Please try again."}
+        </p>
       )}
     </div>
   )

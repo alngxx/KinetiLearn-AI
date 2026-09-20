@@ -87,6 +87,7 @@ const SESSIONS = [
   {
     id: "s1",
     exercise_id: null,
+    class_id: null,
     document_id: null,
     title: "what is the leave policy?",
     is_active: true,
@@ -96,6 +97,7 @@ const SESSIONS = [
   {
     id: "s2",
     exercise_id: null,
+    class_id: null,
     document_id: null,
     title: "how do I escalate an incident?",
     is_active: true,
@@ -103,6 +105,19 @@ const SESSIONS = [
     updated_at: "2026-08-26T09:05:00Z",
   },
 ]
+
+function scopeLookup(id: string, classId: string | null = null) {
+  return {
+    id,
+    exercise_id: null,
+    class_id: classId,
+    document_id: null,
+    title: null,
+    is_active: true,
+    created_at: "2026-08-27T09:00:00Z",
+    updated_at: "2026-08-27T09:00:00Z",
+  }
+}
 
 function storedMessage(id: string, role: "user" | "assistant", content: string) {
   return { id, role, content, created_at: "2026-08-26T09:00:00Z", citations: [] }
@@ -132,20 +147,15 @@ describe("ChatPanel", () => {
       // Tests about the generated ones override this.
       http.get(`${API}/api/v1/classes/me`, () => HttpResponse.json([])),
       http.get(`${API}/api/v1/chat/sessions`, () => HttpResponse.json(SESSIONS)),
+      // The scope-chip lookup. Params-matched so every session id created or
+      // restored across this file resolves to something, unscoped by default —
+      // tests about a class-scoped session override this.
+      http.get(`${API}/api/v1/chat/sessions/:id`, ({ params }) =>
+        HttpResponse.json(scopeLookup(params.id as string)),
+      ),
       http.get(`${API}/api/v1/chat/sessions/:id/messages`, () => HttpResponse.json([])),
       http.post(`${API}/api/v1/chat/sessions`, () =>
-        HttpResponse.json(
-          {
-            id: "s1",
-            exercise_id: null,
-            document_id: null,
-            title: null,
-            is_active: true,
-            created_at: "2026-08-27T09:00:00Z",
-            updated_at: "2026-08-27T09:00:00Z",
-          },
-          { status: 201 },
-        ),
+        HttpResponse.json(scopeLookup("s1"), { status: 201 }),
       ),
       http.post(
         `${API}/api/v1/chat/messages`,
@@ -694,6 +704,50 @@ describe("ChatPanel", () => {
       // A reloaded answer keeps its sources, so it reads the same as a live one.
       expect(within(panel()).getByText("1 source")).toBeInTheDocument()
       expect(within(panel()).getByText("Leave handbook")).toBeInTheDocument()
+    })
+  })
+
+  describe("class-scoped sessions", () => {
+    it("shows a scope chip and scoped copy for a class-scoped session", async () => {
+      localStorage.setItem("kinetilearn_chat_session", "s3")
+      server.use(
+        http.get(`${API}/api/v1/classes/me`, () =>
+          HttpResponse.json([
+            {
+              id: "cl1",
+              name: "Compliance training",
+              description: null,
+              start_date: null,
+              end_date: null,
+              enrolled_at: "2026-08-01T09:00:00Z",
+              exercise_count: 1,
+              completed_exercise_count: 0,
+            },
+          ]),
+        ),
+        http.get(`${API}/api/v1/chat/sessions/s3`, () => HttpResponse.json(scopeLookup("s3", "cl1"))),
+        http.get(`${API}/api/v1/chat/sessions/s3/messages`, () => HttpResponse.json([])),
+      )
+
+      renderLayout()
+      await openPanel()
+
+      expect(await within(panel()).findByText("Compliance training")).toBeInTheDocument()
+      expect(
+        within(panel()).getByText(/Answers only from this class’s materials/),
+      ).toBeInTheDocument()
+      expect(
+        within(panel()).getByText(/I’ll only look at Compliance training’s materials/),
+      ).toBeInTheDocument()
+    })
+
+    it("shows no scope chip for an unscoped session", async () => {
+      renderLayout()
+      await openPanel()
+
+      expect(
+        within(panel()).queryByText(/Answers only from this class’s materials/),
+      ).not.toBeInTheDocument()
     })
   })
 })

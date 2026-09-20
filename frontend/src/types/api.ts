@@ -753,6 +753,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/classes/{class_id}/documents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List My Class Documents */
+        get: operations["list_my_class_documents_api_v1_classes__class_id__documents_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/classes/{class_id}/documents/{document_id}/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Download My Class Document */
+        get: operations["download_my_class_document_api_v1_classes__class_id__documents__document_id__download_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/classes": {
         parameters: {
             query?: never;
@@ -1025,6 +1059,23 @@ export interface paths {
         put?: never;
         /** Create Session */
         post: operations["create_session_api_v1_chat_sessions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/chat/sessions/{session_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Session */
+        get: operations["get_session_api_v1_chat_sessions__session_id__get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1441,6 +1492,8 @@ export interface components {
             id: string;
             /** Exercise Id */
             exercise_id: string | null;
+            /** Class Id */
+            class_id: string | null;
             /** Document Id */
             document_id: string | null;
             /** Title */
@@ -2229,6 +2282,27 @@ export interface components {
             /** Description */
             description?: string | null;
         };
+        /** LearnerDocumentDownload */
+        LearnerDocumentDownload: {
+            /** Url */
+            url: string;
+            /** Expires In */
+            expires_in: number;
+        };
+        /** LearnerDocumentSummary */
+        LearnerDocumentSummary: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Title */
+            title: string;
+            /** Category Name */
+            category_name: string | null;
+            /** Format */
+            format: string;
+        };
         /** LearnerExerciseDetail */
         LearnerExerciseDetail: {
             /**
@@ -2472,6 +2546,8 @@ export interface components {
         SessionCreate: {
             /** Document Id */
             document_id?: string | null;
+            /** Class Id */
+            class_id?: string | null;
         };
         /** SkillBreakdownItem */
         SkillBreakdownItem: {
@@ -4697,6 +4773,69 @@ export interface operations {
             };
         };
     };
+    list_my_class_documents_api_v1_classes__class_id__documents_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                class_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LearnerDocumentSummary"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    download_my_class_document_api_v1_classes__class_id__documents__document_id__download_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                class_id: string;
+                document_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LearnerDocumentDownload"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_classes_api_v1_classes_get: {
         parameters: {
             query?: {
@@ -5348,7 +5487,9 @@ export interface operations {
     };
     list_sessions_api_v1_chat_sessions_get: {
         parameters: {
-            query?: never;
+            query?: {
+                class_id?: string | null;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -5362,6 +5503,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ChatSessionResponse"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -5381,6 +5531,37 @@ export interface operations {
         responses: {
             /** @description Successful Response */
             201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatSessionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_session_api_v1_chat_sessions__session_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
