@@ -3,12 +3,12 @@
   <img alt="KinetiLearn" src="docs/logo.png">
 </picture>
 
-![KinetiLearn's two portals against a starfield: Managers generate AI-exams from their own resources and track completion across every class; Employees take assigned exams and daily quizzes and ask Pace, the RAG-based assistant, for help.](docs/banner.svg)
-
 An AI-powered corporate training platform with an admin portal for training
 managers and a learner portal for employees: upload training material, generate
-exams from it with GPT-4o, run a daily quiz engine, and track each employee's
+exams from it with GPT-4o, run a daily quiz engine, and track employees'
 skill level from what they actually get right.
+
+![KinetiLearn's two portals against a starfield: Managers generate AI-exams from their own resources and track completion across every class; Employees take assigned exams and daily quizzes and ask Pace, the RAG-based assistant, for help.](docs/banner.svg)
 
 ## Why this exists
 
@@ -103,8 +103,8 @@ alembic upgrade head
 uvicorn app.main:app --reload
 ```
 
-In terminal 2, start the worker (needed for document processing and
-exam generation, both run as Celery tasks):
+In terminal 2, start the Celery worker (required for document processing and
+exam generation, both run as workerr tasks):
 
 ```bash
 celery -A worker.tasks:celery_app worker --loglevel=info
@@ -142,24 +142,12 @@ Seed scripts live in `backend/scripts/` and must run in this order:
 python -m scripts.seed_config
 python -m scripts.seed_users
 python -m scripts.seed_classes
-python -m scripts.seed_content   # uploads real documents and generates real exams - costs OpenAI credits
+python -m scripts.seed_content   # costs OpenAI credits
 ```
 
-Each script is idempotent, so re-running one that already ran adds nothing.
+## docs/
 
-## Architecture
-
-One decision I'm particularly happy with: chat sessions can be scoped to a
-class, and I only realized while building it that enrollment isn't forever -
-a learner can be removed from a class mid-conversation. Checking membership
-once, at session creation, would have let that conversation keep answering
-from a class the learner no longer belongs to. So the scope check runs again
-on every single answer, joined into the same query that fetches the class's
-documents, not just once at the start. Losing enrollment now collapses
-retrieval to nothing instead of quietly leaking continued access to that
-class's materials.
-
-More decisions like this, including a frontend validation bug I found and
-fixed, are in [docs/DECISIONS.md](docs/DECISIONS.md). For the directory
-layout and how the modules relate to each other, see
+More decisions during developing KinetiLearn, find in
+[docs/DECISIONS.md](docs/DECISIONS.md).\
+For the directory layout and how the modules relate to each other, see
 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
