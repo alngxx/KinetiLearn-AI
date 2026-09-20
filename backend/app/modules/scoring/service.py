@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.crud import get_or_404
@@ -108,6 +108,26 @@ class SkillScoringService:
             self.db.add(history)
 
         await self.db.flush()
+
+    # Called after a submission is deleted, to bring cumulative_score back in line
+    # with what's left. Always resums from skill_score_history rather than
+    # subtracting the deleted delta, so it can never drift from the source rows.
+    async def recompute(self, user_id: UUID, skill_id: UUID) -> None:
+        skill = await self.db.get(Skill, skill_id)
+        total = await self.db.scalar(
+            select(func.coalesce(func.sum(SkillScoreHistory.score_delta), 0)).where(
+                SkillScoreHistory.user_id == user_id,
+                SkillScoreHistory.skill_id == skill_id,
+            )
+        )
+        score = await self.db.get(SkillScore, (user_id, skill_id))
+        if score is None:
+            score = SkillScore(user_id = user_id, skill_id = skill_id, cumulative_score = 0)
+            self.db.add(score)
+
+        score.cumulative_score = total
+        score.current_level = _level_for(total, skill)
+        score.last_updated_at = datetime.now(timezone.utc)
 
     # Driven from skills, not skill_scores: a radar chart needs every active skill
     # as an axis, and an unscored skill is exactly the "weak" one worth showing.

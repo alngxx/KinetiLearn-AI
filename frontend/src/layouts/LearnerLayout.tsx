@@ -1,6 +1,7 @@
 import { ChartSplineIcon, HouseIcon, LogOutIcon, XIcon } from "lucide-react"
 import { useRef, useState } from "react"
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom"
+import { AccountIdentity } from "@/components/AccountIdentity"
 import { Logo } from "@/components/Logo"
 import { ThemeToggle } from "@/components/ThemeToggle"
 import { Button } from "@/components/ui/button"
@@ -167,6 +168,12 @@ export function LearnerLayout() {
           <span aria-hidden="true" className="h-4 w-px bg-border" />
           <p className="label-micro">Learner</p>
         </div>
+
+        {/* A sibling of the brand block and nav, not nested in either — that's
+            what gives it the header's own gap-x-[26px] section spacing on
+            both sides for free, the same breathing room already separating
+            every other zone here, instead of a bolted-on margin value. */}
+        <AccountIdentity compact className="max-w-[200px]" />
 
         <nav className="ml-[10px] flex items-center gap-1">
           <NavLink

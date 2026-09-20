@@ -8,9 +8,11 @@ from sqlalchemy.orm import selectinload
 
 from app.modules.classes.service import assert_class_member
 from app.modules.exams.models import Exercise, Question
+from app.modules.scoring.models import SkillScoreHistory
 from app.modules.scoring.service import SkillScoringService
 from app.modules.submissions.models import Submission, SubmissionAnswer
 from app.modules.submissions.schemas import (
+    DeleteResponse,
     ScoreUpdate,
     SubmissionDetailResponse,
     SubmissionResponse,
@@ -175,6 +177,32 @@ class SubmissionService:
         stmt = stmt.order_by(Submission.created_at.desc())
         result = await self.db.execute(stmt)
         return [SubmissionResponse.model_validate(s) for s in result.scalars().all()]
+
+    async def delete(self, submission_id: UUID) -> DeleteResponse:
+        submission = await self._load_submission(submission_id)
+
+        # The CHECK constraint on skill_score_history requires submission_id to
+        # stay non-null for an 'exam' row, so these must go before the submission
+        # rather than being left for the FK's ON DELETE SET NULL to handle.
+        history_result = await self.db.execute(
+            select(SkillScoreHistory).where(
+                SkillScoreHistory.submission_id == submission_id
+            )
+        )
+        history_rows = history_result.scalars().all()
+        affected_pairs = {(h.user_id, h.skill_id) for h in history_rows}
+        for history in history_rows:
+            await self.db.delete(history)
+
+        await self.db.delete(submission)
+        await self.db.flush()
+
+        scoring_service = SkillScoringService(self.db)
+        for user_id, skill_id in affected_pairs:
+            await scoring_service.recompute(user_id, skill_id)
+
+        await self.db.commit()
+        return DeleteResponse(deleted = 1)
 
     async def update_score(
         self, submission_id: UUID, data: ScoreUpdate

@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, File, UploadFile, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -69,9 +69,16 @@ async def list_users(
 
 
 # Must be declared before GET /{user_id} so "me" isn't matched as a UUID path param.
+# Takes db only so the response can go through UserService, which is what turns
+# the stored R2 key into a signed avatar URL. get_current_user already depends on
+# get_db and FastAPI caches sub-dependencies per request, so this is the same
+# session and costs nothing.
 @users_router.get("/me", response_model = UserResponse)
-async def get_me(current_user: User = Depends(get_current_user)):
-    return UserResponse.model_validate(current_user)
+async def get_me(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    return UserService(db).to_response(current_user)
 
 
 # Likewise declared before PUT /{user_id}. Any authenticated user changes only their own password.
@@ -82,6 +89,25 @@ async def change_my_password(
     db: AsyncSession = Depends(get_db),
 ):
     return await UserService(db).change_password(current_user.id, data)
+
+
+# Everyone manages their own picture, so these are get_current_user rather than
+# require_admin. Declared before /{user_id} for the same reason as /me.
+@users_router.post("/me/avatar", response_model = UserResponse)
+async def set_my_avatar(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    return await UserService(db).set_avatar(current_user.id, file)
+
+
+@users_router.delete("/me/avatar", response_model = UserResponse)
+async def remove_my_avatar(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    return await UserService(db).remove_avatar(current_user.id)
 
 
 @users_router.get(

@@ -50,8 +50,20 @@ describe("AdminPortal routing", () => {
     // its header before its query settles, so empty payloads are enough.
     server.use(
       http.get(`${API}/api/v1/*`, () => HttpResponse.json([])),
-      http.get(`${API}/api/v1/auth/me`, () =>
-        HttpResponse.json({ id: "u1", email: "a@b.c", full_name: "Admin", role: "admin" }),
+      http.get(`${API}/api/v1/users/me`, () =>
+        HttpResponse.json({
+          id: "u1",
+          email: "a@b.c",
+          full_name: "Admin User",
+          role: "admin",
+          is_active: true,
+          department_id: null,
+          seniority_id: null,
+          job_position_id: null,
+          employee_level_id: null,
+          avatar_url: null,
+          created_at: "2026-01-01T00:00:00Z",
+        }),
       ),
     )
   })

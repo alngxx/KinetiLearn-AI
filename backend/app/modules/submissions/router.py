@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.dependencies import get_current_user, get_db, require_admin
 from app.modules.auth.models import User
 from app.modules.submissions.schemas import (
+    DeleteResponse,
     ScoreUpdate,
     SubmissionDetailResponse,
     SubmissionResponse,
@@ -67,3 +68,12 @@ async def update_submission_score(
     db: AsyncSession = Depends(get_db),
 ):
     return await SubmissionService(db).update_score(submission_id, data)
+
+
+@router.delete("/{submission_id}", response_model = DeleteResponse)
+async def delete_submission(
+    submission_id: UUID,
+    _: User = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    return await SubmissionService(db).delete(submission_id)

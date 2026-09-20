@@ -46,6 +46,7 @@ class User(Base):
         ForeignKey("employee_levels.id", ondelete="RESTRICT"),
         nullable=True,
     )
+    avatar_url = Column(String(255), nullable = True)
     is_active = Column(Boolean, nullable=False, server_default=text("TRUE"))
     last_login_at = Column(TIMESTAMP(timezone=True), nullable=True)
     created_at = Column(

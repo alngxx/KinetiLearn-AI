@@ -46,6 +46,11 @@ class PasswordChange(BaseModel):
 
 
 # Response shape for all user endpoints. Never includes password_hash.
+#
+# avatar_url is a short-lived signed URL, NOT the value in users.avatar_url —
+# that column holds the R2 object key, the same way DocumentVersion.file_url
+# does. The bucket is private, so the raw key is not renderable and must never
+# leave the service layer. UserService.to_response is what makes the swap.
 class UserResponse(BaseModel):
     model_config = ConfigDict(from_attributes = True)
 
@@ -58,4 +63,5 @@ class UserResponse(BaseModel):
     seniority_id: Optional[UUID]
     job_position_id: Optional[UUID]
     employee_level_id: Optional[UUID]
+    avatar_url: Optional[str] = None
     created_at: datetime

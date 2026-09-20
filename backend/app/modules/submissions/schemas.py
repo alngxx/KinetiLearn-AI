@@ -45,3 +45,7 @@ class SubmissionDetailResponse(SubmissionResponse):
 # against exercise.pass_score, so it is not settable here.
 class ScoreUpdate(BaseModel):
     score: int = Field(..., ge = 0)
+
+
+class DeleteResponse(BaseModel):
+    deleted: int

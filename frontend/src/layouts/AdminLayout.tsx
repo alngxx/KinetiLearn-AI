@@ -8,6 +8,7 @@ import {
 } from "lucide-react"
 import { useRef, useState, type KeyboardEvent, type PointerEvent } from "react"
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom"
+import { AccountIdentity } from "@/components/AccountIdentity"
 import { ThemeToggle } from "@/components/ThemeToggle"
 import { Button } from "@/components/ui/button"
 import { Logo } from "@/components/Logo"
@@ -162,7 +163,15 @@ export function AdminLayout() {
           <p className="label-micro mt-0.5">Admin</p>
         </div>
 
-        <nav className="flex flex-col gap-5">
+        {/* flex-1 + min-h-0 + overflow-y-auto: without this the nav's own
+            content height wins and the aside (fixed to h-svh) just overflows
+            downward, taking the identity block and Sign out with it below the
+            fold — reachable only by scrolling the whole page. min-h-0 is load
+            bearing: a flex item's automatic minimum height is its content
+            size, which blocks shrinking (and so blocks the scroll region)
+            without it. This keeps the footer always visible within the
+            viewport instead. */}
+        <nav className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto">
           <div className="flex flex-col gap-0.5">
             <span className="label-micro px-2.5 pb-1">People</span>
             <NavLink
@@ -224,27 +233,33 @@ export function AdminLayout() {
           </div>
         </nav>
 
-        {/* flex-wrap is the overflow fix, not a stylistic choice: theme
-            toggle + "Sign out" don't both fit on one line once the sidebar
-            is dragged near its 200px floor, and nothing here clips, so
-            without it "Sign out" bled past the sidebar's right edge. A
-            single wrapped item still lands flush left, since justify-between
-            has nothing to space apart on a line of one. */}
-        <div className="mt-auto flex flex-wrap items-center justify-between gap-2 border-t border-sidebar-border pt-3">
-          <ThemeToggle />
+        {/* The identity row stacks above the controls rather than joining them:
+            at the 200px floor a name, a theme toggle and "Sign out" cannot
+            share a line, and the name is the one that must stay readable.
+            flex-wrap on the inner row is still the overflow fix it always was —
+            theme toggle + "Sign out" don't both fit near that floor either, and
+            nothing here clips, so without it "Sign out" bled past the sidebar's
+            right edge. A single wrapped item still lands flush left, since
+            justify-between has nothing to space apart on a line of one. */}
+        <div className="mt-auto flex flex-col gap-2 border-t border-sidebar-border pt-3">
+          <AccountIdentity />
 
-          <Button
-            variant="ghost"
-            size="sm"
-            className="justify-start px-2"
-            onClick={() => {
-              logout()
-              navigate("/login", { replace: true })
-            }}
-          >
-            <LogOutIcon />
-            Sign out
-          </Button>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <ThemeToggle />
+
+            <Button
+              variant="ghost"
+              size="sm"
+              className="justify-start px-2"
+              onClick={() => {
+                logout()
+                navigate("/login", { replace: true })
+              }}
+            >
+              <LogOutIcon />
+              Sign out
+            </Button>
+          </div>
         </div>
       </aside>
 

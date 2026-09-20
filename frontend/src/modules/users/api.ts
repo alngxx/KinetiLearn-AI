@@ -26,6 +26,29 @@ export type LookupRow = {
   name: string
 }
 
+// Mirrors the server's own limits so an obviously bad file is refused before it
+// crosses the wire. The server re-checks by sniffing the bytes; this is only to
+// save a round trip, never the real gate.
+export const AVATAR_MIME_TYPES = ["image/png", "image/jpeg", "image/webp"]
+export const AVATAR_MAX_SIZE = 2 * 1024 * 1024
+
+export function getMe() {
+  return api.get<UserRow>("/api/v1/users/me")
+}
+
+// avatar_url on the way out is a short-lived signed URL, not the key the server
+// stores. Both endpoints return the whole updated user, so the caller can drop
+// the result straight into the cache.
+export function uploadAvatar(file: File) {
+  const form = new FormData()
+  form.set("file", file)
+  return api.post<UserRow>("/api/v1/users/me/avatar", form)
+}
+
+export function removeAvatar() {
+  return api.delete<UserRow>("/api/v1/users/me/avatar")
+}
+
 export function listUsers(filters: UserFilters) {
   const search = new URLSearchParams()
   for (const [key, value] of Object.entries(filters)) {

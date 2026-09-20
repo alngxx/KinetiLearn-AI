@@ -3,6 +3,8 @@
   <img alt="KinetiLearn" src="docs/logo.png">
 </picture>
 
+![KinetiLearn's two portals against a starfield: Managers generate AI-exams from their own resources and track completion across every class; Employees take assigned exams and daily quizzes and ask Pace, the RAG-based assistant, for help.](docs/banner.svg)
+
 An AI-powered corporate training platform with an admin portal for training
 managers and a learner portal for employees: upload training material, generate
 exams from it with GPT-4o, run a daily quiz engine, and track each employee's
@@ -56,7 +58,7 @@ Verified from `backend/requirements.txt` and `frontend/package.json`.
 - PostgreSQL
 - Celery + Redis for document processing pipeline
 - LangChain + `langchain-openai` + `tiktoken`, calling GPT-4o and
-  `text-embedding-3-small` directly through the `openai` SDK
+  `text-embedding-3-small` directly through `openai` SDK
 - Chroma as the vector database (the config also has a Pinecone index/API key slot for a prod swap)
 - PyMuPDF and `python-docx` for document text extraction
 - boto3 for Cloudflare R2 (S3-compatible) file storage

@@ -94,6 +94,19 @@ the exercise against further question edits. No code path can change a
 question after that point, so there's nothing left to keep in sync - the
 simplification held up rather than leaving a gap.
 
+**`users.avatar_url` holds an R2 object key, not a URL, and the API field of
+the same name holds a signed URL.** The name is the same on both sides, which
+reads like a bug until you know why. The bucket is private, so a raw key can't
+go in an `<img src>`; `UserService.to_response` is the one place the key is
+swapped for a short-lived signed URL, and every user endpoint goes through it
+so the key never leaves the service layer. `document_versions.file_url` stores
+a key the same way. Two follow-on choices come from this: the client is built
+at most once per request and skipped entirely for users with no picture (a
+full roster would otherwise pay ~1.7ms of synchronous boto3 setup per row on
+the event loop), and each upload writes a *new* key rather than overwriting a
+stable one, since the browser caches the image behind its signed URL and would
+keep showing the picture that was just replaced.
+
 ## More detail
 
 - [ARCHITECTURE.md](ARCHITECTURE.md) - directory layout and how the backend's modules relate to each other.

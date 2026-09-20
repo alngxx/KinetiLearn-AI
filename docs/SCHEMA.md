@@ -165,6 +165,7 @@ Internal grade/band (e.g., "L1", "L2"). Distinct from seniority.
 | `seniority_id` | UUID | YES | NULL | FK → `seniority_levels.id` ON DELETE RESTRICT |
 | `job_position_id` | UUID | YES | NULL | FK → `job_positions.id` ON DELETE RESTRICT |
 | `employee_level_id` | UUID | YES | NULL | FK → `employee_levels.id` ON DELETE RESTRICT |
+| `avatar_url` | VARCHAR(255) | YES | NULL | R2 object key, not a URL - see DECISIONS.md |
 | `is_active` | BOOLEAN | NO | TRUE | |
 | `last_login_at` | TIMESTAMPTZ | YES | NULL | |
 | `created_at` | TIMESTAMPTZ | NO | now() | |

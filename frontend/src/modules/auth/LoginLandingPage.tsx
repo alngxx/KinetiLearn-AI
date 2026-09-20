@@ -27,6 +27,7 @@ const DOORS = {
     blurb: ["Build exams, assign courses,", "follow completion across every team."],
     cta: "Log in as admins",
     welcome: "Sign in to continue your management.",
+    demoEmail: "anloc.nguyen@kinetilearn.com",
   },
   learner: {
     eyebrow: "Learning",
@@ -34,6 +35,7 @@ const DOORS = {
     blurb: ["Open your assigned training,", "take daily quiz, and chat with our AI."],
     cta: "Log in as learners",
     welcome: "Sign in to continue your assigned training.",
+    demoEmail: "mike.ross@kinetilearn.com",
   },
 } as const satisfies Record<Door, unknown>
 
@@ -361,10 +363,23 @@ export function LoginLandingPage() {
               </form>
 
               <div className="border-t border-kl-rule pt-4 text-xs/[1.6] text-pretty text-kl-dim">
+                {/* Email only, never the password - this is a demo hint, not a
+                    credential drop. Clicking fills the email field so a reviewer
+                    still has to type the password themselves. */}
+                <p>
+                  Demo account:{" "}
+                  <button
+                    type="button"
+                    onClick={() => setEmail(DOORS[door].demoEmail)}
+                    className="cursor-pointer font-medium text-kl-fg underline decoration-kl-card-line underline-offset-2 transition-colors hover:decoration-current focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kl-emerald"
+                  >
+                    {DOORS[door].demoEmail}
+                  </button>
+                </p>
                 <button
                   type="button"
                   onClick={() => alert("Password reset functionality is for demonstration purposes only.")}
-                  className="cursor-pointer transition-colors hover:text-kl-fg focus-visible:outline-none"
+                  className="mt-2 cursor-pointer transition-colors hover:text-kl-fg focus-visible:outline-none"
                 >
                   Forgot password?
                 </button>

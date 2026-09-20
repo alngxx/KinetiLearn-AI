@@ -1,4 +1,5 @@
 import uuid
+from unittest.mock import patch
 
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
@@ -90,10 +91,45 @@ async def test_list_users(auth_client, admin):
     assert "admin@kineti.com" in emails
 
 
+# The roster is unpaginated, so an R2 client built per row would put a boto3
+# constructor (~1.7ms of synchronous work) on the event loop once per user.
+# UserService memoises one per request instead; this is the guard on that.
+async def test_list_users_builds_at_most_one_storage_client(auth_client, admin, db_session):
+    for index in range(3):
+        await _seed_user(db_session, f"avatar-{index}@kineti.com", role = "learner")
+        db_session.add(
+            User(
+                id = uuid.uuid4(),
+                email = f"pictured-{index}@kineti.com",
+                password_hash = "x",
+                full_name = "Pictured User",
+                role = "learner",
+                avatar_url = f"avatars/{uuid.uuid4()}/key.png",
+            )
+        )
+    await db_session.flush()
+
+    with patch("app.modules.auth.service.R2Storage") as mock_r2:
+        mock_r2.return_value.get_presigned_url.return_value = "https://signed"
+        resp = await auth_client.get(BASE, headers = _auth(admin))
+
+    assert resp.status_code == 200
+    assert mock_r2.call_count == 1
+
+
 async def test_get_me(auth_client, admin):
     resp = await auth_client.get(f"{BASE}/me", headers = _auth(admin))
     assert resp.status_code == 200
     assert resp.json()["email"] == "admin@kineti.com"
+
+
+async def test_get_me_without_an_avatar_never_builds_a_storage_client(auth_client, admin):
+    with patch("app.modules.auth.service.R2Storage") as mock_r2:
+        resp = await auth_client.get(f"{BASE}/me", headers = _auth(admin))
+
+    assert resp.status_code == 200
+    assert resp.json()["avatar_url"] is None
+    mock_r2.assert_not_called()
 
 
 async def test_get_user_not_found(auth_client, admin):

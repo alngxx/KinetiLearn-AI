@@ -17,6 +17,12 @@ class Settings(BaseSettings):
     # survive a slow click-to-open and one retry.
     DOWNLOAD_URL_EXPIRE_SECONDS: int = 300
 
+    # Longer than a download link, because an avatar sits in an already-rendered
+    # page rather than being redeemed on click: if the browser drops the image
+    # from its cache and re-requests it, an expired URL is a broken picture.
+    # Capped at the JWT's hour so the link cannot outlive the session that got it.
+    AVATAR_URL_EXPIRE_SECONDS: int = 3600
+
     R2_ACCESS_KEY: str = ""
     R2_SECRET_KEY: str = ""
     R2_BUCKET_NAME: str = ""
