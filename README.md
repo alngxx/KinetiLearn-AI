@@ -22,22 +22,29 @@ there to make the features visible, since nobody is using this for real yet.
 
 ## Key features
 
-- Upload a document as admin - PDF, DOCX, or Markdown - and it gets chunked,
+- Upload a document as admin - PDF, DOCX, or Markdown - and it's chunked,
   embedded, and stored in Chroma through a Celery pipeline. Documents are
-  versioned, so a re-upload doesn't quietly wipe out what learners already saw.
-- Tag that document with one or more skills, then hand it to gpt-4o with a
-  free-text prompt to generate a 50 MCQs exam.
-- The learner-facing chatbot answers from the training material itself, not
-  from memory: every answer cites the source chunks it drew from, and it says
-  plainly when nothing in the corpus matches instead of guessing. It can be
-  scoped to one document or left open to the whole active corpus.
+  versioned, so a re-upload doesn't overwrite what learners already saw.
+- Tag a document with skills, then generate a GPT-4o multiple-choice exam
+  from it: the admin sets how many questions (1-50) and writes the prompt
+  that steers what it asks.
+- The chatbot cites the source chunks behind every answer, and says so
+  plainly when nothing matches instead of guessing. Its retrieval scope
+  narrows to match how the chat was opened: one exam's source documents when
+  explaining wrong answers, one class's materials when studying from a class,
+  one document, or the whole active corpus.
+- Each class has a Materials list and a "Study with AI mentor" chat scoped to
+  just that class - retrieval never reaches outside that class's own
+  documents into the wider corpus.
+- Materials download through a short-lived signed URL (5-minute expiry),
+  gated by the same class-membership check as the Materials list itself, not
+  a permanent public link.
 - Learners take daily quizzes pulled from a configured document and finalized
-  exams within their scheduled window, then can ask the same chatbot to walk
-  through exactly which questions they got wrong and why.
-- Correct answers roll up quietly into a per-skill score, checked against
-  thresholds an admin configured. The breakdown always shows every active
-  skill, even ones a learner hasn't touched yet, so a gap is visible rather
-  than just absent.
+  exams within their scheduled window, then can ask the chatbot to explain
+  exactly what they got wrong and why.
+- Correct answers roll up into a per-skill score, checked against
+  admin-configured thresholds. The breakdown lists every active skill, even
+  ones a learner hasn't touched, so a gap is visible instead of absent.
 
 ## Tech stack
 
@@ -54,14 +61,14 @@ Verified from `backend/requirements.txt` and `frontend/package.json`.
 - PyMuPDF and `python-docx` for document text extraction
 - boto3 for Cloudflare R2 (S3-compatible) file storage
 - passlib (bcrypt) + `python-jose` for password hashing and JWTs
-- pytest + pytest-asyncio + httpx for the test suite (399 tests, all passing)
+- pytest + pytest-asyncio + httpx for the test suite (475 tests, all passing)
 
 **Frontend**
 - React 19 + TypeScript, built with Vite
 - React Router 7, TanStack Query 5
 - Tailwind CSS 4 + Radix UI primitives + shadcn
 - Recharts for the skill breakdown charts
-- Vitest + Testing Library + MSW for unit tests (428 tests, all passing),
+- Vitest + Testing Library + MSW for unit tests (456 tests, all passing),
   Playwright for e2e
 - `openapi-typescript` generates the API types from the running backend's
   OpenAPI schema (`npm run gen:api`)
@@ -140,11 +147,15 @@ Each script is idempotent, so re-running one that already ran adds nothing.
 
 ## Architecture
 
-One decision I'm particularly happy with: deleting a category needed more than
-a DELETE route, because `skills.category_id` is a `RESTRICT` foreign key -
-something I only found out by trying it and getting a raw 500 back. It now
-checks for dependent skills first and gives the admin an actual 409 explaining
-what's blocking the delete, instead of leaking a database error to the UI.
+One decision I'm particularly happy with: chat sessions can be scoped to a
+class, and I only realized while building it that enrollment isn't forever -
+a learner can be removed from a class mid-conversation. Checking membership
+once, at session creation, would have let that conversation keep answering
+from a class the learner no longer belongs to. So the scope check runs again
+on every single answer, joined into the same query that fetches the class's
+documents, not just once at the start. Losing enrollment now collapses
+retrieval to nothing instead of quietly leaking continued access to that
+class's materials.
 
 More decisions like this, including a frontend validation bug I found and
 fixed, are in [docs/DECISIONS.md](docs/DECISIONS.md). For the directory
