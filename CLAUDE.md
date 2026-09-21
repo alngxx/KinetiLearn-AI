@@ -12,8 +12,17 @@ daily quiz engine, skill scoring engine.
 - Frontend: React + Tailwind + Recharts
 
 ## Structure
+```
 backend/app/modules/{feature}/  ← models.py, router.py, service.py, schemas.py
-backend/worker/tasks.py         ← Celery async tasks
+backend/app/core/               ← config, DB session, auth/security, LLM + vectorstore clients
+backend/worker/tasks.py         ← Celery entry points (document processing, exam/quiz generation)
+backend/worker/processing.py    ← document extraction, chunking, embedding
+
+frontend/src/modules/{feature}/ ← mirrors the backend split: api.ts, queries.ts, page components
+frontend/src/components/        ← shared UI primitives used across modules
+
+docs/ARCHITECTURE.md and docs/SCHEMA.md have the full layout and DB schema.
+```
 
 ## Rules
 - Routers handle HTTP only. Services handle logic. Models handle DB only.
@@ -31,13 +40,12 @@ backend/worker/tasks.py         ← Celery async tasks
 - Migrations: `alembic upgrade head`
 
 
-# Andrej Karpathy's Claude Code Guidelines
-
+# Andrej Karpathy's guidelines
 Behavioral guidelines to reduce common LLM coding mistakes. Merge with project-specific instructions as needed.
 
 **Tradeoff:** These guidelines bias toward caution over speed. For trivial tasks, use judgment.
 
-## 1. Think Before Coding
+## 1. Think before coding
 
 **Don't assume. Don't hide confusion. Surface tradeoffs.**
 
@@ -47,7 +55,7 @@ Before implementing:
 - If a simpler approach exists, say so. Push back when warranted.
 - If something is unclear, stop. Name what's confusing. Ask.
 
-## 2. Simplicity First
+## 2. Simplicity first
 
 **Minimum code that solves the problem. Nothing speculative.**
 
@@ -59,7 +67,7 @@ Before implementing:
 
 Ask yourself: "Would a senior engineer say this is overcomplicated?" If yes, simplify.
 
-## 3. Surgical Changes
+## 3. Surgical changes
 
 **Touch only what you must. Clean up only your own mess.**
 
@@ -75,7 +83,7 @@ When your changes create orphans:
 
 The test: Every changed line should trace directly to the user's request.
 
-## 4. Goal-Driven Execution
+## 4. Goal-driven execution
 
 **Define success criteria upfront, then run.**
 
@@ -98,11 +106,11 @@ to double-check it again afterward.
 for a single adversarial-review-subagent pass at the end, checking the diff
 against the approved plan (requirements implemented, edge cases tested,
 nothing out-of-scope changed). This is not the same agent re-checking its
-own already-stated criteria — it's an independent reviewer catching plan
+own already-stated criteria - it's an independent reviewer catching plan
 drift the stated criteria didn't cover. It does not apply to small/routine
 fixes; on those, this rule's default (no extra passes) still holds.
 
-## 5. Reporting Back
+## 5. Reporting back
 
 **Match report length to what changed, skip narrating routine steps**
 
@@ -114,7 +122,7 @@ fixes; on those, this rule's default (no extra passes) still holds.
 - Flag real uncertainties or tradeoffs found during work — don't flag things
   already covered by the stated plan.
 
-## 6. Scope Discipline
+## 6. Scope discipline
 
 **Deliver what was asked, at the scope intended.**
 
@@ -125,7 +133,7 @@ fixes; on those, this rule's default (no extra passes) still holds.
   narrowing, or transforming it.
 - Finish the whole task. Stop short of actions clearly beyond what was asked.
 
-## Frontend Visual Quality
+# Frontend Visual Quality
 - IMPORTANT: use the `frontend-design` skill for aesthetic direction and
   the `web-design-guidelines` skill for a correctness/accessibility audit
   on every screen you touch - including backend-integration work, not
@@ -136,9 +144,3 @@ fixes; on those, this rule's default (no extra passes) still holds.
   mandatory on every screen you touch.
 - Headings and buttons use sentence case, not Title Case, project-wide.
   Don't re-litigate this.
-
----
-
-**These guidelines are working if:** fewer unnecessary changes in diffs, fewer
-rewrites due to overcomplication, clarifying questions come before implementation
-rather than after mistakes, and reports are short enough to read in one pass.
