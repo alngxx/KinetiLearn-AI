@@ -8,12 +8,8 @@ celerybeat-schedule*
 node_modules/
 dist/
 .DS_Store
-KinetiLearn HTML/
 claude_design/
-kinetilearn_schema_spec.md
 pyrightconfig.json
 .vscode/
 .claude/
-Function List.html
-Tech Stack.html
-User Story.html
+skills-lock.json
