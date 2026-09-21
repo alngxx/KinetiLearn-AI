@@ -21,9 +21,9 @@ UI - all wired together and actually working, not just scaffolded.
 
 ![Landing page with the two portal doors, managers and employees](docs/screenshots-demo/admin-portal/landing-page.png)
 
-**[Admin portal walkthrough](docs/demo-videos/admin-portal.mov)** — upload a document, tag it to a skill, generate an exam, configure a daily quiz, and review submissions.
+**[Admin-portal walkthrough](docs/demo-videos/admin-portal.mov)**
 
-**[Learner portal walkthrough](docs/demo-videos/learner-portal.mov)** — take a daily quiz, ask Pace about the class materials, review a scored exam, and check skill progress.
+**[Learner-portal walkthrough](docs/demo-videos/learner-portal.mov)**
 
 <details>
 <summary>Screenshots (admin + learner portal)</summary>
@@ -35,16 +35,16 @@ UI - all wired together and actually working, not just scaffolded.
 ![Grid of active classes in the admin dashboard](docs/screenshots-demo/admin-portal/admin-classes-grid.png)
 
 ![Uploading a document and tagging it to a skill](docs/screenshots-demo/admin-portal/admin-document-upload-tagging.png)
-Uploading a PDF and tagging it to the skills it should score.
+Uploading a PDF and tagging it to the skills it should score
 
 ![Generating an exam from source documents with GPT-4o](docs/screenshots-demo/admin-portal/admin-exam-generation.png)
-Generating an exam straight from the uploaded material.
+Generating an exam straight from the uploaded material
 
 ![Daily quiz configuration screen](docs/screenshots-demo/admin-portal/admin-daily-quiz-configs.png)
-Setting up a daily quiz to push out on a schedule.
+Setting up a daily quiz to push out on a schedule
 
 ![Reviewing a learner's graded submission](docs/screenshots-demo/admin-portal/admin-submission-review.png)
-Reviewing how one learner did on a submission.
+Reviewing how one learner did on a submission
 
 ### Learner portal
 
@@ -59,7 +59,7 @@ Reviewing how one learner did on a submission.
 ![A scored quiz submission with per-question results](docs/screenshots-demo/learner-portal/scored-submission-result.png)
 
 ![Pace explaining why an answer was wrong](docs/screenshots-demo/learner-portal/explain-mistakes.png)
-Asking Pace why an answer was marked wrong.
+Asking Pace why an answer was marked wrong?
 
 ![Skills page showing scored skill categories](docs/screenshots-demo/learner-portal/skill-breakdown.png)
 
