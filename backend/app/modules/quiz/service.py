@@ -291,6 +291,7 @@ class DailyQuizSubmissionService:
         return [
             DailyQuizTodayResponse(
                 id = quiz.id,
+                name = quiz.config.name,
                 quiz_date = quiz.quiz_date,
                 expires_at = quiz.expires_at,
                 already_submitted = quiz.id in submitted_ids,

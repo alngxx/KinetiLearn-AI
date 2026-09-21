@@ -26,6 +26,10 @@ const activeClasses =
 // Set VITE_HORIZON_ALL_ROUTES=true to run it across the whole learner shell.
 const horizonAllRoutes = import.meta.env.VITE_HORIZON_ALL_ROUTES === "true"
 const horizonRoutes = ["/learner", "/learner/skills"]
+// Skills lays its categories out as columns, not a reading column of prose -
+// the 600px well every other learner page uses would force it back to one
+// column and the vertical scroll this page exists to avoid.
+const wideRoutes = ["/learner/skills"]
 
 // The horizon rule reads as one lit line: dimmer at the ends, brightest at
 // centre. The mock brightens the centre with a second identity token
@@ -99,6 +103,7 @@ export function LearnerLayout() {
   const navigate = useNavigate()
   const { pathname } = useLocation()
   const showHorizon = horizonAllRoutes || horizonRoutes.includes(pathname)
+  const isWide = wideRoutes.includes(pathname)
   // Closing the panel only unmounts ChatPanel. useChat, and with it the fetch
   // and its AbortController, stays here — so an answer in flight finishes while
   // the panel is shut and is waiting when it reopens. Do not "clean up" by
@@ -221,7 +226,10 @@ export function LearnerLayout() {
               band and horizon rule stay full-bleed, but the actual reading
               column is a deliberately tighter well so text lines and cards
               don't stretch edge-to-edge on a wide monitor. */}
-          <div key={pathname} className="enter-rise mx-auto w-full max-w-[600px]">
+          <div
+            key={pathname}
+            className={`enter-rise mx-auto w-full ${isWide ? "max-w-5xl" : "max-w-[600px]"}`}
+          >
             <Outlet context={{ openClassChat } satisfies LearnerChatContext} />
           </div>
         </main>

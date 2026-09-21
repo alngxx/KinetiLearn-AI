@@ -1918,6 +1918,8 @@ export interface components {
              * Format: uuid
              */
             id: string;
+            /** Name */
+            name: string;
             /**
              * Quiz Date
              * Format: date

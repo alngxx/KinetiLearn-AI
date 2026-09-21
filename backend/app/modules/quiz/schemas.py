@@ -97,6 +97,7 @@ class DailyQuizQuestionOut(BaseModel):
 
 class DailyQuizTodayResponse(BaseModel):
     id: UUID
+    name: str
     quiz_date: date
     expires_at: datetime
     already_submitted: bool

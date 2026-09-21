@@ -15,12 +15,55 @@ skill level from what they actually get right.
 I built KinetiLearn to practice shipping a full-stack app end to end, not to
 launch a product. FastAPI, async SQLAlchemy, a Celery pipeline that processes
 uploaded documents, a RAG chatbot, an LLM-driven exam generator, a React admin
-UI - all wired together and actually working, not just scaffolded. The demo
-data (13 active classes, real exams, real submissions, a scoring history) is
-there to make the features visible, since nobody is using this for real yet.
+UI - all wired together and actually working, not just scaffolded.
 
 ## Screenshots / Demo
 
+![Landing page with the two portal doors, managers and employees](docs/screenshots-demo/admin-portal/landing-page.png)
+
+**[Admin portal walkthrough](docs/demo-videos/admin-portal.mov)** — upload a document, tag it to a skill, generate an exam, configure a daily quiz, and review submissions.
+
+**[Learner portal walkthrough](docs/demo-videos/learner-portal.mov)** — take a daily quiz, ask Pace about the class materials, review a scored exam, and check skill progress.
+
+<details>
+<summary>Screenshots (admin + learner portal)</summary>
+
+### Admin portal
+
+![Admin login screen with demo credentials filled in](docs/screenshots-demo/admin-portal/login-credentials.png)
+
+![Grid of active classes in the admin dashboard](docs/screenshots-demo/admin-portal/admin-classes-grid.png)
+
+![Uploading a document and tagging it to a skill](docs/screenshots-demo/admin-portal/admin-document-upload-tagging.png)
+Uploading a PDF and tagging it to the skills it should score.
+
+![Generating an exam from source documents with GPT-4o](docs/screenshots-demo/admin-portal/admin-exam-generation.png)
+Generating an exam straight from the uploaded material.
+
+![Daily quiz configuration screen](docs/screenshots-demo/admin-portal/admin-daily-quiz-configs.png)
+Setting up a daily quiz to push out on a schedule.
+
+![Reviewing a learner's graded submission](docs/screenshots-demo/admin-portal/admin-submission-review.png)
+Reviewing how one learner did on a submission.
+
+### Learner portal
+
+![Employee login screen with demo credentials filled in](docs/screenshots-demo/learner-portal/employee-login-credentials.png)
+
+![Learner home page with today's daily quiz](docs/screenshots-demo/learner-portal/home-daily-quiz.png)
+
+![Classes list with per-class progress](docs/screenshots-demo/learner-portal/classes-progress.png)
+
+![A class's materials and exercises](docs/screenshots-demo/learner-portal/class-detail-materials-exercises.png)
+
+![A scored quiz submission with per-question results](docs/screenshots-demo/learner-portal/scored-submission-result.png)
+
+![Pace explaining why an answer was wrong](docs/screenshots-demo/learner-portal/explain-mistakes.png)
+Asking Pace why an answer was marked wrong.
+
+![Skills page showing scored skill categories](docs/screenshots-demo/learner-portal/skill-breakdown.png)
+
+</details>
 
 ## Key features
 

@@ -61,8 +61,8 @@ export function QuizCard({
 
       <div className="flex min-w-0 flex-1 flex-col gap-1.5">
         <div className="flex flex-wrap items-center gap-2">
-          <h3 className="text-[17px] font-semibold tracking-[-0.02em] text-foreground">
-            {formatDay(quiz.quiz_date)}
+          <h3 className="min-w-0 truncate text-[17px] font-semibold tracking-[-0.02em] text-foreground">
+            {quiz.name}
           </h3>
           {quiz.already_submitted && (
             <Badge variant="success">
@@ -71,8 +71,12 @@ export function QuizCard({
             </Badge>
           )}
         </div>
-        <p className="numeric text-[11.5px] tracking-[0.02em] text-muted-foreground">
-          {count} {count === 1 ? "question" : "questions"}
+        <p className="text-[11.5px] tracking-[0.02em] text-muted-foreground">
+          {formatDay(quiz.quiz_date)}
+          {" · "}
+          <span className="numeric">
+            {count} {count === 1 ? "question" : "questions"}
+          </span>
           {" · "}
           <time dateTime={quiz.expires_at}>{formatRemaining(quiz.expires_at)}</time>
         </p>

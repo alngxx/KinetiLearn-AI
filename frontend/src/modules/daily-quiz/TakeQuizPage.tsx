@@ -72,8 +72,8 @@ function TakeView({ quizId }: { quizId: string }) {
       </Link>
 
       <PageHeader
-        eyebrow="Daily quiz"
-        title={quiz === undefined ? "Daily quiz" : formatDay(quiz.quiz_date)}
+        eyebrow={quiz === undefined ? "Daily quiz" : `Daily quiz · ${formatDay(quiz.quiz_date)}`}
+        title={quiz === undefined ? "Daily quiz" : quiz.name}
         description={
           result === null && quiz !== undefined && !quiz.already_submitted
             ? "You get one attempt. Answers cannot be changed once sent."
@@ -186,15 +186,22 @@ function QuestionField({
   disabled: boolean
   onSelect: (optionId: string) => void
 }) {
-  // Block, not flex: a legend is laid out specially and does not behave as a
-  // flex item consistently across browsers.
+  // A <fieldset>/<legend> pair looks like the right semantics here, but
+  // browsers only reserve room for the legend's first line when cutting the
+  // fieldset's top border, so a question that wraps to two lines gets the
+  // border drawn straight through its own text. A plain heading plus
+  // role="radiogroup" gives the same grouped-label semantics without that
+  // layout quirk — the same pattern the read-only result list below already
+  // uses for this exact text.
+  const headingId = `question-${question.id}-heading`
+
   return (
-    <fieldset className="surface p-5">
-      <legend className="mb-3 flex gap-2 text-sm font-medium break-words text-foreground">
+    <div className="surface flex flex-col gap-3 p-5">
+      <p id={headingId} className="flex gap-2 text-sm font-medium break-words text-foreground">
         <span className="label-micro shrink-0 pt-0.5">{index + 1}</span>
         {question.question_text}
-      </legend>
-      <div className="flex flex-col gap-1.5">
+      </p>
+      <div role="radiogroup" aria-labelledby={headingId} className="flex flex-col gap-1.5">
         {question.options.map((option) => (
           <label
             key={option.id}
@@ -214,7 +221,7 @@ function QuestionField({
           </label>
         ))}
       </div>
-    </fieldset>
+    </div>
   )
 }
 

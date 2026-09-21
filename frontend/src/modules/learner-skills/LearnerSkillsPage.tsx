@@ -169,20 +169,25 @@ function Breakdown({ items }: { items: SkillBreakdownItem[] }) {
 
       <Legend ranges={ranges} />
 
-      {groupByCategory(items).map((group, index) => (
-        <section
-          key={group.category}
-          style={staggerStyle(index, { step: "40ms" })}
-          className="enter-stagger flex flex-col gap-3.5"
-        >
-          <SectionLabel>{group.category}</SectionLabel>
-          <ul className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
-            {group.items.map((item) => (
-              <SkillCard key={item.skill_id} item={item} />
-            ))}
-          </ul>
-        </section>
-      ))}
+      {/* Categories run as columns, not stacked sections: each one is a real,
+          fixed group (not a sequence), so laying them side by side is what lets
+          every skill sit on screen at once instead of behind a scrollbar. */}
+      <div className="grid grid-cols-1 gap-x-8 gap-y-7 sm:grid-cols-2 xl:grid-cols-4">
+        {groupByCategory(items).map((group, index) => (
+          <section
+            key={group.category}
+            style={staggerStyle(index, { step: "40ms" })}
+            className="enter-stagger flex flex-col gap-3"
+          >
+            <SectionLabel>{group.category}</SectionLabel>
+            <ul className="flex flex-col gap-3">
+              {group.items.map((item) => (
+                <SkillCard key={item.skill_id} item={item} />
+              ))}
+            </ul>
+          </section>
+        ))}
+      </div>
     </>
   )
 }
@@ -211,10 +216,10 @@ function SkillCard({ item }: { item: SkillBreakdownItem }) {
   const color = BAND_COLOR[band]
 
   return (
-    <li className="surface flex flex-col gap-3.5 px-5 pt-4.5 pb-5">
-      <div className="flex items-start justify-between gap-3">
+    <li className="surface flex flex-col gap-2.5 px-4 pt-3.5 pb-4">
+      <div className="flex items-start justify-between gap-2">
         <div className="flex min-w-0 flex-col gap-0.5">
-          <h3 className="font-medium break-words text-foreground">{item.skill_name}</h3>
+          <h3 className="text-sm font-medium break-words text-foreground">{item.skill_name}</h3>
           <p className="label-micro">{metaLine(item)}</p>
         </div>
         <Badge
@@ -226,8 +231,8 @@ function SkillCard({ item }: { item: SkillBreakdownItem }) {
         </Badge>
       </div>
 
-      <p className="flex items-end gap-2">
-        <span className="numeric text-3xl leading-none text-foreground">
+      <p className="flex items-end gap-1.5">
+        <span className="numeric text-2xl leading-none text-foreground">
           {item.cumulative_score}
         </span>
         <span className="label-micro pb-0.5">pts</span>
