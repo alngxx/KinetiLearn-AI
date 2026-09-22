@@ -104,8 +104,8 @@ Verified from `backend/requirements.txt` and `frontend/package.json`.
 - Celery + Redis for document processing pipeline
 - LangChain + `langchain-openai` + `tiktoken`, calling GPT-4o and
   `text-embedding-3-small` directly through `openai` SDK
-- Vector database selected by the `VECTOR_STORE_BACKEND` env var: `chroma`
-  (the code default, and a local/offline-dev fallback) or `pinecone`
+- Vector DB selected by the `VECTOR_STORE_BACKEND` env var: `chroma`
+  (local/offline-dev fallback) or `pinecone`
   (**the current production backend** - index `kinetilearn`, dimension
   1536, metric cosine, same `text-embedding-3-small` embeddings as before,
   this was a backend swap, not a model change).
@@ -145,10 +145,9 @@ Edit `.env` and fill in:
 - `OPENAI_API_KEY` - required, the app won't start without it
 - `JWT_SECRET` - anything, for local dev
 - `R2_ACCESS_KEY` / `R2_SECRET_KEY` / `R2_BUCKET_NAME` / `R2_ENDPOINT_URL` -
-  only needed if you're testing document upload against real R2
-- `VECTOR_STORE_BACKEND` - `chroma` (default, works out of the box with no
-  extra setup) or `pinecone` (the production backend; needs
-  `PINECONE_API_KEY` + `PINECONE_INDEX` filled in too, and a Pinecone index
+  only needed if you test document upload against real R2
+- `VECTOR_STORE_BACKEND` - `chroma` (default) or `pinecone` (the production backend; needs
+  `PINECONE_API_KEY` + `PINECONE_INDEX` filled in, and a Pinecone index
   already created at dimension 1536 / metric cosine before you switch)
 
 ```bash
