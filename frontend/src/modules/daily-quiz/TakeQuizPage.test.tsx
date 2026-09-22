@@ -56,7 +56,7 @@ function renderTake(path = "/learner/quiz/dq1") {
 }
 
 function questionFieldset(text: string) {
-  return screen.getByRole("group", { name: new RegExp(text) })
+  return screen.getByRole("radiogroup", { name: new RegExp(text) })
 }
 
 describe("TakeQuizPage", () => {
