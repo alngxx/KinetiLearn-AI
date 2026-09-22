@@ -23,14 +23,16 @@ backend/
 │   └── script.py.mako
 ├── app/
 │   ├── core/
+│   │   ├── chroma_backend.py
 │   │   ├── config.py
 │   │   ├── crud.py
 │   │   ├── database.py
 │   │   ├── dependencies.py
 │   │   ├── llm.py
+│   │   ├── pinecone_backend.py
 │   │   ├── security.py
 │   │   ├── storage.py
-│   │   └── vectorstore.py
+│   │   └── vectorstore.py    (facade - picks chroma_backend or pinecone_backend)
 │   ├── modules/
 │   │   ├── auth/          (models.py, router.py, schemas.py, service.py)
 │   │   ├── chat/          (models.py, router.py, schemas.py, service.py)
@@ -42,7 +44,7 @@ backend/
 │   │   ├── scoring/       (models.py, router.py, schemas.py, service.py)
 │   │   └── submissions/   (models.py, router.py, schemas.py, service.py)
 │   └── main.py
-├── scripts/       (seed_config.py, seed_users.py, seed_classes.py, seed_content.py, and 3 one-off migration/backfill scripts)
+├── scripts/       (seed_config.py, seed_users.py, seed_classes.py, seed_content.py, and 4 one-off migration/backfill scripts)
 ├── tests/         (one folder per module, mirroring app/modules/)
 └── worker/        (db.py, processing.py, tasks.py - the Celery side)
 ```
