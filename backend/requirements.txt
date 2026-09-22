@@ -14,6 +14,7 @@ python-jose[cryptography]
 celery
 redis
 chromadb
+pinecone
 langchain
 langchain-openai
 langchain-text-splitters
