@@ -7,7 +7,11 @@ daily quiz engine, skill scoring engine.
 - Backend: FastAPI + SQLAlchemy + Alembic + PostgreSQL
 - Task queue: Celery + Redis
 - AI: LangChain + OpenAI GPT-4o + text-embedding-3-small
-- Vector DB: Chroma (dev) → Pinecone (prod)
+- Vector DB: Pinecone (current production backend, index `kinetilearn`) with
+  Chroma as the code default / local-dev fallback, selected via
+  `VECTOR_STORE_BACKEND`. Switching an environment requires running
+  `backend/scripts/reembed_to_pinecone.py` once - no embeddings live outside
+  the active vector store
 - File storage: Cloudflare R2
 - Frontend: React + Tailwind + Recharts
 

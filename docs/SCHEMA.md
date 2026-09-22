@@ -234,8 +234,10 @@ format.
 
 ## 3.4 `document_chunks`
 
-Chunk metadata. The vector itself lives in Chroma; this row holds the
-external vector ID.
+Chunk metadata. The vector itself lives in the active vector store
+(Pinecone in production, Chroma for local/offline dev - see CLAUDE.md);
+this row holds the external vector ID, which is the same ID format in
+either backend.
 
 | Column | Type | Nullable | Default | Notes |
 |---|---|---|---|---|
@@ -245,7 +247,7 @@ external vector ID.
 | `chunk_index` | INTEGER | NO | - | 0-based order within the document version |
 | `content` | TEXT | NO | - | Raw chunk text (also embedded externally) |
 | `token_count` | INTEGER | YES | NULL | |
-| `vector_id` | VARCHAR(255) | YES | NULL | External ID in Chroma; NULL until embedded |
+| `vector_id` | VARCHAR(255) | YES | NULL | External ID in the active vector store (Pinecone or Chroma); NULL until embedded |
 | `embedded_at` | TIMESTAMPTZ | YES | NULL | |
 | `created_at` | TIMESTAMPTZ | NO | now() | |
 

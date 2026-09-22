@@ -107,6 +107,29 @@ the event loop), and each upload writes a *new* key rather than overwriting a
 stable one, since the browser caches the image behind its signed URL and would
 keep showing the picture that was just replaced.
 
+**The vector store swapped from Chroma to Pinecone in production, but Chroma
+wasn't ripped out - it stayed as the code default and local/offline-dev
+fallback.** `vectorstore.py` is now a thin facade that picks
+`chroma_backend.py` or `pinecone_backend.py` based on `VECTOR_STORE_BACKEND`
+(the code still defaults to `chroma`; the deployed `.env` sets `pinecone`).
+Both implement the same four-function interface (`add_chunks`, `search`,
+`delete_version`, `delete_document`), so nothing above
+`app/core/vectorstore.py` had to change, including the five test files that
+patch it by module path. No embeddings live in Postgres - only chunk text and
+a token count - so switching backends meant re-embedding every chunk from
+source text via OpenAI and upserting into Pinecone
+(`backend/scripts/reembed_to_pinecone.py`), not copying vectors. Two real
+bugs only surfaced once this ran against a live Pinecone index rather than
+mocks: deleting from a namespace that has never had anything upserted into it
+404s instead of no-op'ing the way Chroma does (now caught and swallowed as a
+no-op); and the Pinecone index has to be created at dimension 1536 to match
+`text-embedding-3-small`'s native output - Pinecone's own index-creation UI
+suggested dimension 512 by default for that model, which silently doesn't
+match and fails the first upsert. The `MIN_SIMILARITY = 0.25` cutoff (see the
+retrieval-match entry above) was tuned against Chroma's math; it's held up on
+a spot check against Pinecone's native cosine score, but hasn't been fully
+re-verified across a broad set of query/citation pairs.
+
 ## More detail
 
 - [ARCHITECTURE.md](ARCHITECTURE.md) - directory layout and how the backend's modules relate to each other.

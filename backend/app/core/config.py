@@ -33,6 +33,8 @@ class Settings(BaseSettings):
 
     CHROMA_PATH: str = "./chroma_data"
 
+    VECTOR_STORE_BACKEND: str = "chroma"
+
     ENVIRONMENT: str = "dev"
 
     class Config:
