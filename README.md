@@ -5,7 +5,7 @@
 
 An AI-powered LMS with admin portal for training
 managers and learner portal for employees: upload training material, generate
-exams from it with GPT-4o, run a daily quiz engine, and track employees'
+exams from it with GPT-6, run a daily quiz engine, and track employees'
 skill level from what they actually get right.
 
 ![KinetiLearn's two portals against a starfield: Managers generate AI-exams from their own resources and track completion across every class; Employees take assigned exams and daily quizzes and ask Pace, the RAG-based assistant, for help.](docs/banner.svg)
@@ -37,7 +37,7 @@ UI - all wired together and actually working, not just scaffolded.
 ![Uploading a document and tagging it to a skill](docs/screenshots-demo/admin-portal/admin-document-upload-tagging.png)
 Uploading a PDF and tagging it to the skills it should score
 
-![Generating an exam from source documents with GPT-4o](docs/screenshots-demo/admin-portal/admin-exam-generation.png)
+![Generating an exam from source documents with GPT-6](docs/screenshots-demo/admin-portal/admin-exam-generation.png)
 Generating an exam straight from the uploaded material
 
 ![Daily quiz configuration screen](docs/screenshots-demo/admin-portal/admin-daily-quiz-configs.png)
@@ -72,7 +72,7 @@ Asking Pace why an answer was marked wrong?
   production, Chroma for local/offline dev) through a Celery pipeline.
   Documents are versioned, so a re-upload doesn't overwrite what learners
   already saw.
-- Tag a document with skills, then generate a GPT-4o multiple-choice exam
+- Tag a document with skills, then generate a GPT-6 multiple-choice exam
   from it: the admin sets how many questions (1-50) and writes the prompt
   that steers what it asks.
 - The chatbot cites the source chunks behind every answer, and says so
@@ -102,8 +102,11 @@ Verified from `backend/requirements.txt` and `frontend/package.json`.
 - SQLAlchemy (async, via `asyncpg`) + Alembic migrations
 - PostgreSQL
 - Celery + Redis for document processing pipeline
-- LangChain + `langchain-openai` + `tiktoken`, calling GPT-4o and
-  `text-embedding-3-small` directly through `openai` SDK
+- LangChain + `langchain-openai` + `tiktoken`, calling GPT-6 and
+  `text-embedding-3-small` directly through `openai` SDK. One model per task
+  rather than one everywhere: `gpt-6-sol` writes exam and daily-quiz questions,
+  `gpt-6-luna` answers RAG chat and suggests skills (see
+  [DECISIONS.md](docs/DECISIONS.md))
 - Vector DB selected by the `VECTOR_STORE_BACKEND` env var: `chroma`
   (local/offline-dev fallback) or `pinecone`
   (**the current production backend** - index `kinetilearn`, dimension

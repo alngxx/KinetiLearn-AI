@@ -26,7 +26,7 @@ judgment call an LLM could make here, so it isn't in the loop, and grading a
 submission doesn't cost anything past the exam generation itself.
 
 **Exam generation runs in small batches instead of one large LLM call.**
-Asking GPT-4o for all N questions in a single response risked hitting the
+Asking the model for all N questions in a single response risked hitting the
 output token limit on larger exams. `generate_quiz()` requests one batch at a
 time and accumulates results until it has enough unique questions, reporting
 progress after each batch so the admin's waiting screen isn't stalled on one
@@ -129,6 +129,36 @@ match and fails the first upsert. The `MIN_SIMILARITY = 0.25` cutoff (see the
 retrieval-match entry above) was tuned against Chroma's math; it's held up on
 a spot check against Pinecone's native cosine score, but hasn't been fully
 re-verified across a broad set of query/citation pairs.
+
+**Three chat models instead of one, chosen per call site rather than globally.**
+The project ran `gpt-4o` everywhere until GPT-6 replaced it, and the upgrade was
+the moment to stop treating "the LLM" as one thing. Exam and daily-quiz
+generation use `gpt-6-sol`: question quality *is* the product, a wrong or
+ambiguous question is a broken feature a learner gets graded on, and generation
+runs in the Celery worker behind a polled job, so nobody is watching a stream
+and the extra latency costs nothing. RAG chat and skill suggestion use
+`gpt-6-luna`, roughly twenty times cheaper per input token: both are handed the
+material they need in the prompt already - retrieved excerpts, or a list of
+skill names to pick from - so neither is doing open-ended reasoning, and skill
+suggestions are confirmed by an admin before anything is written. The split is
+three constants in `core/llm.py`, not an abstraction: each call site already
+named its own model, so this only changed *which* constant it names. The risk
+sits on the chat path - "Luna is good enough to answer from excerpts" is
+reasoning, not evidence, since the project has no retrieval or answer-quality
+eval to measure it with. If chat answers degrade, `CHAT_MODEL` moves to
+`gpt-6-sol` and nothing else changes.
+
+**GPT-6's default `reasoning_effort` had to be turned off on the streaming
+path, or the chat UI would show dead air.** GPT-6 models take a
+`reasoning_effort` parameter that defaults to `medium`, which GPT-4o had no
+equivalent of. On `stream_chat` that default puts a reasoning pause in front of
+the first SSE token - the browser holds an empty bubble while the model thinks,
+where GPT-4o started emitting immediately - and bills reasoning tokens on every
+turn. Both places where the answer is assembled from material already in the
+prompt pass `reasoning_effort = "none"`: `stream_chat` for the latency, and
+`suggest_skills` because picking names off a supplied list needs no
+deliberation. Exam generation passes nothing and keeps the `medium` default,
+since that is the one call where thinking before answering is worth paying for.
 
 ## More detail
 

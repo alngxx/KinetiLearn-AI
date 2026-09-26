@@ -121,7 +121,7 @@ async def deactivate_document(document_id: UUID, db: AsyncSession = Depends(get_
     return await DocumentService(db).deactivate(document_id)
 
 
-# Read-only despite being a POST: it calls GPT-4o and returns ids for the admin
+# Read-only despite being a POST: it calls the LLM and returns ids for the admin
 # to confirm. Nothing is written until they save through the PATCH above.
 @router.post(
     "/{document_id}/suggest-skills",

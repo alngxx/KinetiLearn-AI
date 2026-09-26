@@ -1,6 +1,6 @@
 """AI skill suggestion: POST /documents/{id}/suggest-skills.
 
-Read-only by contract — it asks GPT-4o which of the category's skills the
+Read-only by contract — it asks the LLM which of the category's skills the
 document teaches and returns ids for the admin to confirm. Nothing reaches
 document_skills until the admin saves through the PATCH covered in
 test_document_skills.py.

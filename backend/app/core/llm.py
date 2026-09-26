@@ -5,7 +5,14 @@ from pydantic import BaseModel
 
 from app.core.config import settings
 
-CHAT_MODEL = "gpt-4o"
+# One model per task rather than one for everything, because the three calls want
+# different things. Generation is quality-critical (a bad question is a broken
+# exam) and runs in the worker behind a polled job, so its latency is invisible —
+# it gets the stronger model. Chat and skill suggestion answer from material
+# already in the prompt, so they get the cheap one.
+CHAT_MODEL = "gpt-6-luna"
+GENERATION_MODEL = "gpt-6-sol"
+SUGGEST_MODEL = "gpt-6-luna"
 # Same model the worker embeds chunks with — queries must land in the same vector
 # space. Repeated rather than imported from worker.processing, which builds a sync
 # OpenAI client at import time and pulls in the whole PDF/DOCX toolchain.
@@ -119,7 +126,7 @@ async def _generate_batch(
     # an unhandled 500.
     try:
         completion = await _get_client().chat.completions.parse(
-            model = CHAT_MODEL,
+            model = GENERATION_MODEL,
             messages = [
                 {"role": "system", "content": SYSTEM_PROMPT},
                 {"role": "user", "content": user_prompt},
@@ -208,12 +215,15 @@ async def suggest_skills(
     # leaves this module as an LLMError.
     try:
         completion = await _get_client().chat.completions.parse(
-            model = CHAT_MODEL,
+            model = SUGGEST_MODEL,
             messages = [
                 {"role": "system", "content": SKILL_SUGGEST_PROMPT},
                 {"role": "user", "content": user_prompt},
             ],
             response_format = SuggestedSkills,
+            # Picking names off a supplied list needs no deliberation, and the
+            # admin confirms every suggestion anyway.
+            reasoning_effort = "none",
         )
     except OpenAIError as e:
         raise LLMError(str(e))
@@ -249,6 +259,10 @@ async def stream_chat(messages: list[dict], usage: dict) -> AsyncIterator[str]:
             messages = messages,
             stream = True,
             stream_options = {"include_usage": True},
+            # The reply is assembled from excerpts already in the prompt, so there
+            # is nothing to reason about — and the default (medium) would stall the
+            # SSE stream before the first token, which the chat UI shows as dead air.
+            reasoning_effort = "none",
         )
         async for chunk in stream:
             if chunk.usage is not None:

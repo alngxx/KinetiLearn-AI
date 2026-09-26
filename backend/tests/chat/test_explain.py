@@ -8,7 +8,7 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy import func, select
 
 from app.core.dependencies import get_db
-from app.core.llm import LLMError
+from app.core.llm import CHAT_MODEL, LLMError
 from app.core.security import create_access_token, get_password_hash
 from app.main import app
 from app.modules.auth.models import User
@@ -275,7 +275,7 @@ async def test_explain_streams_and_persists(auth_client, db_session):
     )).scalars().all()
     assert [r.role for r in rows] == ["user", "assistant"]
     assert rows[1].content == "You missed these."
-    assert rows[1].model_name == "gpt-4o"
+    assert rows[1].model_name == CHAT_MODEL
 
     citations = await db_session.scalar(
         select(func.count()).select_from(ChatMessageCitation)

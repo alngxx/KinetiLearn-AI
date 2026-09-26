@@ -2,7 +2,7 @@
 
 This drives the real HTTP API — nothing internal — so it exercises the actual
 upload -> R2 -> Celery -> extract -> chunk -> embed -> Chroma pipeline and the
-actual gpt-4o exam generation pipeline. It costs real OpenAI money.
+actual LLM exam generation pipeline. It costs real OpenAI money.
 
 Idempotent by (title, category_id) for documents and by exercise-per-class for
 generation: a re-run that finds everything already present adds nothing and

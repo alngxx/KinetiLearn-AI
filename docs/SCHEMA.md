@@ -672,7 +672,7 @@ whole active corpus. The two columns are mutually exclusive in practice.
 | `role` | VARCHAR(20) | NO | - | CHECK IN ('user', 'assistant') |
 | `content` | TEXT | NO | - | |
 | `token_count` | INTEGER | YES | NULL | |
-| `model_name` | VARCHAR(50) | YES | NULL | e.g. 'gpt-4o' - assistant only |
+| `model_name` | VARCHAR(50) | YES | NULL | e.g. 'gpt-6-luna' - assistant only |
 | `latency_ms` | INTEGER | YES | NULL | Assistant only |
 | `created_at` | TIMESTAMPTZ | NO | now() | Also the message ordering |
 
