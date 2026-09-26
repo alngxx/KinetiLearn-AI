@@ -8,7 +8,7 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy import func, select
 
 from app.core.dependencies import get_db
-from app.core.llm import LLMError
+from app.core.llm import CHAT_MODEL, LLMError
 from app.main import app
 from app.modules.auth.models import User
 from app.modules.chat.models import ChatMessage, ChatMessageCitation, ChatSession
@@ -187,7 +187,7 @@ async def test_message_streams_and_persists(auth_client, db_session):
     assert [r.role for r in rows] == ["assistant", "user"]
     assistant = rows[0]
     assert assistant.content == "Escalate here."
-    assert assistant.model_name == "gpt-4o"
+    assert assistant.model_name == CHAT_MODEL
     assert assistant.token_count == 42
     assert assistant.latency_ms is not None
 

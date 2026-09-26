@@ -6,7 +6,9 @@ daily quiz engine, skill scoring engine.
 ## Stack
 - Backend: FastAPI + SQLAlchemy + Alembic + PostgreSQL
 - Task queue: Celery + Redis
-- AI: LangChain + OpenAI GPT-4o + text-embedding-3-small
+- AI: LangChain + OpenAI, one model per task - `gpt-6-sol` for exam/quiz
+  generation, `gpt-6-luna` for RAG chat and skill suggestion - plus
+  text-embedding-3-small for embeddings
 - Vector DB: Pinecone (current production backend, index `kinetilearn`) with
   Chroma as the code default / local-dev fallback, selected via
   `VECTOR_STORE_BACKEND`. Switching an environment requires running
