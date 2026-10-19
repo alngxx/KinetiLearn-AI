@@ -4,13 +4,18 @@
 
 ```
 KinetiLearn/
+├── .github/workflows/   (ci.yml - tests; cd.yml - build, push to ECR, deploy)
 ├── backend/
 ├── frontend/
+├── deploy/              (deploy.sh - runs on the EC2 instance during a deploy)
 ├── docs/
 │   ├── DECISIONS.md
+│   ├── DEPLOYMENT.md
 │   ├── SCHEMA.md
 │   └── ARCHITECTURE.md
-├── docker-compose.yml
+├── docker-compose.yml        (local dev)
+├── docker-compose.prod.yml   (production, images from ECR)
+├── .env.prod.example
 ├── CLAUDE.md
 └── README.md
 ```
@@ -44,7 +49,7 @@ backend/
 │   │   ├── scoring/       (models.py, router.py, schemas.py, service.py)
 │   │   └── submissions/   (models.py, router.py, schemas.py, service.py)
 │   └── main.py
-├── scripts/       (seed_config.py, seed_users.py, seed_classes.py, seed_content.py, and 4 one-off migration/backfill scripts)
+├── scripts/       (seed_config.py, seed_users.py, seed_classes.py, seed_content.py, create_admin.py, and 4 one-off migration/backfill scripts)
 ├── tests/         (one folder per module, mirroring app/modules/)
 └── worker/        (db.py, processing.py, tasks.py - the Celery side)
 ```
@@ -76,6 +81,8 @@ frontend/
 │   ├── types/         (api.ts, generated from the backend's OpenAPI schema)
 │   ├── App.tsx
 │   └── main.tsx
+├── Dockerfile     (production image: Vite build served by nginx)
+├── nginx.conf     (serves the SPA, proxies /api and /health to the API)
 └── package.json
 ```
 
@@ -115,3 +122,4 @@ queries would have to become real APIs first.
 
 - [DECISIONS.md](DECISIONS.md) - specific engineering decisions and bug fixes, each with problem, fix, and why.
 - [SCHEMA.md](SCHEMA.md) - the full database schema, table by table.
+- [DEPLOYMENT.md](DEPLOYMENT.md) - the AWS runbook: setup, deploys, rollback, logs, teardown.

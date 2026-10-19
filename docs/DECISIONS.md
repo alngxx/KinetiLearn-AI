@@ -160,7 +160,33 @@ prompt pass `reasoning_effort = "none"`: `stream_chat` for the latency, and
 deliberation. Exam generation passes nothing and keeps the `medium` default,
 since that is the one call where thinking before answering is worth paying for.
 
+**Deploys reach the server through SSM Run Command, and the deploy files
+travel inside the command.** The instance has no SSH key, no open port 22,
+no git clone, and no GitHub token. GitHub Actions assumes an IAM role through
+OIDC, so no long-lived AWS key exists either. The CD job base64-encodes
+`deploy/deploy.sh` and `docker-compose.prod.yml` into one `AWS-RunShellScript`
+command; the alternative, an S3 bucket the instance downloads from, would add
+a bucket, two IAM grants, and one more thing to tear down for two files of a
+few kilobytes. The cost is that Run Command history and CloudTrail keep the
+full command text, so the rule is that the command carries files and a tag,
+never a secret: `deploy.sh` reads secrets from Parameter Store on the instance
+and writes them only to a mode-600 `.env`. A rollback checks out the commit
+behind the chosen image tag, so the compose file always matches the images
+(see [DEPLOYMENT.md](DEPLOYMENT.md)).
+
+**`create_admin` passed its tests and failed on the server.** Run on the
+production instance, the script died on its first query with
+`expression 'Department' failed to locate a name`. `User` refers to
+`Department` by name, and SQLAlchemy resolves that only if the module that
+defines `Department` has been imported. The web app imports every model in
+`main.py` and the worker does it in `worker/db.py`, but the script imported
+only the auth models. The tests missed it because `conftest.py` imports
+`app.main`, which loads every model before any test runs. The script now
+imports all nine model modules, and a test loads it in a fresh interpreter,
+outside the test suite's imports, and configures the mappers there.
+
 ## More detail
 
 - [ARCHITECTURE.md](ARCHITECTURE.md) - directory layout and how the backend's modules relate to each other.
 - [SCHEMA.md](SCHEMA.md) - the full database schema, table by table.
+- [DEPLOYMENT.md](DEPLOYMENT.md) - the AWS runbook: setup, deploys, rollback, logs, teardown.
