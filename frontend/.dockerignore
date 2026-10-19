@@ -1,0 +1,9 @@
+node_modules
+dist
+ds-bundle
+test-results
+playwright-report
+.env
+.env.development
+.env.test
+.DS_Store

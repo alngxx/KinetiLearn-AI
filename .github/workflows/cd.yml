@@ -1,0 +1,64 @@
+name: Deploy
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+# One deploy at a time; a new run waits instead of cancelling one half done.
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  build:
+    # Run after CI passes on a push to main, or when started by hand.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
+    runs-on: ubuntu-latest
+    env:
+      # workflow_run starts on the default branch head, which may be newer than
+      # the commit CI tested, so build exactly the commit CI tested.
+      IMAGE_TAG: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4.2.2
+        with:
+          ref: ${{ env.IMAGE_TAG }}
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4.1.0
+        with:
+          role-to-assume: ${{ vars.DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Log in to ECR
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2.0.1
+
+      - name: Build images
+        env:
+          REGISTRY: ${{ steps.ecr.outputs.registry }}
+          PUBLIC_URL: ${{ vars.PUBLIC_URL }}
+        run: |
+          docker build -t "$REGISTRY/kinetilearn-backend:$IMAGE_TAG" backend
+          docker build \
+            --build-arg VITE_API_BASE_URL="$PUBLIC_URL" \
+            -t "$REGISTRY/kinetilearn-frontend:$IMAGE_TAG" \
+            frontend
+
+      - name: Push images
+        env:
+          REGISTRY: ${{ steps.ecr.outputs.registry }}
+        run: |
+          docker push "$REGISTRY/kinetilearn-backend:$IMAGE_TAG"
+          docker push "$REGISTRY/kinetilearn-frontend:$IMAGE_TAG"
+          echo "Pushed image tag \`$IMAGE_TAG\`" >> "$GITHUB_STEP_SUMMARY"

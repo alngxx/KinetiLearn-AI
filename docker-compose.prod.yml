@@ -1,0 +1,78 @@
+# Production stack for the single EC2 instance. Images come from ECR; deploy.sh
+# writes .env next to this file (secrets from SSM, plus ECR_REGISTRY and IMAGE_TAG).
+
+x-logging: &logging
+  driver: awslogs
+  options:
+    awslogs-region: ${AWS_REGION}
+    awslogs-group: /kinetilearn/prod
+    tag: "{{.Name}}"
+
+x-backend: &backend
+  image: ${ECR_REGISTRY}/kinetilearn-backend:${IMAGE_TAG}
+  env_file: .env
+  environment:
+    DATABASE_URL: postgresql+asyncpg://postgres:${POSTGRES_PASSWORD}@postgres:5432/KinetiLearn
+    REDIS_URL: redis://redis:6379/0
+  depends_on:
+    postgres:
+      condition: service_healthy
+    redis:
+      condition: service_started
+  restart: unless-stopped
+  logging: *logging
+
+services:
+  web:
+    image: ${ECR_REGISTRY}/kinetilearn-frontend:${IMAGE_TAG}
+    ports:
+      - "80:80"
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+    logging: *logging
+
+  api:
+    <<: *backend
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
+    healthcheck:
+      # python:3.11-slim has no curl. urlopen raises on a 503, so a dead database fails the check.
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout = 3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  worker:
+    <<: *backend
+    # One process: the t3.micro only has 1 GB of RAM.
+    command: celery -A worker.tasks:celery_app worker --loglevel=info --concurrency=1
+
+  beat:
+    <<: *backend
+    command: celery -A worker.tasks:celery_app beat --loglevel=info
+
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: KinetiLearn
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    logging: *logging
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    logging: *logging
+
+volumes:
+  postgres_data:

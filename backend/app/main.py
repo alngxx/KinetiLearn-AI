@@ -1,6 +1,9 @@
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.database import check_database
+from app.core.dependencies import get_db
 from app.modules.config import models as config_models  # noqa: F401
 from app.modules.auth import models as auth_models  # noqa: F401
 from app.modules.documents import models as documents_models  # noqa: F401
@@ -63,5 +66,9 @@ app.include_router(submissions_router, prefix="/api/v1/submissions", tags=["subm
 
 
 @app.get("/health")
-async def health():
-    return {"status": "ok"}
+async def health(db: AsyncSession = Depends(get_db)):
+    try:
+        await check_database(db)
+    except Exception:
+        raise HTTPException(status_code = 503, detail = "Database unavailable")
+    return {"status": "ok", "database": "ok"}
