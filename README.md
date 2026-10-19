@@ -109,13 +109,14 @@ Verified from `backend/requirements.txt` and `frontend/package.json`.
   [DECISIONS.md](docs/DECISIONS.md))
 - Vector DB selected by the `VECTOR_STORE_BACKEND` env var: `chroma`
   (local/offline-dev fallback) or `pinecone`
-  (**the current production backend** - index `kinetilearn`, dimension
-  1536, metric cosine, same `text-embedding-3-small` embeddings as before,
-  this was a backend swap, not a model change).
+  (**the production backend** - index `kinetilearn-prod` on the deployed
+  server and `kinetilearn` for dev, dimension 1536, metric cosine, same
+  `text-embedding-3-small` embeddings as before, this was a backend swap, not
+  a model change).
 - PyMuPDF and `python-docx` for document text extraction
 - boto3 for Cloudflare R2 (S3-compatible) file storage
 - passlib (bcrypt) + `python-jose` for password hashing and JWTs
-- pytest + pytest-asyncio + httpx for the test suite (499 tests, all passing)
+- pytest + pytest-asyncio + httpx for the test suite (507 tests, all passing)
 
 **Frontend**
 - React 19 + TypeScript, built with Vite
@@ -200,9 +201,20 @@ python -m scripts.seed_classes
 python -m scripts.seed_content   # costs OpenAI credits
 ```
 
+## Deployment
+
+One EC2 instance runs the stack with Docker Compose. A merge to `main` runs
+CI; when CI passes, GitHub Actions builds both images, pushes them to Amazon
+ECR, and deploys them through SSM Run Command, with a one-click rollback to an
+earlier image. No SSH keys, long-lived AWS keys, or secrets in git. Setup,
+rollback, logs, teardown, and known limits are in
+[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+
 ## docs/
 
 More decisions during developing KinetiLearn, find in
 [docs/DECISIONS.md](docs/DECISIONS.md).\
 For the directory layout and how the modules relate to each other, see
-[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).\
+For the AWS setup, deploys, and rollback, see
+[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
