@@ -3,6 +3,11 @@ name: CI
 on:
   push:
     branches: [main]
+    # A docs-only push skips CI, and so skips the CD run that waits on it.
+    # Pull requests still run CI on every change.
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
   pull_request:
     branches: [main]
 

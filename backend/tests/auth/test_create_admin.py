@@ -1,3 +1,7 @@
+import subprocess
+import sys
+from pathlib import Path
+
 import pytest
 from fastapi import HTTPException
 from sqlalchemy import select
@@ -7,6 +11,7 @@ from app.modules.auth.models import User
 from scripts import create_admin as script
 
 PASSWORD = "correct-horse-battery"
+BACKEND_DIR = Path(__file__).resolve().parents[2]
 
 
 def _answers(monkeypatch, email, full_name, passwords):
@@ -51,3 +56,11 @@ def test_read_details_rejects_mismatched_passwords(monkeypatch):
 
     with pytest.raises(ValueError, match = "do not match"):
         script.read_details()
+
+
+def test_script_loads_every_model_on_its_own():
+    # conftest imports app.main, which loads every model module and once hid a
+    # missing import in this script. A fresh interpreter sees what the real run sees.
+    code = "import scripts.create_admin; from sqlalchemy.orm import configure_mappers; configure_mappers()"
+    result = subprocess.run([sys.executable, "-c", code], cwd = BACKEND_DIR, capture_output = True, text = True)
+    assert result.returncode == 0, result.stderr
