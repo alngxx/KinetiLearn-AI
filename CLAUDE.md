@@ -156,15 +156,3 @@ fixes; on those, this rule's default (no extra passes) still holds.
   sentence and continue with the task as asked, rather than quietly widening,
   narrowing, or transforming it.
 - Finish the whole task. Stop short of actions clearly beyond what was asked.
-
-# Frontend Visual Quality
-- IMPORTANT: use the `frontend-design` skill for aesthetic direction and
-  the `web-design-guidelines` skill for a correctness/accessibility audit
-  on every screen you touch - including backend-integration work, not
-  just new screens. Do not skip this because it's referenced here rather
-  than stated in the task prompt.
-- Baseline interactivity (hover/focus states, transition-colors on
-  interactive elements, prefers-reduced-motion-respecting spinners) is
-  mandatory on every screen you touch.
-- Headings and buttons use sentence case, not Title Case, project-wide.
-  Don't re-litigate this.

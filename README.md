@@ -128,6 +128,25 @@ Verified from `backend/requirements.txt` and `frontend/package.json`.
 - `openapi-typescript` generates the API types from the running backend's
   OpenAPI schema (`npm run gen:api`)
 
+**Infrastructure and CI/CD**
+- GitHub Actions: CI runs the backend and frontend tests on every push and
+  pull request. CD builds the Docker images, pushes them to Amazon ECR, and
+  deploys through SSM Run Command, with a one-click rollback by image tag
+- AWS: one EC2 instance running Docker Compose, ECR for images, SSM Parameter
+  Store for secrets, CloudWatch Logs and a CPU alarm, and IAM roles with
+  GitHub OIDC instead of long-lived keys
+- Docker: a Python backend image and an nginx frontend image;
+  `docker-compose.prod.yml` runs the production stack
+
+## Deployment
+
+One EC2 instance runs the stack with Docker Compose. A merge to `main` runs
+CI; when CI passes, GitHub Actions builds both images, pushes them to Amazon
+ECR, and deploys them through SSM Run Command, with a one-click rollback to an
+earlier image. No SSH keys, long-lived AWS keys, or secrets in git. Setup,
+rollback, logs, teardown, and known limits are in
+[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+
 ## Setup
 
 ### 1. Start Postgres and Redis
@@ -200,15 +219,6 @@ python -m scripts.seed_users
 python -m scripts.seed_classes
 python -m scripts.seed_content   # costs OpenAI credits
 ```
-
-## Deployment
-
-One EC2 instance runs the stack with Docker Compose. A merge to `main` runs
-CI; when CI passes, GitHub Actions builds both images, pushes them to Amazon
-ECR, and deploys them through SSM Run Command, with a one-click rollback to an
-earlier image. No SSH keys, long-lived AWS keys, or secrets in git. Setup,
-rollback, logs, teardown, and known limits are in
-[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
 ## docs/
 
