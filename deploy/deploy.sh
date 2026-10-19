@@ -98,7 +98,7 @@ step "Logging in to ECR ($REGISTRY)"
 aws ecr get-login-password | docker login --username AWS --password-stdin "$REGISTRY"
 
 # Pull before touching anything, so a missing image leaves the old release running.
-# Quiet pulls: the Run Command console shows only the first 2500 characters.
+# Quiet pulls keep the Run Command output short enough to read.
 step "Pulling images for $NEW_TAG"
 docker pull -q "$REGISTRY/kinetilearn-backend:$NEW_TAG"
 docker pull -q "$REGISTRY/kinetilearn-frontend:$NEW_TAG"
