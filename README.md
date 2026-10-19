@@ -67,31 +67,19 @@ Asking Pace why an answer was marked wrong?
 
 ## Key features
 
-- Upload a document as admin - PDF, DOCX, or Markdown - and it's chunked,
-  embedded, and stored in the configured vector store (Pinecone in
-  production, Chroma for local/offline dev) through a Celery pipeline.
-  Documents are versioned, so a re-upload doesn't overwrite what learners
-  already saw.
-- Tag a document with skills, then generate a GPT-6 multiple-choice exam
-  from it: the admin sets how many questions (1-50) and writes the prompt
-  that steers what it asks.
-- The chatbot cites the source chunks behind every answer, and says so
-  plainly when nothing matches instead of guessing. Its retrieval scope
-  narrows to match how the chat was opened: one exam's source documents when
-  explaining wrong answers, one class's materials when studying from a class,
-  one document, or the whole active corpus.
-- Each class has a Materials list and a "Study with AI mentor" chat scoped to
-  just that class - retrieval never reaches outside that class's own
-  documents into the wider corpus.
-- Materials download through a short-lived signed URL (5-minute expiry),
-  gated by the same class-membership check as the Materials list itself, not
-  a permanent public link.
-- Learners take daily quizzes pulled from a configured document and finalized
-  exams within their scheduled window, then can ask the chatbot to explain
-  exactly what they got wrong and why.
-- Correct answers roll up into a per-skill score, checked against
-  admin-configured thresholds. The breakdown lists every active skill, even
-  ones a learner hasn't touched, so a gap is visible instead of absent.
+- Admins upload PDF, DOCX, or Markdown. A Celery pipeline chunks, embeds, and
+  stores it. Re-uploads become new versions, so learners keep what they saw.
+- Tag a document with skills, then generate a GPT-6 multiple-choice exam from
+  it. The admin sets the question count (1-50) and the prompt.
+- The chatbot cites its sources and says so when nothing matches. Its scope
+  follows how the chat opened: an exam, a class, one document, or everything.
+- Each class has its own materials and a "Study with AI mentor" chat that
+  never reaches outside that class.
+- Materials download through 5-minute signed URLs, gated by class membership.
+- Learners take daily quizzes and scheduled exams, then ask the chatbot to
+  explain what they got wrong.
+- Correct answers roll up into per-skill scores against admin-set thresholds.
+  Skills a learner hasn't touched still show, so gaps are visible.
 
 ## Tech stack
 
@@ -135,17 +123,20 @@ Verified from `backend/requirements.txt` and `frontend/package.json`.
 - AWS: one EC2 instance running Docker Compose, ECR for images, SSM Parameter
   Store for secrets, CloudWatch Logs and a CPU alarm, and IAM roles with
   GitHub OIDC instead of long-lived keys
-- Docker: a Python backend image and an nginx frontend image;
-  `docker-compose.prod.yml` runs the production stack
+- Docker: a Python backend image and a nginx frontend image;
+  `docker-compose.prod.yml` runs production stack
 
 ## Deployment
 
-One EC2 instance runs the stack with Docker Compose. A merge to `main` runs
-CI; when CI passes, GitHub Actions builds both images, pushes them to Amazon
-ECR, and deploys them through SSM Run Command, with a one-click rollback to an
-earlier image. No SSH keys, long-lived AWS keys, or secrets in git. Setup,
-rollback, logs, teardown, and known limits are in
-[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+A merge to `main` ships to one EC2 instance running Docker Compose:
+
+```
+merge to main -> CI tests -> build images -> push to ECR -> deploy via SSM -> health check
+```
+
+- A failed health check restores the previous release; roll back by hand with an image tag
+- No SSH keys, long-lived AWS keys, or secrets in git
+- Setup, rollback, logs, teardown, and known limits: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)
 
 ## Setup
 
