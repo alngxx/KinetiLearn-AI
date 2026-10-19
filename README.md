@@ -161,8 +161,7 @@ Edit `.env` and fill in:
 - `R2_ACCESS_KEY` / `R2_SECRET_KEY` / `R2_BUCKET_NAME` / `R2_ENDPOINT_URL` -
   only needed if you test document upload against real R2
 - `VECTOR_STORE_BACKEND` - `chroma` (default) or `pinecone` (the production backend; needs
-  `PINECONE_API_KEY` + `PINECONE_INDEX` filled in, and a Pinecone index
-  already created at dimension 1536 / metric cosine before you switch)
+  `PINECONE_API_KEY` + `PINECONE_INDEX` , and a Pinecone index at dimension 1536 / metric cosine before you switch)
 
 ```bash
 alembic upgrade head
