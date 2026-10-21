@@ -16,8 +16,12 @@ and the same 20 questions.
 - **Quality: no detectable difference.** The LlamaIndex judge average is 4.69
   and the current pipeline's is 4.62. Running the current pipeline twice
   gives 4.62 and 4.56, so the gap is inside the noise.
+- **The effective sample is small.** Both splitters chunk the 19 short lessons
+  identically, so A and B differ mainly on the 7 questions about long
+  documents. In practice this compares two splitters on 7 questions.
 - **Cost follows chunk size and top_k, not the library.** Fuller chunks make
-  LlamaIndex send about 20% more prompt tokens. Against B, a lower top_k (C)
+  LlamaIndex use about 20% more tokens in total (47,001 vs 39,318, both
+  exact). Against B, a lower top_k (C)
   cuts total tokens by 38% and smaller chunks (E) by 42%. Each lost one
   question: q12 for C, q05 for E.
 - **The 0.25 similarity cutoff never fired.** Every question without an answer
@@ -164,6 +168,10 @@ so a model using outside knowledge would answer them confidently.
 A1 and A2 run the same configuration twice. Their difference shows the noise
 level; read every A vs B gap against it.
 
+`build_index` deletes every vector in `llamaindex-exp` before each build. The
+256/25 rebuild for E went from 431 to 819 vectors, not 1,250, so no 500/50
+vectors were left behind.
+
 **Metrics.**
 
 - `source_hit`: every expected document appears in the retrieved chunks, and
@@ -268,14 +276,19 @@ unanswerable questions (q17 to q20) scored 5 in every config.
 
 The same configuration, run twice, changed one judge score out of 20 (q12, 5
 vs 4). The means differ by 0.06 (4.62 vs 4.56). Retrieval was identical both
-times, so the noise comes from answer generation and judging. B's lead over A1
+times, so the noise comes from answer generation and judging only. It says
+nothing about retrieval: A failed q04 in both runs because it retrieved the
+same chunks both times, which makes that one result, not two. B's lead over A1
 is +0.07, the same size, so **the average shows no difference between the two
 pipelines.**
 
 ### Retrieval sweep
 
 The sweep covers the current pipeline's retrieval only, with no LLM answers.
-Results for k = 3, 5 and 8 were identical.
+Results for k = 3, 5 and 8 were identical, and that is mostly by design. The
+cutoff looks only at the best chunk, which k cannot change, so false accepts
+cannot depend on k. Only `source_hit` could, and it stayed at 16/16 because it
+checks documents, not chunks.
 
 | Cutoff | source_hit (16 answerable) | False accepts (4 unanswerable) |
 |---|---|---|
@@ -283,9 +296,37 @@ Results for k = 3, 5 and 8 were identical.
 | 0.25 (current) | 16/16 | 4/4 |
 | 0.35 | 16/16 | 3/4 |
 
-The best-chunk scores fall in two ranges. The four unanswerable questions
-scored 0.34 to 0.49. Of the 16 answerable questions, 15 scored 0.52 to 0.81,
-and q11 scored 0.37.
+The number that matters is each question's best-chunk score, since the
+cutoff compares only that score. Sorted from highest to lowest, with the
+unanswerable questions in bold:
+
+| Question | Type | Best-chunk score |
+|---|---|---|
+| q03 | single, long | 0.81 |
+| q08 | single, short | 0.68 |
+| q15 | two documents | 0.68 |
+| q16 | two documents | 0.67 |
+| q13 | single, short | 0.64 |
+| q04 | single, long | 0.64 |
+| q14 | two documents | 0.63 |
+| q01 | single, long | 0.62 |
+| q07 | single, long | 0.56 |
+| q02 | single, long | 0.56 |
+| q12 | single, short | 0.54 |
+| q06 | single, long | 0.54 |
+| q09 | single, short | 0.53 |
+| q05 | single, long | 0.52 |
+| q10 | single, short | 0.52 |
+| **q18** | **unanswerable** | **0.49** |
+| **q19** | **unanswerable** | **0.44** |
+| **q17** | **unanswerable** | **0.42** |
+| q11 | single, short | 0.37 |
+| **q20** | **unanswerable** | **0.34** |
+
+No cutoff separates the two groups: q11, an answerable question, scores 0.37,
+between q20 (0.34) and q17 (0.42). At 0.35, q20 falls below the cutoff and no
+answerable question does, which gives the 3/4 false accepts in the table above.
+A cutoff near 0.50 would turn away all four unanswerable questions and q11.
 
 The 0.25 cutoff never fired in any of the 120 answered questions, because
 every unanswerable question scored above it. The model still replied "not
@@ -325,7 +366,7 @@ which is why the averages match.
 | A1 vs A2: identical hits, 2 to 4 judge changes | Held for hits. Only 1 judge change, fewer than we guessed. |
 | B vs A on the short lessons: same within noise | Held. Only q12 moved, and A2 moved by the same amount. |
 | B vs A on long documents: at most one hit changes | Held for hits (none changed). Not for scores: q04 +3, q05 −2. |
-| B: about 17% more context tokens, a little more cost | Held. About 20% more prompt tokens, $0.0051 vs $0.0043. |
+| B: about 17% more context tokens, a little more cost | Held. About 20% more tokens in total (exact for both). The cost comparison, $0.0051 vs $0.0043, uses A's estimated split. |
 | B: latency within noise | Unclear. B's p50 is 0.35 to 0.75 s above A's, but D, the same pipeline, matches A. One run cannot settle it. |
 | C: about 40% fewer context tokens, lower cost | Held. 38% fewer prompt tokens, $0.0032. |
 | C: one to three fewer hits, mostly on q14 to q16 | Half held. It lost one hit, on q12, and q14 to q16 all hit. |
@@ -336,7 +377,7 @@ which is why the averages match.
 | E: higher scores on single-fact questions (q03, q06, q11) | Not shown. All three already hit and scored 5. The top score rose on q06 (0.53 to 0.64) and on q01 and q07, but not on q03. |
 | E: lower scores on multi-item answers (q01, q07, q14) | Did not hold. All three scored 5. E's drop came from q05 and q08. |
 | E: more false accepts | Could not rise. All 4 were already accepted at 0.25 in every config. |
-| Sweep: some answerable questions gated out at 0.35 | Did not hold. None were. |
+| Sweep: some answerable questions gated out at 0.35 | Did not hold. No answerable question fell below 0.35; one unanswerable question (q20) did. |
 | Sweep: most false accepts at 0.15 | Held, but already 4/4 at 0.25. |
 
 ## What was easier and harder
@@ -372,8 +413,8 @@ per-question differences go both ways: B won q04 and lost q05.
 
 The numbers do show three things:
 
-- **Chunking settings matter more than the library.** B sends about 20% more
-  context tokens than A because its chunks run fuller. E, with 256-token
+- **Chunking settings matter more than the library.** B uses about 20% more
+  tokens in total than A because its chunks run fuller. E, with 256-token
   chunks, cuts total tokens by 30% against A and answer cost from $0.0043 to
   $0.0030, and it answers fastest (p50 2078 ms). It scored 4.44 on the judge,
   mostly because of q05.
@@ -389,6 +430,10 @@ maintenance cost and fit, which this experiment did not measure.
 
 - 20 questions and one run per config. One question moves the answerable
   average by 0.06 to 0.25.
+- A and B differ mainly on the 7 long-document questions, because the short
+  lessons chunk identically. B vs A is largely a splitter comparison on those 7.
+- A1 vs A2 measures answer and judge noise, not retrieval noise. Retrieval is
+  deterministic, so a retrieval miss repeats in every run.
 - With four unanswerable questions, one flips the false-accept rate by 25
   points.
 - `source_hit` checks the document, not the chunk. It reached 16/16 even for
@@ -398,5 +443,10 @@ maintenance cost and fit, which this experiment did not measure.
 - The judge is an LLM that sees the expected answer and marks omissions
   against it. Several 4s mean "answered the question but skipped a detail the
   expected answer lists".
-- The current pipeline's prompt/completion split is an estimate.
+- The judge (`gpt-6-sol`) comes from the same model family as the model it
+  grades (`gpt-6-luna`), so it may share that model's blind spots and favor
+  its style. A judge from another provider would reduce that risk.
+- The current pipeline's prompt/completion split is an estimate. Compare A
+  with B on total tokens, which are exact. B vs C, D and E compare like for
+  like.
 - Latency comes from one run each. A1 and A2 differ by about 0.4 s at p50.
