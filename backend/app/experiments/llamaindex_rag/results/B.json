@@ -1,0 +1,888 @@
+{
+  "config": "B",
+  "pipeline": "llamaindex",
+  "top_k": 5,
+  "chunk_size": 500,
+  "records": [
+    {
+      "id": "q01",
+      "type": "single_long",
+      "answerable": true,
+      "answer": "When elimination is not reasonably practicable, the employer should consider controls in this order: substitution, engineering controls, administrative controls, and finally suitable personal protective equipment (PPE). [Source 3]",
+      "sources": [
+        {
+          "title": "Code of Practice on Workplace Safety and Health (WSH) Risk Management",
+          "chunk_index": 20,
+          "score": 0.6367
+        },
+        {
+          "title": "Code of Practice on Workplace Safety and Health (WSH) Risk Management",
+          "chunk_index": 2,
+          "score": 0.6352
+        },
+        {
+          "title": "Code of Practice on Workplace Safety and Health (WSH) Risk Management",
+          "chunk_index": 3,
+          "score": 0.629
+        },
+        {
+          "title": "Code of Practice on Workplace Safety and Health (WSH) Risk Management",
+          "chunk_index": 21,
+          "score": 0.625
+        },
+        {
+          "title": "Code of Practice on Workplace Safety and Health (WSH) Risk Management",
+          "chunk_index": 18,
+          "score": 0.598
+        }
+      ],
+      "no_match": false,
+      "source_hit": true,
+      "prompt_tokens": 2627,
+      "completion_tokens": 43,
+      "total_tokens": 2670,
+      "tokens_estimated": false,
+      "latency_ms": 3771,
+      "cost_usd": 0.00028419999999999997,
+      "judge_score": 5,
+      "judge_reason": "The answer gives the exact order required by the expected answer and Source 3, without unsupported claims.",
+      "judge_cost_usd": 0.00601
+    },
+    {
+      "id": "q02",
+      "type": "single_long",
+      "answerable": true,
+      "answer": "Generally, no. Employers should not stipulate gender as a job requirement. If the practical requirements of the job genuinely require a particular gender, the advertisement should clearly state the job-related reason. Otherwise, avoid wording that suggests a gender preference; for gender-specific job titles, use a gender-neutral title or say \u201cboth genders may apply.\u201d [Source 1] [Source 2]",
+      "sources": [
+        {
+          "title": "Tripartite Guidelines on Fair Employment Practices",
+          "chunk_index": 4,
+          "score": 0.6053
+        },
+        {
+          "title": "Tripartite Guidelines on Fair Employment Practices",
+          "chunk_index": 5,
+          "score": 0.5551
+        },
+        {
+          "title": "Tripartite Guidelines on Fair Employment Practices",
+          "chunk_index": 3,
+          "score": 0.537
+        },
+        {
+          "title": "Tripartite Guidelines on Fair Employment Practices",
+          "chunk_index": 7,
+          "score": 0.5066
+        },
+        {
+          "title": "Tripartite Guidelines on Fair Employment Practices",
+          "chunk_index": 8,
+          "score": 0.4966
+        }
+      ],
+      "no_match": false,
+      "source_hit": true,
+      "prompt_tokens": 2606,
+      "completion_tokens": 80,
+      "total_tokens": 2686,
+      "tokens_estimated": false,
+      "latency_ms": 3630,
+      "cost_usd": 0.00030060000000000004,
+      "judge_score": 5,
+      "judge_reason": "The answer accurately states the general prohibition, the practical-job-requirement exception and need to explain it, and the guidance against gender-preference wording, with all claims supported by the sources.",
+      "judge_cost_usd": 0.006298
+    },
+    {
+      "id": "q03",
+      "type": "single_long",
+      "answerable": true,
+      "answer": "The paper defines 7 Tier 1 MCP-specific threats and 8 Tier 2 MCP-contextualized threats. [Source 1]",
+      "sources": [
+        {
+          "title": "Model Context Protocol (MCP) Security",
+          "chunk_index": 13,
+          "score": 0.8249
+        },
+        {
+          "title": "Model Context Protocol (MCP) Security",
+          "chunk_index": 1,
+          "score": 0.7449
+        },
+        {
+          "title": "Model Context Protocol (MCP) Security",
+          "chunk_index": 12,
+          "score": 0.7359
+        },
+        {
+          "title": "Model Context Protocol (MCP) Security",
+          "chunk_index": 8,
+          "score": 0.7166
+        },
+        {
+          "title": "Model Context Protocol (MCP) Security",
+          "chunk_index": 11,
+          "score": 0.6798
+        }
+      ],
+      "no_match": false,
+      "source_hit": true,
+      "prompt_tokens": 2358,
+      "completion_tokens": 31,
+      "total_tokens": 2389,
+      "tokens_estimated": false,
+      "latency_ms": 3256,
+      "cost_usd": 0.00025130000000000004,
+      "judge_score": 5,
+      "judge_reason": "The answer gives both counts exactly as stated in Source 1 and the expected answer.",
+      "judge_cost_usd": 0.005416
+    },
+    {
+      "id": "q04",
+      "type": "single_long",
+      "answerable": true,
+      "answer": "As of early 2026, 85% of professional developers regularly use AI coding agents. [Source 5]",
+      "sources": [
+        {
+          "title": "The New SDLC With Vibe Coding",
+          "chunk_index": 29,
+          "score": 0.6169
+        },
+        {
+          "title": "The New SDLC With Vibe Coding",
+          "chunk_index": 10,
+          "score": 0.6124
+        },
+        {
+          "title": "The New SDLC With Vibe Coding",
+          "chunk_index": 17,
+          "score": 0.6077
+        },
+        {
+          "title": "The New SDLC With Vibe Coding",
+          "chunk_index": 18,
+          "score": 0.5956
+        },
+        {
+          "title": "The New SDLC With Vibe Coding",
+          "chunk_index": 2,
+          "score": 0.5899
+        }
+      ],
+      "no_match": false,
+      "source_hit": true,
+      "prompt_tokens": 2649,
+      "completion_tokens": 27,
+      "total_tokens": 2676,
+      "tokens_estimated": false,
+      "latency_ms": 2219,
+      "cost_usd": 0.00027840000000000005,
+      "judge_score": 4,
+      "judge_reason": "It correctly gives the requested 85% figure from Source 5, but omits the expected daily-use and AI-generated-code context.",
+      "judge_cost_usd": 0.0061
+    },
+    {
+      "id": "q05",
+      "type": "single_long",
+      "answerable": true,
+      "answer": "The Confused Deputy problem occurs when a prompt injection\u2014such as malicious instructions hidden in a repository\u2014tricks an over-privileged coding agent into carrying out an unauthorised action on the attacker\u2019s behalf. [Source 3]",
+      "sources": [
+        {
+          "title": "Vibe Coding Agent Security and Evaluation",
+          "chunk_index": 14,
+          "score": 0.4745
+        },
+        {
+          "title": "The New SDLC With Vibe Coding",
+          "chunk_index": 20,
+          "score": 0.4741
+        },
+        {
+          "title": "Vibe Coding Agent Security and Evaluation",
+          "chunk_index": 10,
+          "score": 0.4702
+        },
+        {
+          "title": "The New SDLC With Vibe Coding",
+          "chunk_index": 18,
+          "score": 0.4698
+        },
+        {
+          "title": "The New SDLC With Vibe Coding",
+          "chunk_index": 17,
+          "score": 0.4654
+        }
+      ],
+      "no_match": false,
+      "source_hit": true,
+      "prompt_tokens": 2643,
+      "completion_tokens": 51,
+      "total_tokens": 2694,
+      "tokens_estimated": false,
+      "latency_ms": 2436,
+      "cost_usd": 0.0002898,
+      "judge_score": 3,
+      "judge_reason": "It correctly defines the problem but omits its role in identity and access management and the use of unique, cryptographically verified agent identities to address it.",
+      "judge_cost_usd": 0.006732
+    },
+    {
+      "id": "q06",
+      "type": "single_long",
+      "answerable": true,
+      "answer": "Exit code 2 blocks the tool call in a PreToolUse hook. [Source 1]",
+      "sources": [
+        {
+          "title": "Claude Code PlayBook",
+          "chunk_index": 128,
+          "score": 0.533
+        },
+        {
+          "title": "Claude Code PlayBook",
+          "chunk_index": 156,
+          "score": 0.533
+        },
+        {
+          "title": "Claude Code PlayBook",
+          "chunk_index": 73,
+          "score": 0.5328
+        },
+        {
+          "title": "Claude Code PlayBook",
+          "chunk_index": 9,
+          "score": 0.5326
+        },
+        {
+          "title": "Claude Code PlayBook",
+          "chunk_index": 101,
+          "score": 0.5323
+        }
+      ],
+      "no_match": false,
+      "source_hit": true,
+      "prompt_tokens": 2083,
+      "completion_tokens": 23,
+      "total_tokens": 2106,
+      "tokens_estimated": false,
+      "latency_ms": 2118,
+      "cost_usd": 0.0002198,
+      "judge_score": 5,
+      "judge_reason": "Correctly identifies exit code 2 as blocking the PreToolUse tool call; the omitted stderr detail was not requested.",
+      "judge_cost_usd": 0.004916
+    },
+    {
+      "id": "q07",
+      "type": "single_long",
+      "answerable": true,
+      "answer": "A team can find pre-built MCP servers in public MCP registries, through vetted third-party hosted services, and in an organization\u2019s secure internal registry. Official provider-published servers are another option, such as Google\u2019s servers for Maps, BigQuery, and Google Docs. Public registries are useful for prototyping but are unvetted, so prioritize security and official sources. [Source 1] [Source 3]",
+      "sources": [
+        {
+          "title": "Agent Tools & Interoperability",
+          "chunk_index": 5,
+          "score": 0.6327
+        },
+        {
+          "title": "Model Context Protocol (MCP) Security",
+          "chunk_index": 10,
+          "score": 0.5909
+        },
+        {
+          "title": "Agent Tools & Interoperability",
+          "chunk_index": 4,
+          "score": 0.5904
+        },
+        {
+          "title": "MCP Fundamentals: Architecture and Core Concepts",
+          "chunk_index": 0,
+          "score": 0.5461
+        },
+        {
+          "title": "Model Context Protocol (MCP) Security",
+          "chunk_index": 21,
+          "score": 0.5399
+        }
+      ],
+      "no_match": false,
+      "source_hit": true,
+      "prompt_tokens": 2510,
+      "completion_tokens": 88,
+      "total_tokens": 2598,
+      "tokens_estimated": false,
+      "latency_ms": 4047,
+      "cost_usd": 0.000295,
+      "judge_score": 5,
+      "judge_reason": "The answer covers all three discovery sources and accurately notes the public-registry security caveat and official Google examples.",
+      "judge_cost_usd": 0.005914
+    },
+    {
+      "id": "q08",
+      "type": "single_short",
+      "answerable": true,
+      "answer": "Most organizations target WCAG Level AA. [Source 1]",
+      "sources": [
+        {
+          "title": "WCAG Conformance Levels and Structure",
+          "chunk_index": 0,
+          "score": 0.7183
+        },
+        {
+          "title": "Introduction to Web Accessibility",
+          "chunk_index": 0,
+          "score": 0.4543
+        },
+        {
+          "title": "Model Context Protocol (MCP) Security",
+          "chunk_index": 7,
+          "score": 0.3364
+        },
+        {
+          "title": "Model Context Protocol (MCP) Security",
+          "chunk_index": 3,
+          "score": 0.3327
+        },
+        {
+          "title": "Code of Practice on Workplace Safety and Health (WSH) Risk Management",
+          "chunk_index": 15,
+          "score": 0.3308
+        }
+      ],
+      "no_match": false,
+      "source_hit": true,
+      "prompt_tokens": 1998,
+      "completion_tokens": 16,
+      "total_tokens": 2014,
+      "tokens_estimated": false,
+      "latency_ms": 3054,
+      "cost_usd": 0.0002078,
+      "judge_score": 5,
+      "judge_reason": "The answer correctly identifies Level AA as the level most organizations target, as stated in Source 1.",
+      "judge_cost_usd": 0.004698
+    },
+    {
+      "id": "q09",
+      "type": "single_short",
+      "answerable": true,
+      "answer": "The regulator must typically be notified within 72 hours of the organisation becoming aware of a breach assessed as notifiable. [Source 1]",
+      "sources": [
+        {
+          "title": "Data Privacy Compliance Basics",
+          "chunk_index": 1,
+          "score": 0.5228
+        },
+        {
+          "title": "Data Privacy Compliance Basics",
+          "chunk_index": 0,
+          "score": 0.4826
+        },
+        {
+          "title": "Data Privacy Compliance Basics",
+          "chunk_index": 2,
+          "score": 0.4758
+        },
+        {
+          "title": "Code of Practice on Workplace Safety and Health (WSH) Risk Management",
+          "chunk_index": 19,
+          "score": 0.2773
+        },
+        {
+          "title": "Code of Practice on Workplace Safety and Health (WSH) Risk Management",
+          "chunk_index": 9,
+          "score": 0.2681
+        }
+      ],
+      "no_match": false,
+      "source_hit": true,
+      "prompt_tokens": 2313,
+      "completion_tokens": 31,
+      "total_tokens": 2344,
+      "tokens_estimated": false,
+      "latency_ms": 2133,
+      "cost_usd": 0.00024680000000000004,
+      "judge_score": 4,
+      "judge_reason": "The answer correctly states the regulator\u2019s typical 72-hour deadline, but omits the expected timing for notifying affected individuals.",
+      "judge_cost_usd": 0.005418
+    },
+    {
+      "id": "q10",
+      "type": "single_short",
+      "answerable": true,
+      "answer": "A good async update should answer three things, in this order: what changed, what it means for the reader, and what, if anything, is needed from them. Keep the ask at the beginning or end of the update, not buried in the middle. [Source 1]",
+      "sources": [
+        {
+          "title": "Communication & Teamwork: Working Well Across a Team",
+          "chunk_index": 1,
+          "score": 0.4561
+        },
+        {
+          "title": "Agent Tools & Interoperability",
+          "chunk_index": 26,
+          "score": 0.3504
+        },
+        {
+          "title": "Agent Tools & Interoperability",
+          "chunk_index": 23,
+          "score": 0.3447
+        },
+        {
+          "title": "Claude Code PlayBook",
+          "chunk_index": 118,
+          "score": 0.3423
+        },
+        {
+          "title": "Claude Code PlayBook",
+          "chunk_index": 33,
+          "score": 0.3318
+        }
+      ],
+      "no_match": false,
+      "source_hit": true,
+      "prompt_tokens": 1887,
+      "completion_tokens": 60,
+      "total_tokens": 1947,
+      "tokens_estimated": false,
+      "latency_ms": 3068,
+      "cost_usd": 0.00021870000000000003,
+      "judge_score": 5,
+      "judge_reason": "The answer includes all three questions in the specified order and correctly says to place the ask first or last, not in the middle.",
+      "judge_cost_usd": 0.004646
+    },
+    {
+      "id": "q11",
+      "type": "single_short",
+      "answerable": true,
+      "answer": "Modern buyers complete roughly 70% of their purchasing research before contacting sales. [Source 1]",
+      "sources": [
+        {
+          "title": "Introduction to Sales Enablement",
+          "chunk_index": 0,
+          "score": 0.3608
+        },
+        {
+          "title": "Agent Skills",
+          "chunk_index": 31,
+          "score": 0.3411
+        },
+        {
+          "title": "Content and Enablement through buyer's Journey",
+          "chunk_index": 0,
+          "score": 0.338
+        },
+        {
+          "title": "Building Effective AI Agents: Architecture Patterns",
+          "chunk_index": 8,
+          "score": 0.3285
+        },
+        {
+          "title": "Agent Skills",
+          "chunk_index": 30,
+          "score": 0.3076
+        }
+      ],
+      "no_match": false,
+      "source_hit": true,
+      "prompt_tokens": 2292,
+      "completion_tokens": 23,
+      "total_tokens": 2315,
+      "tokens_estimated": false,
+      "latency_ms": 1808,
+      "cost_usd": 0.00024070000000000002,
+      "judge_score": 5,
+      "judge_reason": "The answer exactly matches the expected figure and is directly supported by Source 1.",
+      "judge_cost_usd": 0.005224
+    },
+    {
+      "id": "q12",
+      "type": "single_short",
+      "answerable": true,
+      "answer": "Rewind lets you roll a session back to an earlier point, undoing a wrong turn without losing everything else Claude has figured out along the way. [Source 5]",
+      "sources": [
+        {
+          "title": "Claude Code PlayBook",
+          "chunk_index": 41,
+          "score": 0.5536
+        },
+        {
+          "title": "Claude Code PlayBook",
+          "chunk_index": 152,
+          "score": 0.5515
+        },
+        {
+          "title": "Claude Code PlayBook",
+          "chunk_index": 97,
+          "score": 0.5513
+        },
+        {
+          "title": "Claude Code PlayBook",
+          "chunk_index": 69,
+          "score": 0.5513
+        },
+        {
+          "title": "Steering Long Sessions",
+          "chunk_index": 0,
+          "score": 0.5512
+        }
+      ],
+      "no_match": false,
+      "source_hit": true,
+      "prompt_tokens": 2133,
+      "completion_tokens": 38,
+      "total_tokens": 2171,
+      "tokens_estimated": false,
+      "latency_ms": 2749,
+      "cost_usd": 0.0002323,
+      "judge_score": 4,
+      "judge_reason": "It correctly explains rollback and preserving useful context, but omits that rewind is cheaper than starting a new session.",
+      "judge_cost_usd": 0.005048
+    },
+    {
+      "id": "q13",
+      "type": "single_short",
+      "answerable": true,
+      "answer": "At the decision stage, buyers need content that resolves their remaining concerns, such as clear pricing, implementation details, references from similar customers, and direct answers to common sales objections. [Source 1]",
+      "sources": [
+        {
+          "title": "Content and Enablement through buyer's Journey",
+          "chunk_index": 0,
+          "score": 0.6533
+        },
+        {
+          "title": "Introduction to Sales Enablement",
+          "chunk_index": 0,
+          "score": 0.3966
+        },
+        {
+          "title": "Agent Skills",
+          "chunk_index": 31,
+          "score": 0.3834
+        },
+        {
+          "title": "Agent Skills",
+          "chunk_index": 32,
+          "score": 0.3056
+        },
+        {
+          "title": "Agent Skills",
+          "chunk_index": 33,
+          "score": 0.3016
+        }
+      ],
+      "no_match": false,
+      "source_hit": true,
+      "prompt_tokens": 2260,
+      "completion_tokens": 43,
+      "total_tokens": 2303,
+      "tokens_estimated": false,
+      "latency_ms": 2563,
+      "cost_usd": 0.0002475,
+      "judge_score": 5,
+      "judge_reason": "The answer includes all four decision-stage content needs and is fully supported by Source 1.",
+      "judge_cost_usd": 0.005266
+    },
+    {
+      "id": "q14",
+      "type": "two_doc",
+      "answerable": true,
+      "answer": "A fully unsupervised run should verify its output against relevant tests or clear success criteria before calling the task done. Task completion should be gated on those checks passing, so trust is earned through verification rather than assumed. [Source 1]\n\nTo keep a long session from drifting, use plan mode for non-trivial or risky work so assumptions and direction can be corrected before coding; direct compaction to preserve important decisions and constraints; and use rewind to recover from a wrong turn without restarting from scratch. Also choose the right level of supervision: hands-on review for unfamiliar or high-stakes work, and autonomous, goal-based work for clearly scoped, lower-risk tasks. [Source 2]",
+      "sources": [
+        {
+          "title": "Verifying and Sharing",
+          "chunk_index": 0,
+          "score": 0.6518
+        },
+        {
+          "title": "Steering Long Sessions",
+          "chunk_index": 0,
+          "score": 0.6414
+        },
+        {
+          "title": "Configuring Claude",
+          "chunk_index": 0,
+          "score": 0.5923
+        },
+        {
+          "title": "Claude Code PlayBook",
+          "chunk_index": 41,
+          "score": 0.569
+        },
+        {
+          "title": "Claude Code PlayBook",
+          "chunk_index": 97,
+          "score": 0.5646
+        }
+      ],
+      "no_match": false,
+      "source_hit": true,
+      "prompt_tokens": 1939,
+      "completion_tokens": 141,
+      "total_tokens": 2080,
+      "tokens_estimated": false,
+      "latency_ms": 4847,
+      "cost_usd": 0.0002644,
+      "judge_score": 5,
+      "judge_reason": "The answer fully covers verification and test-gated completion, plus plan mode, directed compaction, and rewind, with only supported additional guidance on supervision.",
+      "judge_cost_usd": 0.004974
+    },
+    {
+      "id": "q15",
+      "type": "two_doc",
+      "answerable": true,
+      "answer": "The four POUR principles are Perceivable, Operable, Understandable, and Robust. WCAG has 13 guidelines under these principles. [Source 1] [Source 2]",
+      "sources": [
+        {
+          "title": "Introduction to Web Accessibility",
+          "chunk_index": 0,
+          "score": 0.7036
+        },
+        {
+          "title": "WCAG Conformance Levels and Structure",
+          "chunk_index": 0,
+          "score": 0.6264
+        },
+        {
+          "title": "Tripartite Guidelines on Fair Employment Practices",
+          "chunk_index": 1,
+          "score": 0.3758
+        },
+        {
+          "title": "Model Context Protocol (MCP) Security",
+          "chunk_index": 36,
+          "score": 0.334
+        },
+        {
+          "title": "Model Context Protocol (MCP) Security",
+          "chunk_index": 7,
+          "score": 0.3233
+        }
+      ],
+      "no_match": false,
+      "source_hit": true,
+      "prompt_tokens": 2148,
+      "completion_tokens": 41,
+      "total_tokens": 2189,
+      "tokens_estimated": false,
+      "latency_ms": 2998,
+      "cost_usd": 0.0002353,
+      "judge_score": 5,
+      "judge_reason": "The answer correctly names all four POUR principles and states that 13 WCAG guidelines sit under them, as supported by the sources.",
+      "judge_cost_usd": 0.005116
+    },
+    {
+      "id": "q16",
+      "type": "two_doc",
+      "answerable": true,
+      "answer": "Sales enablement brings marketing and sales together. [Source 2] At the awareness stage, content should educate prospects about a problem they already have, without pitching a specific product; examples include educational articles, guides, and benchmark data. [Source 1]",
+      "sources": [
+        {
+          "title": "Content and Enablement through buyer's Journey",
+          "chunk_index": 0,
+          "score": 0.6769
+        },
+        {
+          "title": "Introduction to Sales Enablement",
+          "chunk_index": 0,
+          "score": 0.6313
+        },
+        {
+          "title": "Agent Skills",
+          "chunk_index": 31,
+          "score": 0.3864
+        },
+        {
+          "title": "Agent Skills",
+          "chunk_index": 30,
+          "score": 0.3826
+        },
+        {
+          "title": "Agent Skills",
+          "chunk_index": 32,
+          "score": 0.3654
+        }
+      ],
+      "no_match": false,
+      "source_hit": true,
+      "prompt_tokens": 2271,
+      "completion_tokens": 55,
+      "total_tokens": 2326,
+      "tokens_estimated": false,
+      "latency_ms": 22846,
+      "cost_usd": 0.0002546,
+      "judge_score": 5,
+      "judge_reason": "The answer correctly identifies marketing and sales and fully describes the awareness-stage content, with all claims supported by the sources.",
+      "judge_cost_usd": 0.005382
+    },
+    {
+      "id": "q17",
+      "type": "unanswerable",
+      "answerable": false,
+      "answer": "The training materials do not specify the minimum color contrast ratio required for normal body text. [Source 2] only notes that text should have sufficient contrast against its background.",
+      "sources": [
+        {
+          "title": "WCAG Conformance Levels and Structure",
+          "chunk_index": 0,
+          "score": 0.4608
+        },
+        {
+          "title": "Introduction to Web Accessibility",
+          "chunk_index": 0,
+          "score": 0.4544
+        },
+        {
+          "title": "Code of Practice on Workplace Safety and Health (WSH) Risk Management",
+          "chunk_index": 13,
+          "score": 0.287
+        },
+        {
+          "title": "Code of Practice on Workplace Safety and Health (WSH) Risk Management",
+          "chunk_index": 16,
+          "score": 0.2766
+        },
+        {
+          "title": "Code of Practice on Workplace Safety and Health (WSH) Risk Management",
+          "chunk_index": 14,
+          "score": 0.2716
+        }
+      ],
+      "no_match": false,
+      "source_hit": null,
+      "prompt_tokens": 2347,
+      "completion_tokens": 37,
+      "total_tokens": 2384,
+      "tokens_estimated": false,
+      "latency_ms": 3569,
+      "cost_usd": 0.00025320000000000003,
+      "judge_score": 5,
+      "judge_reason": "It correctly states that the materials give no minimum ratio and only mention sufficient text contrast.",
+      "judge_cost_usd": 0.005392
+    },
+    {
+      "id": "q18",
+      "type": "unanswerable",
+      "answerable": false,
+      "answer": "The maximum fine is not covered in the training materials provided. [Sources 1\u20133]",
+      "sources": [
+        {
+          "title": "Data Privacy Compliance Basics",
+          "chunk_index": 0,
+          "score": 0.4953
+        },
+        {
+          "title": "Data Privacy Compliance Basics",
+          "chunk_index": 1,
+          "score": 0.42
+        },
+        {
+          "title": "Data Privacy Compliance Basics",
+          "chunk_index": 2,
+          "score": 0.3988
+        },
+        {
+          "title": "Code of Practice on Workplace Safety and Health (WSH) Risk Management",
+          "chunk_index": 2,
+          "score": 0.2597
+        },
+        {
+          "title": "Tripartite Guidelines on Fair Employment Practices",
+          "chunk_index": 9,
+          "score": 0.2489
+        }
+      ],
+      "no_match": false,
+      "source_hit": null,
+      "prompt_tokens": 2297,
+      "completion_tokens": 22,
+      "total_tokens": 2319,
+      "tokens_estimated": false,
+      "latency_ms": 2096,
+      "cost_usd": 0.00024070000000000002,
+      "judge_score": 5,
+      "judge_reason": "It correctly states that the materials do not cover the maximum fine and provides no unsupported amount.",
+      "judge_cost_usd": 0.005276
+    },
+    {
+      "id": "q19",
+      "type": "unanswerable",
+      "answerable": false,
+      "answer": "That isn\u2019t covered in the training materials. None of the excerpts gives the monthly cost of a Claude Pro subscription.",
+      "sources": [
+        {
+          "title": "What is Claude",
+          "chunk_index": 0,
+          "score": 0.4522
+        },
+        {
+          "title": "Introduction to Claude Cowork",
+          "chunk_index": 0,
+          "score": 0.3799
+        },
+        {
+          "title": "Configuring Claude",
+          "chunk_index": 0,
+          "score": 0.3638
+        },
+        {
+          "title": "Building Effective AI Agents: Architecture Patterns",
+          "chunk_index": 2,
+          "score": 0.3587
+        },
+        {
+          "title": "Claude Code PlayBook",
+          "chunk_index": 17,
+          "score": 0.346
+        }
+      ],
+      "no_match": false,
+      "source_hit": null,
+      "prompt_tokens": 2146,
+      "completion_tokens": 26,
+      "total_tokens": 2172,
+      "tokens_estimated": false,
+      "latency_ms": 2095,
+      "cost_usd": 0.00022760000000000003,
+      "judge_score": 5,
+      "judge_reason": "The answer clearly states that the materials do not cover Claude Pro\u2019s monthly price and adds no unsupported details.",
+      "judge_cost_usd": 0.005006
+    },
+    {
+      "id": "q20",
+      "type": "unanswerable",
+      "answerable": false,
+      "answer": "The annual leave entitlement is not covered in the training materials provided.",
+      "sources": [
+        {
+          "title": "Tripartite Guidelines on Fair Employment Practices",
+          "chunk_index": 9,
+          "score": 0.3293
+        },
+        {
+          "title": "Tripartite Guidelines on Fair Employment Practices",
+          "chunk_index": 8,
+          "score": 0.2921
+        },
+        {
+          "title": "Tripartite Guidelines on Fair Employment Practices",
+          "chunk_index": 10,
+          "score": 0.288
+        },
+        {
+          "title": "Tripartite Guidelines on Fair Employment Practices",
+          "chunk_index": 1,
+          "score": 0.2578
+        },
+        {
+          "title": "Tripartite Guidelines on Fair Employment Practices",
+          "chunk_index": 11,
+          "score": 0.2572
+        }
+      ],
+      "no_match": false,
+      "source_hit": null,
+      "prompt_tokens": 2602,
+      "completion_tokens": 16,
+      "total_tokens": 2618,
+      "tokens_estimated": false,
+      "latency_ms": 2185,
+      "cost_usd": 0.0002682,
+      "judge_score": 5,
+      "judge_reason": "It correctly states that the provided materials do not cover annual leave entitlement and adds no unsupported details.",
+      "judge_cost_usd": 0.005868
+    }
+  ]
+}

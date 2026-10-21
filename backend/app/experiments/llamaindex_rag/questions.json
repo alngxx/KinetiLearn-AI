@@ -1,0 +1,162 @@
+[
+  {
+    "id": "q01",
+    "type": "single_long",
+    "question": "Under the WSH risk management code of practice, in what order should an employer consider risk controls when eliminating the risk is not reasonably practicable?",
+    "expected_answer": "Substitution, then engineering control, then administrative control, then providing and using suitable personal protective equipment (PPE).",
+    "expected_documents": ["Code of Practice on Workplace Safety and Health (WSH) Risk Management"],
+    "answerable": true
+  },
+  {
+    "id": "q02",
+    "type": "single_long",
+    "question": "Can a job advertisement ask for candidates of a specific gender?",
+    "expected_answer": "Employers should not state gender as a requirement. Only when the practical requirements of the job need a particular gender may they do so, and the reason must be stated clearly (for example, a health spa needing female therapists for female customers). Phrases such as \"female working environment\" should not be used.",
+    "expected_documents": ["Tripartite Guidelines on Fair Employment Practices"],
+    "answerable": true
+  },
+  {
+    "id": "q03",
+    "type": "single_long",
+    "question": "How many Tier 1 MCP-specific threats and how many Tier 2 MCP-contextualized threats does the MCP security paper define?",
+    "expected_answer": "Tier 1 has 7 MCP-specific threats and Tier 2 has 8 MCP-contextualized threats.",
+    "expected_documents": ["Model Context Protocol (MCP) Security"],
+    "answerable": true
+  },
+  {
+    "id": "q04",
+    "type": "single_long",
+    "question": "As of early 2026, what share of professional developers regularly use AI coding agents?",
+    "expected_answer": "85% use them regularly and 51% use them daily; an estimated 41% of all new code is AI-generated.",
+    "expected_documents": ["The New SDLC With Vibe Coding"],
+    "answerable": true
+  },
+  {
+    "id": "q05",
+    "type": "single_long",
+    "question": "What is the \"Confused Deputy\" problem for coding agents?",
+    "expected_answer": "An over-privileged agent is tricked into executing unauthorised commands. It is the main risk under the Identity and Access Management pillar, addressed by giving agents unique, cryptographically verified identities.",
+    "expected_documents": ["Vibe Coding Agent Security and Evaluation"],
+    "answerable": true
+  },
+  {
+    "id": "q06",
+    "type": "single_long",
+    "question": "In a Claude Code PreToolUse hook, which exit code blocks the tool call?",
+    "expected_answer": "Exit code 2. It blocks the tool call and feeds the hook's stderr back to Claude.",
+    "expected_documents": ["Claude Code PlayBook"],
+    "answerable": true
+  },
+  {
+    "id": "q07",
+    "type": "single_long",
+    "question": "Where can a team discover pre-built MCP servers instead of writing its own connectors?",
+    "expected_answer": "From public MCP registries (unvetted, used at your own risk), from vetted third-party remote MCP servers such as official Google-published ones, and from an organization's internal registry.",
+    "expected_documents": ["Agent Tools & Interoperability"],
+    "answerable": true
+  },
+  {
+    "id": "q08",
+    "type": "single_short",
+    "question": "Which WCAG conformance level do most organizations target?",
+    "expected_answer": "Level AA. It addresses barriers for a broader range of users and is the level most legal and regulatory standards reference.",
+    "expected_documents": ["WCAG Conformance Levels and Structure"],
+    "answerable": true
+  },
+  {
+    "id": "q09",
+    "type": "single_short",
+    "question": "How soon must the regulator be notified after a notifiable personal data breach?",
+    "expected_answer": "Typically within 72 hours of the organisation becoming aware of it. Affected individuals must be notified as soon as practicable if they are likely to suffer significant harm.",
+    "expected_documents": ["Data Privacy Compliance Basics"],
+    "answerable": true
+  },
+  {
+    "id": "q10",
+    "type": "single_short",
+    "question": "What should a good async update answer, and in what order?",
+    "expected_answer": "What changed, what it means for the reader, and what (if anything) is needed from them. The ask goes first or last, never buried in the middle.",
+    "expected_documents": ["Communication & Teamwork: Working Well Across a Team"],
+    "answerable": true
+  },
+  {
+    "id": "q11",
+    "type": "single_short",
+    "question": "How much of their purchasing research do modern buyers complete before contacting sales?",
+    "expected_answer": "Roughly 70%.",
+    "expected_documents": ["Introduction to Sales Enablement"],
+    "answerable": true
+  },
+  {
+    "id": "q12",
+    "type": "single_short",
+    "question": "What does rewind do in a Claude Code session?",
+    "expected_answer": "It rolls the session back to an earlier point, undoing a wrong turn without losing everything else Claude figured out, which is cheaper than starting a new session.",
+    "expected_documents": ["Steering Long Sessions"],
+    "answerable": true
+  },
+  {
+    "id": "q13",
+    "type": "single_short",
+    "question": "What content do buyers need at the decision stage of the buyer's journey?",
+    "expected_answer": "Content that removes their last hesitations: pricing clarity, implementation details, references from similar customers, and direct answers to the most common objections.",
+    "expected_documents": ["Content and Enablement through buyer's Journey"],
+    "answerable": true
+  },
+  {
+    "id": "q14",
+    "type": "two_doc",
+    "question": "How should a fully unsupervised Claude Code run earn trust, and which habits keep a long session from drifting?",
+    "expected_answer": "An unsupervised run should verify itself, for example by gating task completion on passing tests. Long sessions stay on track through plan mode before changes, directing compaction so key decisions are kept, and rewind to undo wrong turns.",
+    "expected_documents": ["Verifying and Sharing", "Steering Long Sessions"],
+    "answerable": true
+  },
+  {
+    "id": "q15",
+    "type": "two_doc",
+    "question": "What are the four POUR principles of accessibility, and how many WCAG guidelines sit under them?",
+    "expected_answer": "Perceivable, Operable, Understandable and Robust. Under them sit 13 guidelines, each broken into testable success criteria.",
+    "expected_documents": ["Introduction to Web Accessibility", "WCAG Conformance Levels and Structure"],
+    "answerable": true
+  },
+  {
+    "id": "q16",
+    "type": "two_doc",
+    "question": "Which two teams does sales enablement bring together, and what content suits buyers at the awareness stage?",
+    "expected_answer": "Marketing and Sales, often described together as one revenue team. At the awareness stage, content should help prospects understand their problem rather than sell a product: educational articles, guides and benchmark data.",
+    "expected_documents": ["Introduction to Sales Enablement", "Content and Enablement through buyer's Journey"],
+    "answerable": true
+  },
+  {
+    "id": "q17",
+    "type": "unanswerable",
+    "question": "What minimum color contrast ratio does WCAG require for normal body text?",
+    "expected_answer": "Not covered. The materials say text needs enough contrast but give no ratio.",
+    "expected_documents": [],
+    "answerable": false
+  },
+  {
+    "id": "q18",
+    "type": "unanswerable",
+    "question": "What is the maximum fine an organisation can receive for a PDPA data breach?",
+    "expected_answer": "Not covered. The materials describe breach response and notification but no fines or penalty amounts.",
+    "expected_documents": [],
+    "answerable": false
+  },
+  {
+    "id": "q19",
+    "type": "unanswerable",
+    "question": "How much does a Claude Pro subscription cost per month?",
+    "expected_answer": "Not covered. The materials describe what Claude does, not its pricing.",
+    "expected_documents": [],
+    "answerable": false
+  },
+  {
+    "id": "q20",
+    "type": "unanswerable",
+    "question": "How many days of annual leave is each employee entitled to?",
+    "expected_answer": "Not covered. No document covers leave entitlement.",
+    "expected_documents": [],
+    "answerable": false
+  }
+]
