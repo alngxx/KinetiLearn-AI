@@ -16,14 +16,18 @@ and the same 20 questions.
 - **Quality: no detectable difference.** The LlamaIndex judge average is 4.69
   and the current pipeline's is 4.62. Running the current pipeline twice
   gives 4.62 and 4.56, so the gap is inside the noise.
-- **The effective sample is small.** Both splitters chunk the 19 short lessons
-  identically, so A and B differ mainly on the 7 questions about long
-  documents. In practice this compares two splitters on 7 questions.
-- **Cost follows chunk size and top_k, not the library.** Fuller chunks make
-  LlamaIndex use about 20% more tokens in total (47,001 vs 39,318, both
-  exact). Against B, a lower top_k (C)
-  cuts total tokens by 38% and smaller chunks (E) by 42%. Each lost one
-  question: q12 for C, q05 for E.
+- **A vs B is mostly a splitter comparison.** Both splitters chunk the 19
+  short lessons identically, but every question's top 5 includes at least 2
+  chunks from the 9 long documents, which chunk differently. We did not
+  compare the retrieved chunk texts, so we cannot say on how many questions A
+  and B retrieved different chunks.
+- **Token use tracks chunk size and top_k.** B uses 19.5% more total tokens
+  than A (47,001 vs 39,318, both from the API). That is consistent with B's
+  fuller chunks, about 420 tokens on average against 358 for A, with k = 5 in
+  both. The experiment did not isolate the cause. The like-for-like
+  comparisons all run on LlamaIndex: against B, a lower top_k (C) cuts total
+  tokens by 38% and smaller chunks (E) by 42%. Each lost one question: q12 for
+  C, q05 for E.
 - **The 0.25 similarity cutoff never fired.** Every question without an answer
   scored above it. The system prompt produced all the "not covered" replies.
 - **We would not migrate on this evidence.**
@@ -366,7 +370,7 @@ which is why the averages match.
 | A1 vs A2: identical hits, 2 to 4 judge changes | Held for hits. Only 1 judge change, fewer than we guessed. |
 | B vs A on the short lessons: same within noise | Held. Only q12 moved, and A2 moved by the same amount. |
 | B vs A on long documents: at most one hit changes | Held for hits (none changed). Not for scores: q04 +3, q05 −2. |
-| B: about 17% more context tokens, a little more cost | Held. About 20% more tokens in total (exact for both). The cost comparison, $0.0051 vs $0.0043, uses A's estimated split. |
+| B: about 17% more context tokens, a little more cost | Held. B uses 19.5% more total tokens (47,001 vs 39,318, both from the API), consistent with its fuller chunks. The cost gap, $0.0051 vs $0.0043, uses A's estimated split. |
 | B: latency within noise | Unclear. B's p50 is 0.35 to 0.75 s above A's, but D, the same pipeline, matches A. One run cannot settle it. |
 | C: about 40% fewer context tokens, lower cost | Held. 38% fewer prompt tokens, $0.0032. |
 | C: one to three fewer hits, mostly on q14 to q16 | Half held. It lost one hit, on q12, and q14 to q16 all hit. |
@@ -413,13 +417,14 @@ per-question differences go both ways: B won q04 and lost q05.
 
 The numbers do show three things:
 
-- **Chunking settings matter more than the library.** B uses about 20% more
-  tokens in total than A because its chunks run fuller. E, with 256-token
-  chunks, cuts total tokens by 30% against A and answer cost from $0.0043 to
-  $0.0030, and it answers fastest (p50 2078 ms). It scored 4.44 on the judge,
-  mostly because of q05.
-- **Lowering top_k also cuts cost and risks misses.** C (k = 3) saved 38% of
-  prompt tokens and missed one source.
+- **Token use is consistent with chunk size.** B uses 19.5% more total tokens
+  than A, and its chunks average about 420 tokens against 358, at the same
+  k = 5. The experiment did not isolate the cause. On LlamaIndex alone, E
+  (256-token chunks) uses 42% fewer total tokens than B and costs $0.0030 per
+  20 answers against $0.0051. E also answers fastest (p50 2078 ms), but scored
+  4.44 on the judge against B's 4.69, mostly because of q05.
+- **Lowering top_k also cuts cost and risks misses.** C (k = 3) used 38% fewer
+  total tokens than B and missed one source.
 - **The 0.25 cutoff did nothing on this set.** The system prompt handled every
   question without an answer.
 
@@ -430,8 +435,10 @@ maintenance cost and fit, which this experiment did not measure.
 
 - 20 questions and one run per config. One question moves the answerable
   average by 0.06 to 0.25.
-- A and B differ mainly on the 7 long-document questions, because the short
-  lessons chunk identically. B vs A is largely a splitter comparison on those 7.
+- A vs B is largely a splitter comparison. The short lessons chunk
+  identically, but every question's top 5 includes at least 2 chunks from the
+  long documents. We did not compare the retrieved chunk texts of A and B, so
+  the number of questions with different chunks is unknown.
 - A1 vs A2 measures answer and judge noise, not retrieval noise. Retrieval is
   deterministic, so a retrieval miss repeats in every run.
 - With four unanswerable questions, one flips the false-accept rate by 25
