@@ -1,0 +1,433 @@
+{
+  "rows": [
+    {
+      "id": "q01",
+      "answerable": true,
+      "expected_documents": [
+        "Code of Practice on Workplace Safety and Health (WSH) Risk Management"
+      ],
+      "best_score": 0.6247,
+      "titles": [
+        "Code of Practice on Workplace Safety and Health (WSH) Risk Management",
+        "Code of Practice on Workplace Safety and Health (WSH) Risk Management",
+        "Code of Practice on Workplace Safety and Health (WSH) Risk Management",
+        "Code of Practice on Workplace Safety and Health (WSH) Risk Management",
+        "Code of Practice on Workplace Safety and Health (WSH) Risk Management",
+        "Code of Practice on Workplace Safety and Health (WSH) Risk Management",
+        "Code of Practice on Workplace Safety and Health (WSH) Risk Management",
+        "Code of Practice on Workplace Safety and Health (WSH) Risk Management"
+      ]
+    },
+    {
+      "id": "q02",
+      "answerable": true,
+      "expected_documents": [
+        "Tripartite Guidelines on Fair Employment Practices"
+      ],
+      "best_score": 0.5618,
+      "titles": [
+        "Tripartite Guidelines on Fair Employment Practices",
+        "Tripartite Guidelines on Fair Employment Practices",
+        "Tripartite Guidelines on Fair Employment Practices",
+        "Tripartite Guidelines on Fair Employment Practices",
+        "Tripartite Guidelines on Fair Employment Practices",
+        "Tripartite Guidelines on Fair Employment Practices",
+        "Tripartite Guidelines on Fair Employment Practices",
+        "Tripartite Guidelines on Fair Employment Practices"
+      ]
+    },
+    {
+      "id": "q03",
+      "answerable": true,
+      "expected_documents": [
+        "Model Context Protocol (MCP) Security"
+      ],
+      "best_score": 0.8119,
+      "titles": [
+        "Model Context Protocol (MCP) Security",
+        "Model Context Protocol (MCP) Security",
+        "Model Context Protocol (MCP) Security",
+        "Model Context Protocol (MCP) Security",
+        "Model Context Protocol (MCP) Security",
+        "Model Context Protocol (MCP) Security",
+        "Model Context Protocol (MCP) Security",
+        "Model Context Protocol (MCP) Security"
+      ]
+    },
+    {
+      "id": "q04",
+      "answerable": true,
+      "expected_documents": [
+        "The New SDLC With Vibe Coding"
+      ],
+      "best_score": 0.6379,
+      "titles": [
+        "The New SDLC With Vibe Coding",
+        "The New SDLC With Vibe Coding",
+        "The New SDLC With Vibe Coding",
+        "The New SDLC With Vibe Coding",
+        "The New SDLC With Vibe Coding",
+        "The New SDLC With Vibe Coding",
+        "The New SDLC With Vibe Coding",
+        "Building Effective AI Agents: Architecture Patterns"
+      ]
+    },
+    {
+      "id": "q05",
+      "answerable": true,
+      "expected_documents": [
+        "Vibe Coding Agent Security and Evaluation"
+      ],
+      "best_score": 0.5243,
+      "titles": [
+        "Vibe Coding Agent Security and Evaluation",
+        "Claude Code PlayBook",
+        "Vibe Coding Agent Security and Evaluation",
+        "Vibe Coding Agent Security and Evaluation",
+        "Vibe Coding Agent Security and Evaluation",
+        "Claude Code PlayBook",
+        "Claude Code PlayBook",
+        "Claude Code PlayBook"
+      ]
+    },
+    {
+      "id": "q06",
+      "answerable": true,
+      "expected_documents": [
+        "Claude Code PlayBook"
+      ],
+      "best_score": 0.5363,
+      "titles": [
+        "Claude Code PlayBook",
+        "Claude Code PlayBook",
+        "Claude Code PlayBook",
+        "Claude Code PlayBook",
+        "Claude Code PlayBook",
+        "Claude Code PlayBook",
+        "Claude Code PlayBook",
+        "Claude Code PlayBook"
+      ]
+    },
+    {
+      "id": "q07",
+      "answerable": true,
+      "expected_documents": [
+        "Agent Tools & Interoperability"
+      ],
+      "best_score": 0.5643,
+      "titles": [
+        "Agent Tools & Interoperability",
+        "Claude Code PlayBook",
+        "Agent Tools & Interoperability",
+        "Model Context Protocol (MCP) Security",
+        "MCP Fundamentals: Architecture and Core Concepts",
+        "Model Context Protocol (MCP) Security",
+        "Agent Tools & Interoperability",
+        "Model Context Protocol (MCP) Security"
+      ]
+    },
+    {
+      "id": "q08",
+      "answerable": true,
+      "expected_documents": [
+        "WCAG Conformance Levels and Structure"
+      ],
+      "best_score": 0.6796,
+      "titles": [
+        "WCAG Conformance Levels and Structure",
+        "Introduction to Web Accessibility",
+        "Code of Practice on Workplace Safety and Health (WSH) Risk Management",
+        "Code of Practice on Workplace Safety and Health (WSH) Risk Management",
+        "Code of Practice on Workplace Safety and Health (WSH) Risk Management",
+        "Code of Practice on Workplace Safety and Health (WSH) Risk Management",
+        "Code of Practice on Workplace Safety and Health (WSH) Risk Management",
+        "Code of Practice on Workplace Safety and Health (WSH) Risk Management"
+      ]
+    },
+    {
+      "id": "q09",
+      "answerable": true,
+      "expected_documents": [
+        "Data Privacy Compliance Basics"
+      ],
+      "best_score": 0.5289,
+      "titles": [
+        "Data Privacy Compliance Basics",
+        "Data Privacy Compliance Basics",
+        "Data Privacy Compliance Basics",
+        "Code of Practice on Workplace Safety and Health (WSH) Risk Management",
+        "Code of Practice on Workplace Safety and Health (WSH) Risk Management",
+        "Tripartite Guidelines on Fair Employment Practices",
+        "Code of Practice on Workplace Safety and Health (WSH) Risk Management",
+        "Code of Practice on Workplace Safety and Health (WSH) Risk Management"
+      ]
+    },
+    {
+      "id": "q10",
+      "answerable": true,
+      "expected_documents": [
+        "Communication & Teamwork: Working Well Across a Team"
+      ],
+      "best_score": 0.5234,
+      "titles": [
+        "Communication & Teamwork: Working Well Across a Team",
+        "Agent Tools & Interoperability",
+        "Agent Tools & Interoperability",
+        "Agent Skills",
+        "Claude Code PlayBook",
+        "Building Effective AI Agents: Architecture Patterns",
+        "Claude Code PlayBook",
+        "Building Effective AI Agents: Architecture Patterns"
+      ]
+    },
+    {
+      "id": "q11",
+      "answerable": true,
+      "expected_documents": [
+        "Introduction to Sales Enablement"
+      ],
+      "best_score": 0.3726,
+      "titles": [
+        "Building Effective AI Agents: Architecture Patterns",
+        "Agent Skills",
+        "Introduction to Sales Enablement",
+        "Agent Skills",
+        "Content and Enablement through buyer's Journey",
+        "Building Effective AI Agents: Architecture Patterns",
+        "Agent Skills",
+        "Building Effective AI Agents: Architecture Patterns"
+      ]
+    },
+    {
+      "id": "q12",
+      "answerable": true,
+      "expected_documents": [
+        "Steering Long Sessions"
+      ],
+      "best_score": 0.5382,
+      "titles": [
+        "Steering Long Sessions",
+        "Configuring Claude",
+        "Automating Repeat Work",
+        "Claude Code PlayBook",
+        "Claude Code PlayBook",
+        "Claude Code PlayBook",
+        "Claude Code PlayBook",
+        "Claude Code PlayBook"
+      ]
+    },
+    {
+      "id": "q13",
+      "answerable": true,
+      "expected_documents": [
+        "Content and Enablement through buyer's Journey"
+      ],
+      "best_score": 0.6395,
+      "titles": [
+        "Content and Enablement through buyer's Journey",
+        "Introduction to Sales Enablement",
+        "Agent Skills",
+        "Agent Skills",
+        "Building Effective AI Agents: Architecture Patterns",
+        "Agent Tools & Interoperability",
+        "Agent Tools & Interoperability",
+        "The New SDLC With Vibe Coding"
+      ]
+    },
+    {
+      "id": "q14",
+      "answerable": true,
+      "expected_documents": [
+        "Verifying and Sharing",
+        "Steering Long Sessions"
+      ],
+      "best_score": 0.6302,
+      "titles": [
+        "Steering Long Sessions",
+        "Verifying and Sharing",
+        "Configuring Claude",
+        "Claude Code PlayBook",
+        "Claude Code PlayBook",
+        "Claude Code PlayBook",
+        "Claude Code PlayBook",
+        "Claude Code PlayBook"
+      ]
+    },
+    {
+      "id": "q15",
+      "answerable": true,
+      "expected_documents": [
+        "Introduction to Web Accessibility",
+        "WCAG Conformance Levels and Structure"
+      ],
+      "best_score": 0.6781,
+      "titles": [
+        "Introduction to Web Accessibility",
+        "WCAG Conformance Levels and Structure",
+        "Tripartite Guidelines on Fair Employment Practices",
+        "Tripartite Guidelines on Fair Employment Practices",
+        "Model Context Protocol (MCP) Security",
+        "Claude Code PlayBook",
+        "Claude Code PlayBook",
+        "Code of Practice on Workplace Safety and Health (WSH) Risk Management"
+      ]
+    },
+    {
+      "id": "q16",
+      "answerable": true,
+      "expected_documents": [
+        "Introduction to Sales Enablement",
+        "Content and Enablement through buyer's Journey"
+      ],
+      "best_score": 0.6665,
+      "titles": [
+        "Content and Enablement through buyer's Journey",
+        "Introduction to Sales Enablement",
+        "Agent Skills",
+        "Agent Skills",
+        "Agent Skills",
+        "Building Effective AI Agents: Architecture Patterns",
+        "Agent Skills",
+        "Agent Tools & Interoperability"
+      ]
+    },
+    {
+      "id": "q17",
+      "answerable": false,
+      "expected_documents": [],
+      "best_score": 0.4235,
+      "titles": [
+        "WCAG Conformance Levels and Structure",
+        "Introduction to Web Accessibility",
+        "Code of Practice on Workplace Safety and Health (WSH) Risk Management",
+        "Code of Practice on Workplace Safety and Health (WSH) Risk Management",
+        "Code of Practice on Workplace Safety and Health (WSH) Risk Management",
+        "Code of Practice on Workplace Safety and Health (WSH) Risk Management",
+        "Code of Practice on Workplace Safety and Health (WSH) Risk Management",
+        "Code of Practice on Workplace Safety and Health (WSH) Risk Management"
+      ]
+    },
+    {
+      "id": "q18",
+      "answerable": false,
+      "expected_documents": [],
+      "best_score": 0.4871,
+      "titles": [
+        "Data Privacy Compliance Basics",
+        "Data Privacy Compliance Basics",
+        "Data Privacy Compliance Basics",
+        "Code of Practice on Workplace Safety and Health (WSH) Risk Management",
+        "Code of Practice on Workplace Safety and Health (WSH) Risk Management",
+        "Code of Practice on Workplace Safety and Health (WSH) Risk Management",
+        "Code of Practice on Workplace Safety and Health (WSH) Risk Management",
+        "Code of Practice on Workplace Safety and Health (WSH) Risk Management"
+      ]
+    },
+    {
+      "id": "q19",
+      "answerable": false,
+      "expected_documents": [],
+      "best_score": 0.4425,
+      "titles": [
+        "What is Claude",
+        "Introduction to Claude Cowork",
+        "Claude Code PlayBook",
+        "Claude Code PlayBook",
+        "Claude Code PlayBook",
+        "Claude Code PlayBook",
+        "Claude Code PlayBook",
+        "Configuring Claude"
+      ]
+    },
+    {
+      "id": "q20",
+      "answerable": false,
+      "expected_documents": [],
+      "best_score": 0.3429,
+      "titles": [
+        "Tripartite Guidelines on Fair Employment Practices",
+        "Tripartite Guidelines on Fair Employment Practices",
+        "Tripartite Guidelines on Fair Employment Practices",
+        "Tripartite Guidelines on Fair Employment Practices",
+        "Tripartite Guidelines on Fair Employment Practices",
+        "Tripartite Guidelines on Fair Employment Practices",
+        "Code of Practice on Workplace Safety and Health (WSH) Risk Management",
+        "Tripartite Guidelines on Fair Employment Practices"
+      ]
+    }
+  ],
+  "grid": [
+    {
+      "top_k": 3,
+      "cutoff": 0.15,
+      "source_hits": 16,
+      "answerable": 16,
+      "false_accepts": 4,
+      "unanswerable": 4
+    },
+    {
+      "top_k": 3,
+      "cutoff": 0.25,
+      "source_hits": 16,
+      "answerable": 16,
+      "false_accepts": 4,
+      "unanswerable": 4
+    },
+    {
+      "top_k": 3,
+      "cutoff": 0.35,
+      "source_hits": 16,
+      "answerable": 16,
+      "false_accepts": 3,
+      "unanswerable": 4
+    },
+    {
+      "top_k": 5,
+      "cutoff": 0.15,
+      "source_hits": 16,
+      "answerable": 16,
+      "false_accepts": 4,
+      "unanswerable": 4
+    },
+    {
+      "top_k": 5,
+      "cutoff": 0.25,
+      "source_hits": 16,
+      "answerable": 16,
+      "false_accepts": 4,
+      "unanswerable": 4
+    },
+    {
+      "top_k": 5,
+      "cutoff": 0.35,
+      "source_hits": 16,
+      "answerable": 16,
+      "false_accepts": 3,
+      "unanswerable": 4
+    },
+    {
+      "top_k": 8,
+      "cutoff": 0.15,
+      "source_hits": 16,
+      "answerable": 16,
+      "false_accepts": 4,
+      "unanswerable": 4
+    },
+    {
+      "top_k": 8,
+      "cutoff": 0.25,
+      "source_hits": 16,
+      "answerable": 16,
+      "false_accepts": 4,
+      "unanswerable": 4
+    },
+    {
+      "top_k": 8,
+      "cutoff": 0.35,
+      "source_hits": 16,
+      "answerable": 16,
+      "false_accepts": 3,
+      "unanswerable": 4
+    }
+  ]
+}
